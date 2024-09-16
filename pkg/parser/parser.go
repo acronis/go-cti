@@ -1,121 +1,196 @@
 package parser
 
 import (
-	"encoding/base64"
+	"archive/zip"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/acronis/go-cti/pkg/collector"
+	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/index"
-	"github.com/acronis/go-cti/pkg/ramlx"
+	"github.com/acronis/go-raml"
 )
 
-type Parser struct {
-	Path  string
-	RamlX *ramlx.RamlX
-}
+// TODO: Maybe need to initialize one package parser instance and reuse it for all the parsing
+// This could possibly simplify caching strategy for external clients
+type PackageParser struct {
+	BaseDir string
 
-func NewRamlParser(path string) (*Parser, error) {
-	p, err := ramlx.NewRamlX()
-	if err != nil {
-		return nil, err
-	}
+	Index    *index.Index
+	Registry *collector.CtiRegistry
 
-	return &Parser{
-		Path:  path,
-		RamlX: p,
-	}, nil
-}
-
-func (p *Parser) GetPackageDir() string {
-	return filepath.Dir(p.Path)
+	Raml *raml.RAML
 }
 
 // ParseAll cti type, instances, dictionaries in one single output
-// Parser will take a path for example "/home/app-package/index.json".
-func (p *Parser) ParseAll() (CtiEntities, error) {
-	out, err := p.RamlX.ParseIndexFile(p.Path)
+// PackageParser will take a path for example "/home/app-package/index.json".
+func ParsePackage(path string) (*PackageParser, error) {
+	idx, err := index.ReadIndexFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read index file: %w", err)
 	}
 
-	output, err := ValidateParserOutput(out)
+	baseDir := idx.BaseDir
+
+	r, err := raml.ParseFromString(idx.GenerateIndexRaml(false), "index.raml", baseDir, raml.OptWithValidate())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse index raml: %w", err)
 	}
 
-	return output, nil
+	c := collector.MakeCollector(r, baseDir)
+	if err := c.CollectFromIndex(); err != nil {
+		return nil, fmt.Errorf("failed to collect from index: %w", err)
+	}
+
+	return &PackageParser{
+		BaseDir: baseDir,
+
+		Index:    idx,
+		Registry: c.Registry,
+
+		Raml: r,
+	}, nil
 }
 
 // Parse parses a single entity file
-// Parser will take a path for example "/home/app-package/test.raml".
-func (p *Parser) Parse(path string) (CtiEntities, error) {
-	out, err := p.RamlX.ParseEntityFile(path)
+// PackageParser will take a path for example "/home/app-package/test.raml".
+func ParseEntity(path string) (*PackageParser, error) {
+	if !filepath.IsAbs(path) {
+		wd, _ := os.Getwd()
+		path = filepath.Join(wd, path)
+	}
+	baseDir := filepath.Dir(path)
+
+	r, err := raml.ParseFromPath(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse entity file: %w", err)
 	}
 
-	output, err := ValidateParserOutput(out)
-	if err != nil {
-		return nil, err
+	c := collector.MakeCollector(r, baseDir)
+	if err := c.CollectFromIndex(); err != nil {
+		return nil, fmt.Errorf("failed to collect from index: %w", err)
 	}
 
-	// utils.ValidateParserOutput returns a slice of outputs to accommodate parsing in ParseAll().
-	// in our case, it should always return a single element within the slice.
-	if len(output) != 1 {
-		return nil, errors.New("error parsing entity file: invalid number of outputs")
-	}
+	return &PackageParser{
+		BaseDir: baseDir,
 
-	return output, nil
+		Index:    nil,
+		Registry: c.Registry,
+
+		Raml: r,
+	}, nil
 }
 
-func (p *Parser) Bundle(destination string) error {
-	entities, err := p.ParseAll()
+func ParseEntityString(content string, fileName string, baseDir string) (*PackageParser, error) {
+	r, err := raml.ParseFromString(content, fileName, baseDir, raml.OptWithValidate())
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to parse entity file: %w", err)
 	}
 
-	idx, err := index.OpenIndexFile(p.Path)
-	if err != nil {
-		return err
+	c := collector.MakeCollector(r, baseDir)
+	if err := c.CollectFromIndex(); err != nil {
+		return nil, fmt.Errorf("failed to collect from index: %w", err)
 	}
 
-	assets := make(map[string]string)
-	for _, path := range idx.Data.Assets {
-		bytes, err := os.ReadFile(path)
-		if err != nil {
-			return err
+	return &PackageParser{
+		BaseDir: baseDir,
+
+		Index:    nil,
+		Registry: c.Registry,
+
+		Raml: r,
+	}, nil
+}
+
+func (p *PackageParser) Serialize() error {
+	if p.Index == nil {
+		return fmt.Errorf("index is not set")
+	}
+	bytes, err := json.Marshal(p.Registry.Total)
+	if err != nil {
+		return fmt.Errorf("failed to serialize package: %w", err)
+	}
+	p.Index.PutSerialized("cache.json")
+	p.Index.Save()
+	return os.WriteFile(filepath.Join(p.BaseDir, "cache.json"), bytes, 0o644)
+}
+
+func (p *PackageParser) Bundle() error {
+	if err := p.Serialize(); err != nil {
+		return err
+	}
+	archive, err := os.Create(filepath.Join(p.BaseDir, "bundle.zip"))
+	if err != nil {
+		return fmt.Errorf("failed to create archive: %w", err)
+	}
+	defer archive.Close()
+
+	zipWriter := zip.NewWriter(archive)
+	defer zipWriter.Close()
+
+	for _, entity := range p.Registry.Instances {
+		typ, ok := p.Registry.Types[cti.GetParentCti(entity.Cti)]
+		if !ok {
+			return fmt.Errorf("type %s not found", entity.Cti)
 		}
-		assets[path] = base64.StdEncoding.EncodeToString(bytes)
+		// TODO: Collect annotations from entire chain of CTI types
+		for key, annotation := range typ.Annotations {
+			if annotation.Asset == nil {
+				continue
+			}
+			value := key.GetValue(entity.Values)
+			assetPath := value.String()
+			if assetPath == "" {
+				break
+			}
+			err := func() error {
+				asset, err := os.OpenFile(filepath.Join(p.BaseDir, assetPath), os.O_RDONLY, 0o644)
+				if err != nil {
+					return fmt.Errorf("failed to open asset %s: %w", assetPath, err)
+				}
+				defer asset.Close()
+
+				w, err := zipWriter.Create(assetPath)
+				if err != nil {
+					return fmt.Errorf("failed to create asset %s in bundle: %w", assetPath, err)
+				}
+				if _, err = io.Copy(w, asset); err != nil {
+					return fmt.Errorf("failed to write asset %s to bundle: %w", assetPath, err)
+				}
+				return nil
+			}()
+			if err != nil {
+				return fmt.Errorf("failed to bundle asset %s: %w", assetPath, err)
+			}
+		}
 	}
 
-	bundle := Bundle{
-		Entities: entities,
-		Assets:   assets,
-	}
-	bytes, err := json.Marshal(bundle)
+	w, err := zipWriter.Create("index.json")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create index in bundle: %w", err)
 	}
-	return os.WriteFile(filepath.Join(destination, "bundle.cti"), bytes, 0o644)
-}
-
-// ValidateParserOutput to validate output from Parser.
-func ValidateParserOutput(out []byte) (CtiEntities, error) {
-	var parserOutputs CtiEntities
-	var parserErrors ParserErrors
-
-	err := json.Unmarshal(out, &parserErrors)
-	if err == nil {
-		return nil, fmt.Errorf("invalid errors output: %v", string(out))
+	if _, err = w.Write(p.Index.ToBytes()); err != nil {
+		return fmt.Errorf("failed to write index to bundle: %w", err)
 	}
 
-	err = json.Unmarshal(out, &parserOutputs)
-	if err != nil {
-		return nil, fmt.Errorf("invalid entities output: %v", string(out))
+	for _, metadata := range p.Index.Serialized {
+		f, err := os.OpenFile(filepath.Join(p.BaseDir, metadata), os.O_RDONLY, 0o644)
+		if err != nil {
+			return fmt.Errorf("failed to open serialized metadata %s: %w", metadata, err)
+		}
+		defer f.Close()
+
+		w, err := zipWriter.Create(metadata)
+		if err != nil {
+			return fmt.Errorf("failed to create serialized metadata %s in bundle: %w", metadata, err)
+		}
+		if _, err = io.Copy(w, f); err != nil {
+			return fmt.Errorf("failed to write serialized metadata %s to bundle: %w", metadata, err)
+		}
 	}
 
-	return parserOutputs, nil
+	return nil
 }

@@ -4,61 +4,55 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/identifier"
 	"github.com/acronis/go-cti/pkg/merger"
-	"github.com/acronis/go-cti/pkg/parser"
 )
 
-type CtiEntitiesMap map[string]*parser.CtiEntity
-
 type CtiValidator struct {
-	entities  parser.CtiEntities
-	index     CtiEntitiesMap
+	entities  cti.Entities
+	index     cti.EntitiesMap
 	ctiParser *identifier.Parser
 }
 
 func MakeCtiValidator() *CtiValidator {
 	return &CtiValidator{
 		ctiParser: identifier.NewParser(),
-		index:     make(CtiEntitiesMap),
+		index:     make(cti.EntitiesMap),
 	}
 }
 
-func (v *CtiValidator) LoadEntities(entities parser.CtiEntities) error {
-	for i := range entities {
-		pEntity := &entities[i]
-		v.index[pEntity.Cti] = pEntity
+func (v *CtiValidator) AddEntities(entities cti.Entities) error {
+	for _, entity := range entities {
+		v.index[entity.Cti] = entity
 	}
 	v.entities = append(v.entities, entities...)
 	return nil
 }
 
-func (v *CtiValidator) LoadFromBytes(data []byte) error {
-	var entities parser.CtiEntities
-	if err := json.Unmarshal(data, &entities); err != nil {
+func (v *CtiValidator) AddFromFile(path string) error {
+	f, err := os.OpenFile(path, os.O_RDONLY, 0644)
+	if err != nil {
 		return err
 	}
-	v.LoadEntities(entities)
-	return nil
-}
+	defer f.Close()
 
-func (v *CtiValidator) LoadFromBundleFile(bundlePath string) error {
-	var bundle parser.Bundle
-	if err := LoadJsonFile(bundlePath, &bundle); err != nil {
+	d := json.NewDecoder(f)
+	var entities cti.Entities
+	if err := d.Decode(&entities); err != nil {
 		return err
 	}
-	// TODO: Load assets for validation too.
-	v.LoadEntities(bundle.Entities)
-	return nil
+	return v.AddEntities(entities)
 }
 
 func (v *CtiValidator) Reset() {
 	v.ctiParser = identifier.NewParser()
-	v.index = make(CtiEntitiesMap)
+	v.index = make(cti.EntitiesMap)
 	v.entities = nil
 }
 
@@ -67,7 +61,7 @@ func (v *CtiValidator) Reset() {
 func (v *CtiValidator) ValidateAll() []error {
 	var errors []error
 	for i := range v.entities {
-		entity := &v.entities[i]
+		entity := v.entities[i]
 		if err := v.Validate(entity); err != nil {
 			errors = append(errors, err)
 		}
@@ -78,14 +72,14 @@ func (v *CtiValidator) ValidateAll() []error {
 	return nil
 }
 
-func (v *CtiValidator) Validate(current *parser.CtiEntity) error {
+func (v *CtiValidator) Validate(current *cti.Entity) error {
 	// TODO: Pre-parse all CTIs into expressions
 	currentCtiExpr, err := v.ctiParser.Parse(current.Cti)
 	if err != nil {
 		return fmt.Errorf("%s %s", current.Cti, err.Error())
 	}
 
-	parentCti := GetParentCti(current.Cti)
+	parentCti := cti.GetParentCti(current.Cti)
 	if parentCti == current.Cti {
 		if current.Schema != nil {
 			schema := []byte(current.Schema)
@@ -126,8 +120,8 @@ func (v *CtiValidator) Validate(current *parser.CtiEntity) error {
 			// TODO: Ensure correct cti.id field is used
 			for key, annotation := range parent.Annotations {
 				// if ctis := annotation.ReadCti(); len(ctis) > 0 {
-				// 	for _, cti := range ctis {
-				// 		fmt.Printf("key: [%s][cti.cti]: %s", key, cti)
+				// 	for _, id := range ctis {
+				// 		fmt.Printf("key: [%s][cti.cti]: %s", key, id)
 				// 	}
 				// }
 				if parent, err := v.ctiParser.Parse(parent.Cti); err == nil {
@@ -140,7 +134,7 @@ func (v *CtiValidator) Validate(current *parser.CtiEntity) error {
 					}
 				}
 				if ref := annotation.ReadReference(); ref != "" && ref != "true" {
-					value := key.GetValue(&values)
+					value := key.GetValue(values)
 					if ref, err := v.ctiParser.Parse(ref); err == nil {
 						for _, val := range value.Array() {
 							err := v.matchCti(&ref, val.Str)
@@ -161,8 +155,8 @@ func (v *CtiValidator) Validate(current *parser.CtiEntity) error {
 		}
 	}
 	if current.Traits != nil {
-		cti := GetBaseCti(parentCti)
-		base, ok := v.index[cti]
+		id := cti.GetBaseCti(parentCti)
+		base, ok := v.index[id]
 		if !ok {
 			return fmt.Errorf("%s failed to find base type", current.Cti)
 		}
@@ -193,7 +187,7 @@ func (v *CtiValidator) Validate(current *parser.CtiEntity) error {
 			if currentRef == "" {
 				continue
 			}
-			parentAnnotations := v.FindInheritedAnnotation(current.Cti, key, func(a *parser.CtiAnnotations) bool { return a.Reference != nil })
+			parentAnnotations := v.FindInheritedAnnotation(current.Cti, key, func(a *cti.Annotations) bool { return a.Reference != nil })
 			if parentAnnotations == nil {
 				if currentRef == "true" {
 					continue
@@ -225,23 +219,23 @@ func (v *CtiValidator) Validate(current *parser.CtiEntity) error {
 	return nil
 }
 
-func (v *CtiValidator) matchCti(ref *identifier.Expression, cti string) error {
-	val, err := v.ctiParser.Parse(cti)
+func (v *CtiValidator) matchCti(ref *identifier.Expression, id string) error {
+	val, err := v.ctiParser.Parse(id)
 	if err != nil {
-		return fmt.Errorf("%s %s", cti, err.Error())
+		return fmt.Errorf("%s %s", id, err.Error())
 	}
 	if ok, err := ref.Match(val); !ok {
 		if err != nil {
-			return fmt.Errorf("%s doesn't match. Reason: %s", cti, err.Error())
+			return fmt.Errorf("%s doesn't match. Reason: %s", id, err.Error())
 		} else {
-			return fmt.Errorf("%s doesn't match", cti)
+			return fmt.Errorf("%s doesn't match", id)
 		}
 	}
 	return nil
 }
 
-func (v *CtiValidator) GetMergedSchema(cti string) (map[string]interface{}, error) {
-	root := cti
+func (v *CtiValidator) GetMergedSchema(id string) (map[string]interface{}, error) {
+	root := id
 
 	entity, ok := v.index[root]
 	if !ok {
@@ -253,7 +247,7 @@ func (v *CtiValidator) GetMergedSchema(cti string) (map[string]interface{}, erro
 	}
 
 	for {
-		parentCti := GetParentCti(root)
+		parentCti := cti.GetParentCti(root)
 
 		entity, ok := v.index[parentCti]
 		if !ok {
@@ -277,10 +271,10 @@ func (v *CtiValidator) GetMergedSchema(cti string) (map[string]interface{}, erro
 	return schema, nil
 }
 
-func (v *CtiValidator) FindInheritedAnnotation(cti string, key parser.GJsonPath, predicate func(*parser.CtiAnnotations) bool) *parser.CtiAnnotations {
-	root := cti
+func (v *CtiValidator) FindInheritedAnnotation(id string, key cti.GJsonPath, predicate func(*cti.Annotations) bool) *cti.Annotations {
+	root := id
 	for {
-		parentCti := GetParentCti(root)
+		parentCti := cti.GetParentCti(root)
 
 		entity, ok := v.index[parentCti]
 		if !ok {

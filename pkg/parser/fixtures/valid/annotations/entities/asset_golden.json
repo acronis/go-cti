@@ -1,0 +1,70 @@
+[
+  {
+    "final": true,
+    "cti": "cti.a.p.entity_with_asset.v1.0~a.p._.v1.0",
+    "values": {
+      "asset": "assets/asset.txt",
+      "id": "cti.a.p.entity_with_asset.v1.0~a.p._.v1.0"
+    },
+    "source_map": {
+      "$annotationType": {
+        "name": "Instances",
+        "type": "array",
+        "reference": "entities/asset.raml"
+      },
+      "$sourcePath": "entities/asset.raml",
+      "$originalPath": "entities/asset.raml"
+    }
+  },
+  {
+    "final": true,
+    "cti": "cti.a.p.entity_with_asset.v1.0",
+    "display_name": "EntityWithAsset",
+    "schema": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "$ref": "#/definitions/EntityWithAsset",
+      "definitions": {
+        "EntityWithAsset": {
+          "properties": {
+            "id": {
+              "type": "string",
+              "x-custom": {
+                "x-domainExt-cti.id": true
+              }
+            },
+            "asset": {
+              "type": "string",
+              "x-custom": {
+                "x-domainExt-cti.asset": true
+              }
+            }
+          },
+          "type": "object",
+          "required": [
+            "id",
+            "asset"
+          ],
+          "x-custom": {
+            "x-domainExt-cti.cti": "cti.a.p.entity_with_asset.v1.0"
+          }
+        }
+      }
+    },
+    "annotations": {
+      "": {
+        "cti.cti": "cti.a.p.entity_with_asset.v1.0"
+      },
+      "asset": {
+        "cti.asset": true
+      },
+      "id": {
+        "cti.id": true
+      }
+    },
+    "source_map": {
+      "$name": "EntityWithAsset",
+      "$sourcePath": "entities/asset.raml",
+      "$originalPath": "entities/asset.raml"
+    }
+  }
+]

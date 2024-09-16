@@ -1,0 +1,41 @@
+#%RAML 1.0 Library
+
+uses:
+  cti: ../cti.raml
+
+types:
+    EntityWithSchema:
+        (cti.cti): cti.a.p.entity_with_schema.v1.0
+        properties:
+            single_schema:
+                (cti.schema): cti.a.p.sample_entity.v1.0
+            multi_schema:
+                (cti.schema):
+                - cti.a.p.other_entity.v1.0
+                - cti.a.p.sample_entity.v1.0
+
+    EntityWithSchemaNestedAnnotations:
+        (cti.cti): cti.a.p.entity_with_schema_nested_annotations.v1.0
+        properties:
+            schema:
+                (cti.schema): cti.a.p.entity_with_asset.v1.0
+
+    EntityWithSchemaNestedSchema:
+        (cti.cti): cti.a.p.entity_with_schema_nested_schema.v1.0
+        properties:
+            schema:
+                (cti.schema): cti.a.p.entity_with_schema_nested_annotations.v1.0
+
+    EntityWithArraySchema:
+        (cti.cti): cti.a.p.entity_with_array_schema.v1.0
+        properties:
+            schema:
+                type: object[]
+                (cti.schema): cti.a.p.entity_with_schema_nested_annotations.v1.0
+
+    EntityWithRecursiveSchema:
+        (cti.cti): cti.a.p.entity_with_recursive_schema.v1.0
+        properties:
+            schema:
+                type: object
+                (cti.schema): cti.a.p.entity_with_recursive_schema.v1.0
