@@ -14,6 +14,10 @@ import (
 	"github.com/acronis/go-raml"
 )
 
+const (
+	MetadataCacheFile = ".cache.json"
+)
+
 // TODO: Maybe need to initialize one package parser instance and reuse it for all the parsing
 // This could possibly simplify caching strategy for external clients
 type PackageParser struct {
@@ -113,9 +117,9 @@ func (p *PackageParser) Serialize() error {
 	if err != nil {
 		return fmt.Errorf("failed to serialize package: %w", err)
 	}
-	p.Index.PutSerialized("cache.json")
+	p.Index.PutSerialized(MetadataCacheFile)
 	p.Index.Save()
-	return os.WriteFile(filepath.Join(p.BaseDir, "cache.json"), bytes, 0o644)
+	return os.WriteFile(filepath.Join(p.BaseDir, MetadataCacheFile), bytes, 0o644)
 }
 
 func (p *PackageParser) Bundle() error {
