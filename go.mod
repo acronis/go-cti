@@ -5,7 +5,7 @@ go 1.22.0
 toolchain go1.22.6
 
 require (
-	github.com/acronis/go-cti/pkg/identifier v0.0.0-20240822123922-14fd5964d153
+	github.com/acronis/go-cti/pkg/identifier v1.0.0
 	github.com/acronis/go-raml v0.1.0
 	github.com/lmittmann/tint v1.0.4
 	github.com/mattn/go-isatty v0.0.20
