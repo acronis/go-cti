@@ -116,7 +116,14 @@ func (a Annotations) ReadReference() string {
 type GJsonPath string
 
 func (k GJsonPath) GetValue(obj []byte) gjson.Result {
-	return gjson.GetBytes(obj, k.String())
+	expr := k.String()
+	size := len(expr)
+	// Trailing ".#" returns a number of elements in an array instead of elements.
+	// Keep for reference, but remove when getting the value.
+	if expr[size-2:] == ".#" {
+		expr = expr[:size-2]
+	}
+	return gjson.GetBytes(obj, expr)
 }
 
 func (k GJsonPath) String() string {
