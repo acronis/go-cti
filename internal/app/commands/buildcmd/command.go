@@ -46,9 +46,6 @@ func (c *cmd) Execute(ctx context.Context) error {
 	if err = p.Serialize(); err != nil {
 		return err
 	}
-	if err = p.Bundle(); err != nil {
-		return err
-	}
 	slog.Info("Done!")
 
 	return nil
