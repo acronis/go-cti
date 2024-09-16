@@ -1,0 +1,26 @@
+#%RAML 1.0 Library
+
+uses:
+  cti: ../cti.raml
+
+types:
+    SampleEntity:
+        (cti.cti): cti.a.p.sample_entity.v1.0
+        properties:
+            name: string
+            age: number
+
+    OtherEntity:
+        (cti.cti): cti.a.p.other_entity.v1.0
+        properties:
+            value: integer
+
+    SampleDerivedEntity:
+        (cti.cti): cti.a.p.sample_entity.v1.0~a.p._.v1.0
+        type: object
+
+    MultiCtiEntity:
+        (cti.cti):
+        - cti.a.p.multi_cti_entity_1.v1.0
+        - cti.a.p.multi_cti_entity_2.v1.0
+        type: object

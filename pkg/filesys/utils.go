@@ -54,7 +54,7 @@ func ComputeFileHexdigest(filePath string) (string, error) {
 }
 
 func GetRootDir() (string, error) {
-	rootDir := os.Getenv("ctiROOT")
+	rootDir := os.Getenv("CTIROOT")
 	if rootDir == "" {
 		userDir, err := os.UserHomeDir()
 		if err != nil {
@@ -80,7 +80,7 @@ func GetPkgCacheDir() (string, error) {
 	return pkgCacheDir, nil
 }
 
-func OpenZipFile(source string, fpath string) ([]byte, error) {
+func OpenZipFile(source string, fpath string) (io.ReadCloser, error) {
 	reader, err := zip.OpenReader(source)
 	if err != nil {
 		return nil, err
@@ -96,13 +96,7 @@ func OpenZipFile(source string, fpath string) ([]byte, error) {
 			return nil, fmt.Errorf("specified file path %s is a directory", fpath)
 		}
 
-		rc, err := file.Open()
-		if err != nil {
-			return nil, err
-		}
-		defer rc.Close()
-
-		return io.ReadAll(rc)
+		return file.Open()
 	}
 
 	return nil, fmt.Errorf("failed to find %s in archive", fpath)
@@ -168,7 +162,7 @@ func UnzipToFS(source string, destination string) ([]string, error) {
 		_ = outFile.Close()
 		_ = rc.Close()
 
-		if err != nil && err != io.EOF {
+		if err != io.EOF {
 			return filenames, err
 		}
 

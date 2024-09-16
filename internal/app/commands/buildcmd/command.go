@@ -39,12 +39,11 @@ func (c *cmd) Execute(ctx context.Context) error {
 	}
 	idxFile := filepath.Join(workDir, "index.json")
 
-	parser, err := parser.NewRamlParser(idxFile)
+	p, err := parser.ParsePackage(idxFile)
 	if err != nil {
 		return err
 	}
-
-	if err = parser.Bundle(workDir); err != nil {
+	if err = p.Serialize(); err != nil {
 		return err
 	}
 	slog.Info("Done!")

@@ -1,0 +1,49 @@
+[
+  {
+    "final": true,
+    "cti": "cti.a.p.entity_with_overridable.v1.0",
+    "display_name": "EntityWithOverridable",
+    "schema": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "$ref": "#/definitions/EntityWithOverridable",
+      "definitions": {
+        "EntityWithOverridable": {
+          "properties": {
+            "overridable": {
+              "type": "string",
+              "x-custom": {
+                "x-domainExt-cti.overridable": true
+              }
+            },
+            "non_overridable": {
+              "type": "string"
+            }
+          },
+          "type": "object",
+          "required": [
+            "overridable",
+            "non_overridable"
+          ],
+          "x-custom": {
+            "x-domainExt-cti.cti": "cti.a.p.entity_with_overridable.v1.0",
+            "x-domainExt-cti.overridable": true
+          }
+        }
+      }
+    },
+    "annotations": {
+      "": {
+        "cti.cti": "cti.a.p.entity_with_overridable.v1.0",
+        "cti.overridable": true
+      },
+      "overridable": {
+        "cti.overridable": true
+      }
+    },
+    "source_map": {
+      "$name": "EntityWithOverridable",
+      "$sourcePath": "entities/overridable.raml",
+      "$originalPath": "entities/overridable.raml"
+    }
+  }
+]

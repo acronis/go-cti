@@ -1,0 +1,12 @@
+#%RAML 1.0 Library
+
+uses:
+  cti: ../cti.raml
+
+types:
+    EntityWithMeta:
+        (cti.final): false
+        (cti.cti): cti.a.p.entity_with_meta.v1.0
+        properties:
+          meta:
+            (cti.meta): metadata

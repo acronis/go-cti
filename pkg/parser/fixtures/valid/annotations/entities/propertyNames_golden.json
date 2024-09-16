@@ -1,0 +1,49 @@
+[
+  {
+    "final": false,
+    "cti": "cti.a.p.entity_with_property_names.v1.0",
+    "display_name": "EntityWithPropertyNames",
+    "schema": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "$ref": "#/definitions/EntityWithPropertyNames",
+      "definitions": {
+        "EntityWithPropertyNames": {
+          "properties": {
+            "properties": {
+              "type": "string",
+              "x-custom": {
+                "x-domainExt-cti.propertyNames": {
+                  "//": "cti.CTI"
+                }
+              }
+            }
+          },
+          "type": "object",
+          "required": [
+            "properties"
+          ],
+          "x-custom": {
+            "x-domainExt-cti.cti": "cti.a.p.entity_with_property_names.v1.0",
+            "x-domainExt-cti.final": false
+          }
+        }
+      }
+    },
+    "annotations": {
+      "": {
+        "cti.cti": "cti.a.p.entity_with_property_names.v1.0",
+        "cti.final": false
+      },
+      "properties": {
+        "cti.propertyNames": {
+          "//": "cti.CTI"
+        }
+      }
+    },
+    "source_map": {
+      "$name": "EntityWithPropertyNames",
+      "$sourcePath": "entities/propertyNames.raml",
+      "$originalPath": "entities/propertyNames.raml"
+    }
+  }
+]

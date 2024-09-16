@@ -11,6 +11,7 @@ import (
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
 	"github.com/acronis/go-cti/pkg/depman"
+	"github.com/acronis/go-cti/pkg/index"
 	"github.com/acronis/go-cti/pkg/parser"
 	"github.com/acronis/go-cti/pkg/validator"
 )
@@ -42,24 +43,29 @@ func (c *cmd) Execute(ctx context.Context) error {
 		}
 	}
 
-	p, err := parser.NewRamlParser(filepath.Join(workDir, "index.json"))
+	p, err := parser.ParsePackage(filepath.Join(workDir, "index.json"))
 	if err != nil {
 		return err
 	}
-	entities, err := p.ParseAll()
-	if err != nil {
+	if err = p.Serialize(); err != nil {
 		return err
 	}
 
 	validator := validator.MakeCtiValidator()
 
-	if err := validator.LoadEntities(entities); err != nil {
+	if err := validator.AddEntities(p.Registry.Total); err != nil {
 		return err
 	}
+	// TODO: Move to PackageParser
 	for _, dep := range idxLock.Packages {
-		bundlePath := filepath.Join(workDir, ".dep", dep.AppCode, "bundle.cti")
-		if err := validator.LoadFromBundleFile(bundlePath); err != nil {
+		idx, err := index.ReadIndexFile(filepath.Join(workDir, ".dep", dep.AppCode, "index.json"))
+		if err != nil {
 			return err
+		}
+		for _, entityPath := range idx.Serialized {
+			if err := validator.AddFromFile(filepath.Join(idx.BaseDir, entityPath)); err != nil {
+				return err
+			}
 		}
 	}
 	// TODO: Validation for usage of indirect dependencies

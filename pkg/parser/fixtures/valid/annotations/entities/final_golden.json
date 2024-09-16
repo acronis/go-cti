@@ -1,0 +1,58 @@
+[
+  {
+    "final": true,
+    "cti": "cti.a.p.non_final_entity.v1.0~a.p._.v1.0",
+    "display_name": "FinalEntity",
+    "schema": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "$ref": "#/definitions/FinalEntity",
+      "definitions": {
+        "FinalEntity": {
+          "type": "object",
+          "x-custom": {
+            "x-domainExt-cti.cti": "cti.a.p.non_final_entity.v1.0~a.p._.v1.0"
+          }
+        }
+      }
+    },
+    "annotations": {
+      "": {
+        "cti.cti": "cti.a.p.non_final_entity.v1.0~a.p._.v1.0"
+      }
+    },
+    "source_map": {
+      "$name": "FinalEntity",
+      "$sourcePath": "entities/final.raml",
+      "$originalPath": "entities/final.raml"
+    }
+  },
+  {
+    "final": false,
+    "cti": "cti.a.p.non_final_entity.v1.0",
+    "display_name": "NonFinalEntity",
+    "schema": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "$ref": "#/definitions/NonFinalEntity",
+      "definitions": {
+        "NonFinalEntity": {
+          "type": "object",
+          "x-custom": {
+            "x-domainExt-cti.cti": "cti.a.p.non_final_entity.v1.0",
+            "x-domainExt-cti.final": false
+          }
+        }
+      }
+    },
+    "annotations": {
+      "": {
+        "cti.cti": "cti.a.p.non_final_entity.v1.0",
+        "cti.final": false
+      }
+    },
+    "source_map": {
+      "$name": "NonFinalEntity",
+      "$sourcePath": "entities/final.raml",
+      "$originalPath": "entities/final.raml"
+    }
+  }
+]

@@ -1,0 +1,59 @@
+[
+  {
+    "final": true,
+    "cti": "cti.a.p.entity_with_instance.v1.0~a.p._.v1.0",
+    "values": {
+      "id": "cti.a.p.entity_with_instance.v1.0~a.p._.v1.0"
+    },
+    "source_map": {
+      "$annotationType": {
+        "name": "Instances",
+        "type": "array",
+        "reference": "entities/id.raml"
+      },
+      "$sourcePath": "entities/id.raml",
+      "$originalPath": "entities/id.raml"
+    }
+  },
+  {
+    "final": true,
+    "cti": "cti.a.p.entity_with_instance.v1.0",
+    "display_name": "EntityWithInstance",
+    "schema": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "$ref": "#/definitions/EntityWithInstance",
+      "definitions": {
+        "EntityWithInstance": {
+          "properties": {
+            "id": {
+              "type": "string",
+              "x-custom": {
+                "x-domainExt-cti.id": true
+              }
+            }
+          },
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "x-custom": {
+            "x-domainExt-cti.cti": "cti.a.p.entity_with_instance.v1.0"
+          }
+        }
+      }
+    },
+    "annotations": {
+      "": {
+        "cti.cti": "cti.a.p.entity_with_instance.v1.0"
+      },
+      "id": {
+        "cti.id": true
+      }
+    },
+    "source_map": {
+      "$name": "EntityWithInstance",
+      "$sourcePath": "entities/id.raml",
+      "$originalPath": "entities/id.raml"
+    }
+  }
+]

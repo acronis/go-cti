@@ -43,11 +43,11 @@ func New(opts cti.Options, getOpts GetOptions, targets []string) command.Command
 }
 
 func buildCache(workDir string) error {
-	parser, err := parser.NewRamlParser(filepath.Join(workDir, "index.json"))
+	p, err := parser.ParsePackage(filepath.Join(workDir, "index.json"))
 	if err != nil {
 		return err
 	}
-	if err = parser.Bundle(workDir); err != nil {
+	if err = p.Serialize(); err != nil {
 		return err
 	}
 	return nil
@@ -197,11 +197,14 @@ func download(workDir string, pkgCacheDir string, depends []string, idxLock *dep
 			return nil, nil, err
 		}
 
-		data, err := filesys.OpenZipFile(cacheZip, "index.json")
-		if err != nil {
-			return nil, nil, err
-		}
-		depIdx, err := index.DecodeIndexBytes(data)
+		depIdx, err := func() (*index.Index, error) {
+			rc, err := filesys.OpenZipFile(cacheZip, "index.json")
+			if err != nil {
+				return nil, err
+			}
+			defer rc.Close()
+			return index.DecodeIndexFile(rc)
+		}()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -280,7 +283,7 @@ func (c *cmd) Execute(ctx context.Context) error {
 	}
 
 	slog.Info(fmt.Sprintf("Loading index file %s", idxFile))
-	idx, err := index.OpenIndexFile(idxFile)
+	idx, err := index.ReadIndexFile(idxFile)
 	if err != nil {
 		return err
 	}
@@ -345,7 +348,7 @@ func (c *cmd) Execute(ctx context.Context) error {
 		// TODO: Possibly needs refactor
 		if len(replaced) != 0 {
 			var depends []string
-			for _, idxDepName := range idx.Data.Depends {
+			for _, idxDepName := range idx.Depends {
 				depInfo := strings.Split(idxDepName, " ")
 				depName := depInfo[0]
 				if _, ok := replaced[depName]; ok {
@@ -353,7 +356,7 @@ func (c *cmd) Execute(ctx context.Context) error {
 				}
 				depends = append(depends, idxDepName)
 			}
-			idx.Data.Depends = depends
+			idx.Depends = depends
 			if err = idx.Save(); err != nil {
 				return err
 			}
@@ -361,14 +364,14 @@ func (c *cmd) Execute(ctx context.Context) error {
 
 		for _, depName := range depends {
 			found := false
-			for _, idxDepName := range idx.Data.Depends {
+			for _, idxDepName := range idx.Depends {
 				if idxDepName == depName {
 					found = true
 					break
 				}
 			}
 			if !found {
-				idx.Data.Depends = append(idx.Data.Depends, depName)
+				idx.Depends = append(idx.Depends, depName)
 				if err = idx.Save(); err != nil {
 					return err
 				}
@@ -376,7 +379,7 @@ func (c *cmd) Execute(ctx context.Context) error {
 			}
 		}
 	} else {
-		installed, _, err := download(workDir, pkgCacheDir, idx.Data.Depends, idxLock, c.getOpts.Replace)
+		installed, _, err := download(workDir, pkgCacheDir, idx.Depends, idxLock, c.getOpts.Replace)
 		if err != nil {
 			return err
 		}
