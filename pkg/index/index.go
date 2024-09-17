@@ -55,6 +55,15 @@ func ReadIndexFile(path string) (*Index, error) {
 	return idx, nil
 }
 
+func UnmarshalIndexFIle(v []byte) (*Index, error) {
+	var idx *Index
+	if err := json.Unmarshal(v, &idx); err != nil {
+		return nil, fmt.Errorf("error unmarshalling index file: %w", err)
+	}
+
+	return idx, nil
+}
+
 func DecodeIndexFile(file io.Reader) (*Index, error) {
 	var idx *Index
 	decoder := json.NewDecoder(file)

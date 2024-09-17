@@ -80,7 +80,7 @@ func GetPkgCacheDir() (string, error) {
 	return pkgCacheDir, nil
 }
 
-func OpenZipFile(source string, fpath string) (io.ReadCloser, error) {
+func OpenZipFile(source string, fpath string) ([]byte, error) {
 	reader, err := zip.OpenReader(source)
 	if err != nil {
 		return nil, err
@@ -96,7 +96,13 @@ func OpenZipFile(source string, fpath string) (io.ReadCloser, error) {
 			return nil, fmt.Errorf("specified file path %s is a directory", fpath)
 		}
 
-		return file.Open()
+		rc, err := file.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer rc.Close()
+
+		return io.ReadAll(rc)
 	}
 
 	return nil, fmt.Errorf("failed to find %s in archive", fpath)
