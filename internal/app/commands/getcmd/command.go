@@ -197,16 +197,13 @@ func download(workDir string, pkgCacheDir string, depends []string, idxLock *dep
 			return nil, nil, err
 		}
 
-		depIdx, err := func() (*index.Index, error) {
-			rc, err := filesys.OpenZipFile(cacheZip, "index.json")
-			if err != nil {
-				return nil, err
-			}
-			defer rc.Close()
-			return index.DecodeIndexFile(rc)
-		}()
+		rc, err := filesys.OpenZipFile(cacheZip, "index.json")
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("failed to open index.json in %s: %w", cacheZip, err)
+		}
+		depIdx, err := index.UnmarshalIndexFIle(rc)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to unmarshal index.json in %s: %w", cacheZip, err)
 		}
 
 		if depIdx.AppCode == "" {
@@ -271,10 +268,11 @@ func download(workDir string, pkgCacheDir string, depends []string, idxLock *dep
 }
 
 func (c *cmd) Execute(ctx context.Context) error {
-	workDir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
+	// workDir, err := os.Getwd()
+	// if err != nil {
+	// 	return err
+	// }
+	workDir := `C:\Work\Sources\cyberapps\base-pkg`
 	idxFile := filepath.Join(workDir, "index.json")
 
 	pkgCacheDir, err := filesys.GetPkgCacheDir()
