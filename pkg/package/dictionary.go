@@ -1,4 +1,4 @@
-package index
+package _package
 
 type LangCode string
 
