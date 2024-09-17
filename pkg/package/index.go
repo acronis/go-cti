@@ -1,4 +1,4 @@
-package index
+package _package
 
 import (
 	"encoding/json"
@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	PackageType = "cti.a.p.app.package.v1.0"
+	IndexFileName = "index.json"
+	PackageType   = "cti.a.p.app.package.v1.0"
 )
 
 type Index struct {
@@ -28,7 +29,8 @@ type Index struct {
 	AdditionalProperties interface{} `json:"additional_properties,omitempty"`
 	Serialized           []string    `json:"serialized,omitempty"`
 
-	BaseDir string `json:"-"`
+	BaseDir  string `json:"-"`
+	FilePath string `json:"-"`
 }
 
 func ReadIndexFile(path string) (*Index, error) {
@@ -48,6 +50,7 @@ func ReadIndexFile(path string) (*Index, error) {
 	}
 
 	idx.BaseDir = filepath.Dir(path)
+	idx.FilePath = path
 	if err := idx.Check(); err != nil {
 		return nil, fmt.Errorf("error checking index file: %w", err)
 	}
@@ -55,7 +58,7 @@ func ReadIndexFile(path string) (*Index, error) {
 	return idx, nil
 }
 
-func UnmarshalIndexFIle(v []byte) (*Index, error) {
+func UnmarshalIndexFile(v []byte) (*Index, error) {
 	var idx *Index
 	if err := json.Unmarshal(v, &idx); err != nil {
 		return nil, fmt.Errorf("error unmarshalling index file: %w", err)
@@ -128,6 +131,11 @@ func (idx *Index) GenerateIndexRaml(includeExamples bool) string {
 	return sb.String()
 }
 
+func (idx *Index) Clone() *Index {
+	c := *idx
+	return &c
+}
+
 func (idx *Index) ToBytes() []byte {
 	bytes, _ := json.Marshal(idx)
 	return bytes
@@ -136,10 +144,10 @@ func (idx *Index) ToBytes() []byte {
 func (idx *Index) Save() error {
 	data, err := json.MarshalIndent(idx, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshalling index file: %w", err)
 	}
 
-	return os.WriteFile(filepath.Join(idx.BaseDir, "index.json"), data, 0755)
+	return os.WriteFile(idx.FilePath, data, 0755)
 }
 
 func (idx *Index) PutSerialized(file string) {

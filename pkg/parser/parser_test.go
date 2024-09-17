@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/acronis/go-cti/pkg/cti"
-	"github.com/acronis/go-cti/pkg/index"
 	"github.com/acronis/go-cti/pkg/parser"
 )
 
@@ -29,9 +28,6 @@ func TestParsePackageAbsPath(t *testing.T) {
 	baseDir := filepath.Dir(path)
 
 	require.Equal(t, baseDir, p.BaseDir)
-	require.NotNil(t, p.Index)
-	require.Equal(t, p.Index.BaseDir, baseDir)
-	require.Equal(t, p.Index.Type, index.PackageType)
 	require.NotNil(t, p.Registry)
 	require.Empty(t, p.Registry.Total)
 	require.NotNil(t, p.RAML)
@@ -47,9 +43,6 @@ func TestParsePackageRelPath(t *testing.T) {
 	baseDir := filepath.Dir(absPath)
 
 	require.Equal(t, baseDir, p.BaseDir)
-	require.NotNil(t, p.Index)
-	require.Equal(t, p.Index.BaseDir, baseDir)
-	require.Equal(t, p.Index.Type, index.PackageType)
 	require.NotNil(t, p.Registry)
 	require.Empty(t, p.Registry.Total)
 	require.NotNil(t, p.RAML)

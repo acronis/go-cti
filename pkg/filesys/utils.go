@@ -14,6 +14,11 @@ import (
 	"github.com/zeebo/xxh3"
 )
 
+const (
+	AppEnvironVar = "CTIROOT"
+	AppUserDir    = ".cti"
+)
+
 // GetBaseName Get filename without extension.
 func GetBaseName(fileName string) string {
 	filename := path.Base(fileName)
@@ -54,13 +59,13 @@ func ComputeFileHexdigest(filePath string) (string, error) {
 }
 
 func GetRootDir() (string, error) {
-	rootDir := os.Getenv("CTIROOT")
+	rootDir := os.Getenv(AppEnvironVar)
 	if rootDir == "" {
 		userDir, err := os.UserHomeDir()
 		if err != nil {
 			return "", err
 		}
-		rootDir = filepath.Join(userDir, ".cti")
+		rootDir = filepath.Join(userDir, AppUserDir)
 	}
 	if _, err := os.Stat(rootDir); err != nil {
 		os.Mkdir(rootDir, 0755)
