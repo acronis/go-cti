@@ -8,10 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/acronis/go-raml"
+
 	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/index"
-	"github.com/acronis/go-raml"
 )
 
 const (

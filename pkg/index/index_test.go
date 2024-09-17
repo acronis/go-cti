@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/acronis/go-cti/pkg/index"
 	"github.com/stretchr/testify/require"
+
+	"github.com/acronis/go-cti/pkg/index"
 )
 
 func getIndexFilePath() string {
