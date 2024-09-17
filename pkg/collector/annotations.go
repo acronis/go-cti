@@ -3,8 +3,9 @@ package collector
 import (
 	"strings"
 
-	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-raml"
+
+	"github.com/acronis/go-cti/pkg/cti"
 )
 
 type AnnotationsCollector struct {

@@ -9,8 +9,9 @@ import (
 
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/identifier"
+
+	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/merger"
 )
 

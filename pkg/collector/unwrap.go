@@ -3,8 +3,9 @@ package collector
 import (
 	"fmt"
 
-	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-raml"
+
+	"github.com/acronis/go-cti/pkg/cti"
 )
 
 func (c *Collector) unwrapCtiType(s *raml.ObjectShape, history []raml.Shape) (raml.Shape, error) {

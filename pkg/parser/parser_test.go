@@ -8,10 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/index"
 	"github.com/acronis/go-cti/pkg/parser"
-	"github.com/stretchr/testify/require"
 )
 
 func getAbsPath(path string) string {

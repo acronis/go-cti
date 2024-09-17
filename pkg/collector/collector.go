@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/identifier"
 	"github.com/acronis/go-raml"
 	orderedmap "github.com/wk8/go-ordered-map/v2"
+
+	"github.com/acronis/go-cti/pkg/cti"
 )
 
 var annotationsToMove = []string{cti.Reference, cti.Schema}
