@@ -1,4 +1,4 @@
-package buildcmd
+package packcmd
 
 import (
 	"context"

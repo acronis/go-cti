@@ -12,7 +12,6 @@ import (
 
 	"github.com/acronis/go-raml/stacktrace"
 
-	"github.com/acronis/go-cti/internal/app/commands/buildcmd"
 	"github.com/acronis/go-cti/internal/app/commands/depcmd"
 	"github.com/acronis/go-cti/internal/app/commands/deploycmd"
 	"github.com/acronis/go-cti/internal/app/commands/envcmd"
@@ -21,6 +20,7 @@ import (
 	"github.com/acronis/go-cti/internal/app/commands/infocmd"
 	"github.com/acronis/go-cti/internal/app/commands/initcmd"
 	"github.com/acronis/go-cti/internal/app/commands/lintcmd"
+	"github.com/acronis/go-cti/internal/app/commands/packcmd"
 	"github.com/acronis/go-cti/internal/app/commands/restcmd"
 	"github.com/acronis/go-cti/internal/app/commands/testcmd"
 	"github.com/acronis/go-cti/internal/app/commands/validatecmd"
@@ -102,7 +102,7 @@ func mainFn() int {
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			return InitLoggingAndRun(ctx, verbosity, buildcmd.New(opts, args))
+			return InitLoggingAndRun(ctx, verbosity, packcmd.New(opts, args))
 		},
 	}
 
