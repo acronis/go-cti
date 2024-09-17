@@ -34,7 +34,7 @@ func TestParsePackageAbsPath(t *testing.T) {
 	require.Equal(t, p.Index.Type, index.PackageType)
 	require.NotNil(t, p.Registry)
 	require.Empty(t, p.Registry.Total)
-	require.NotNil(t, p.Raml)
+	require.NotNil(t, p.RAML)
 }
 
 func TestParsePackageRelPath(t *testing.T) {
@@ -52,7 +52,7 @@ func TestParsePackageRelPath(t *testing.T) {
 	require.Equal(t, p.Index.Type, index.PackageType)
 	require.NotNil(t, p.Registry)
 	require.Empty(t, p.Registry.Total)
-	require.NotNil(t, p.Raml)
+	require.NotNil(t, p.RAML)
 }
 
 func TestParsePackageInvalidIdxType(t *testing.T) {

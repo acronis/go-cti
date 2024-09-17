@@ -32,7 +32,7 @@ type Collector struct {
 	annotationsCollector *AnnotationsCollector
 }
 
-func MakeCollector(r *raml.RAML, baseDir string) *Collector {
+func New(r *raml.RAML, baseDir string) *Collector {
 	return &Collector{
 		baseDir:              baseDir,
 		raml:                 r,
@@ -49,7 +49,7 @@ func MakeCollector(r *raml.RAML, baseDir string) *Collector {
 	}
 }
 
-func (c *Collector) CollectFromIndex() error {
+func (c *Collector) Collect() error {
 	idx, ok := c.raml.EntryPoint().(*raml.Library)
 	if !ok {
 		return fmt.Errorf("entry point is not a library")

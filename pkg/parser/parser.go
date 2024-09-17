@@ -27,7 +27,7 @@ type PackageParser struct {
 	Index    *index.Index
 	Registry *collector.CtiRegistry
 
-	Raml *raml.RAML
+	RAML *raml.RAML
 }
 
 // ParseAll cti type, instances, dictionaries in one single output
@@ -45,8 +45,8 @@ func ParsePackage(path string) (*PackageParser, error) {
 		return nil, fmt.Errorf("failed to parse index raml: %w", err)
 	}
 
-	c := collector.MakeCollector(r, baseDir)
-	if err := c.CollectFromIndex(); err != nil {
+	c := collector.New(r, baseDir)
+	if err := c.Collect(); err != nil {
 		return nil, fmt.Errorf("failed to collect from index: %w", err)
 	}
 
@@ -56,7 +56,7 @@ func ParsePackage(path string) (*PackageParser, error) {
 		Index:    idx,
 		Registry: c.Registry,
 
-		Raml: r,
+		RAML: r,
 	}, nil
 }
 
@@ -74,8 +74,8 @@ func ParseEntity(path string) (*PackageParser, error) {
 		return nil, fmt.Errorf("failed to parse entity file: %w", err)
 	}
 
-	c := collector.MakeCollector(r, baseDir)
-	if err := c.CollectFromIndex(); err != nil {
+	c := collector.New(r, baseDir)
+	if err := c.Collect(); err != nil {
 		return nil, fmt.Errorf("failed to collect from index: %w", err)
 	}
 
@@ -85,7 +85,7 @@ func ParseEntity(path string) (*PackageParser, error) {
 		Index:    nil,
 		Registry: c.Registry,
 
-		Raml: r,
+		RAML: r,
 	}, nil
 }
 
@@ -95,8 +95,8 @@ func ParseEntityString(content string, fileName string, baseDir string) (*Packag
 		return nil, fmt.Errorf("failed to parse entity file: %w", err)
 	}
 
-	c := collector.MakeCollector(r, baseDir)
-	if err := c.CollectFromIndex(); err != nil {
+	c := collector.New(r, baseDir)
+	if err := c.Collect(); err != nil {
 		return nil, fmt.Errorf("failed to collect from index: %w", err)
 	}
 
@@ -106,7 +106,7 @@ func ParseEntityString(content string, fileName string, baseDir string) (*Packag
 		Index:    nil,
 		Registry: c.Registry,
 
-		Raml: r,
+		RAML: r,
 	}, nil
 }
 
