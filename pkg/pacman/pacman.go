@@ -216,6 +216,7 @@ func (pacman *PackageManager) Pack() error {
 			return fmt.Errorf("failed to write serialized metadata %s to bundle: %w", metadata, err)
 		}
 	}
+	slog.Info("Packing has been completed", "filename", filepath.Join(pacman.BaseDir, BundleName))
 
 	return nil
 }
