@@ -289,7 +289,7 @@ func mainFn() int {
 				st, isStackTrace = stacktrace.Unwrap(cmdErr.Inner)
 			}
 			if isStackTrace {
-				slog.Error(fmt.Sprintf("Command failed: traceback:\n%s", st.Sprint()))
+				slog.Error(fmt.Sprintf("Command failed: tracebacks:\n%s", st.Sprint(stacktrace.WithEnsureDuplicates())))
 			} else {
 				slog.Error("Command failed", slogex.Error(err))
 			}

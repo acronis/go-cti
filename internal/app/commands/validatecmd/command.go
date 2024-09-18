@@ -44,7 +44,7 @@ func (c *cmd) Execute(ctx context.Context) error {
 		for i := range errs {
 			err := errs[i]
 			if st, ok := stacktrace.Unwrap(err); ok {
-				slog.Error(fmt.Sprintf("Traceback:\n%s", st.Sprint()))
+				slog.Error(fmt.Sprintf("Tracebacks:\n%s", st.Sprint(stacktrace.WithEnsureDuplicates())))
 			} else {
 				slog.Error(err.Error())
 			}
