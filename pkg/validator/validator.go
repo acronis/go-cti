@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/identifier"
 
 	"github.com/acronis/go-cti/pkg/cti"
@@ -28,27 +28,20 @@ func MakeCtiValidator() *CtiValidator {
 	}
 }
 
+func (v *CtiValidator) LoadFromRegistry(entities *collector.CtiRegistry) {
+	v.index = entities.TotalIndex
+	v.entities = entities.Total
+}
+
 func (v *CtiValidator) AddEntities(entities cti.Entities) error {
 	for _, entity := range entities {
+		if _, ok := v.index[entity.Cti]; ok {
+			return fmt.Errorf("attempting to add duplicate cti %s", entity.Cti)
+		}
 		v.index[entity.Cti] = entity
 	}
 	v.entities = append(v.entities, entities...)
 	return nil
-}
-
-func (v *CtiValidator) AddFromFile(path string) error {
-	f, err := os.OpenFile(path, os.O_RDONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	d := json.NewDecoder(f)
-	var entities cti.Entities
-	if err := d.Decode(&entities); err != nil {
-		return err
-	}
-	return v.AddEntities(entities)
 }
 
 func (v *CtiValidator) Reset() {
