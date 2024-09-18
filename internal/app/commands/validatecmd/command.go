@@ -3,9 +3,12 @@ package validatecmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/acronis/go-raml/stacktrace"
 
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
@@ -40,7 +43,11 @@ func (c *cmd) Execute(ctx context.Context) error {
 	if errs != nil {
 		for i := range errs {
 			err := errs[i]
-			slog.Error(err.Error())
+			if st, ok := stacktrace.Unwrap(err); ok {
+				slog.Error(fmt.Sprintf("Traceback:\n%s", st.Sprint()))
+			} else {
+				slog.Error(err.Error())
+			}
 		}
 		return errors.New("failed to validate the package")
 	}

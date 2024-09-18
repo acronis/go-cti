@@ -10,7 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/acronis/go-cti/internal/app/commands/buildcmd"
+	"github.com/acronis/go-raml/stacktrace"
+
 	"github.com/acronis/go-cti/internal/app/commands/depcmd"
 	"github.com/acronis/go-cti/internal/app/commands/deploycmd"
 	"github.com/acronis/go-cti/internal/app/commands/envcmd"
@@ -19,6 +20,7 @@ import (
 	"github.com/acronis/go-cti/internal/app/commands/infocmd"
 	"github.com/acronis/go-cti/internal/app/commands/initcmd"
 	"github.com/acronis/go-cti/internal/app/commands/lintcmd"
+	"github.com/acronis/go-cti/internal/app/commands/packcmd"
 	"github.com/acronis/go-cti/internal/app/commands/restcmd"
 	"github.com/acronis/go-cti/internal/app/commands/testcmd"
 	"github.com/acronis/go-cti/internal/app/commands/validatecmd"
@@ -95,18 +97,18 @@ func mainFn() int {
 	defer stop()
 
 	cmdBuild := &cobra.Command{
-		Use:   "build [targets to build]",
-		Short: "build cti artifacts and dependencies",
+		Use:   "pack",
+		Short: "pack cti bundle",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			return InitLoggingAndRun(ctx, verbosity, buildcmd.New(opts, args))
+			return InitLoggingAndRun(ctx, verbosity, packcmd.New(opts, args))
 		},
 	}
 
 	cmdDep := &cobra.Command{
 		Use:   "dep",
-		Short: "tool to manage dependencies",
+		Short: "tool to manage cti dependencies",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -116,7 +118,7 @@ func mainFn() int {
 
 	cmdDeploy := &cobra.Command{
 		Use:   "deploy",
-		Short: "build and deploy cti and dependencies to testing stand or production",
+		Short: "build and deploy cti package and dependencies to testing stand or production",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -148,7 +150,7 @@ func mainFn() int {
 		getOpts := getcmd.GetOptions{}
 		cmd := &cobra.Command{
 			Use:   "get",
-			Short: "tool to download ctis",
+			Short: "tool to download cti packages",
 			Args:  cobra.MinimumNArgs(0),
 			RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -163,7 +165,7 @@ func mainFn() int {
 
 	cmdInfo := &cobra.Command{
 		Use:   "info",
-		Short: "print detailed information for cti",
+		Short: "print detailed information for cti package",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -183,7 +185,7 @@ func mainFn() int {
 
 	cmdLint := &cobra.Command{
 		Use:   "lint",
-		Short: "lint cti",
+		Short: "lint cti package",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -203,7 +205,7 @@ func mainFn() int {
 
 	cmdTest := &cobra.Command{
 		Use:   "test",
-		Short: "test cti",
+		Short: "test cti package",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -233,15 +235,11 @@ func mainFn() int {
 
 	rootCmd := func() *cobra.Command {
 		cmd := &cobra.Command{
-			Use:   "cti",
-			Short: "cti is a tool for managing cti projects",
-			PersistentPreRun: func(cmd *cobra.Command, args []string) {
-				// TODO
-
-				// slog.Debug("gbs build info", slog.String("version", Version+"-"+BuildNumber), slog.String("build-date", BuildDate))
-			},
-			SilenceUsage:  true,
-			SilenceErrors: true,
+			Use:              "cti",
+			Short:            "cti is a tool for managing cti projects",
+			PersistentPreRun: func(cmd *cobra.Command, args []string) {},
+			SilenceUsage:     true,
+			SilenceErrors:    true,
 			CompletionOptions: cobra.CompletionOptions{
 				DisableDefaultCmd: true,
 			},
@@ -285,7 +283,16 @@ func mainFn() int {
 			slog.Error(`                |                   `)
 		}
 		if errors.As(err, &cmdErr) {
-			slog.Error("command failed", slogex.Error(err))
+			var st *stacktrace.StackTrace
+			var isStackTrace bool
+			if cmdErr.Inner != nil {
+				st, isStackTrace = stacktrace.Unwrap(cmdErr.Inner)
+			}
+			if isStackTrace {
+				slog.Error(fmt.Sprintf("Command failed: traceback:\n%s", st.Sprint()))
+			} else {
+				slog.Error("Command failed", slogex.Error(err))
+			}
 		} else {
 			_ = rootCmd.Usage()
 		}
