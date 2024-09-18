@@ -11,7 +11,6 @@ import (
 	"github.com/acronis/go-cti/internal/pkg/command"
 	_package "github.com/acronis/go-cti/pkg/package"
 	"github.com/acronis/go-cti/pkg/pacman"
-	"github.com/acronis/go-cti/pkg/parser"
 )
 
 type cmd struct {
@@ -34,20 +33,21 @@ func (c *cmd) Execute(ctx context.Context) error {
 			return err
 		}
 		workDir = wd
-		slog.Info("Building metadata for the current package...")
+		slog.Info("Packing metadata for the current package...")
 	} else {
 		workDir = filepath.Join(pacman.DependencyDirName, c.targets[0])
-		slog.Info(fmt.Sprintf("Building metadata for %s...", c.targets[0]))
+		slog.Info(fmt.Sprintf("Packing metadata for %s...", c.targets[0]))
 	}
 	idxFile := filepath.Join(workDir, _package.IndexFileName)
 
-	p, err := parser.ParsePackage(idxFile)
+	pm, err := pacman.New(idxFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create package manager: %w", err)
 	}
-	if err = p.DumpCache(); err != nil {
-		return err
+	if err := pm.Pack(); err != nil {
+		return fmt.Errorf("failed to pack the package: %w", err)
 	}
+
 	slog.Info("Done!")
 
 	return nil
