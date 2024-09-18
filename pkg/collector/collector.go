@@ -22,6 +22,11 @@ type CtiRegistry struct {
 	TotalIndex       cti.EntitiesMap
 }
 
+func (r *CtiRegistry) Clone() *CtiRegistry {
+	c := *r
+	return &c
+}
+
 type Collector struct {
 	Registry             *CtiRegistry
 	baseDir              string

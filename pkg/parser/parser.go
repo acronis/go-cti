@@ -116,9 +116,7 @@ func BuildPackageCache(path string) error {
 
 func (p *Parser) Validate() []error {
 	validator := validator.MakeCtiValidator()
-	if err := validator.AddEntities(p.Registry.Total); err != nil {
-		return []error{fmt.Errorf("failed to add entities: %w", err)}
-	}
+	validator.LoadFromRegistry(p.Registry)
 	return validator.ValidateAll()
 }
 

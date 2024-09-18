@@ -2,12 +2,14 @@ package pacman
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 
+	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/filesys"
 	_package "github.com/acronis/go-cti/pkg/package"
@@ -112,36 +114,70 @@ func (pacman *PackageManager) installDependencies(depends []string, replace bool
 	return installed, replaced, nil
 }
 
-func (pacman *PackageManager) Validate() []error {
+func (pacman *PackageManager) ParseWithCache() (*parser.Parser, *collector.CtiRegistry, error) {
+	// TODO: Always build current package?
 	p, err := parser.ParsePackage(pacman.Package.Index.FilePath)
 	if err != nil {
-		return []error{fmt.Errorf("failed to parse package: %w", err)}
+		return nil, nil, fmt.Errorf("failed to parse package: %w", err)
 	}
 	if err := p.DumpCache(); err != nil {
-		return []error{fmt.Errorf("failed to dump cache: %w", err)}
+		return nil, nil, fmt.Errorf("failed to dump cache: %w", err)
+	}
+	// Make a shallow clone of the resulting registry to make an enriched registry
+	r := p.Registry.Clone()
+	for _, dep := range pacman.Package.IndexLock.Packages {
+		cacheFile := filepath.Join(pacman.DependenciesDir, dep.AppCode, parser.MetadataCacheFile)
+		// TODO: Automatically rebuild cache if missing?
+		entities, err := pacman.LoadEntitiesFromCache(cacheFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load cache file %s: %w", cacheFile, err)
+		}
+		for _, entity := range entities {
+			if entity.Values != nil {
+				r.Instances[entity.Cti] = entity
+			} else if entity.Schema != nil {
+				r.Types[entity.Cti] = entity
+			} else {
+				return nil, nil, fmt.Errorf("invalid entity: %s", entity.Cti)
+			}
+			// TODO: Check for duplicates?
+			r.TotalIndex[entity.Cti] = entity
+			r.Total = append(r.Total, entity)
+		}
+	}
+	return p, r, nil
+}
+
+func (pacman *PackageManager) LoadEntitiesFromCache(cacheFile string) (cti.Entities, error) {
+	f, err := os.OpenFile(cacheFile, os.O_RDONLY, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open cache file %s: %w", cacheFile, err)
+	}
+	defer f.Close()
+
+	d := json.NewDecoder(f)
+	var entities cti.Entities
+	if err := d.Decode(&entities); err != nil {
+		return nil, fmt.Errorf("failed to decode cache file %s: %w", cacheFile, err)
+	}
+	return entities, nil
+}
+
+func (pacman *PackageManager) Validate() []error {
+	_, r, err := pacman.ParseWithCache()
+	if err != nil {
+		return []error{fmt.Errorf("failed to parse with cache: %w", err)}
 	}
 	validator := validator.MakeCtiValidator()
-	if err := validator.AddEntities(p.Registry.Total); err != nil {
-		return []error{fmt.Errorf("failed to add entities: %w", err)}
-	}
-	for _, dep := range pacman.Package.IndexLock.Packages {
-		idx, err := _package.ReadIndexFile(filepath.Join(pacman.DependenciesDir, dep.AppCode, _package.IndexFileName))
-		if err != nil {
-			return []error{fmt.Errorf("failed to read index file for %s: %w", dep.AppCode, err)}
-		}
-		// TODO: Automatically rebuild cache if missing?
-		if err := validator.AddFromFile(filepath.Join(idx.BaseDir, parser.MetadataCacheFile)); err != nil {
-			return []error{fmt.Errorf("failed to add entities from %s: %w", parser.MetadataCacheFile, err)}
-		}
-	}
+	validator.LoadFromRegistry(r)
 	// TODO: Validation for usage of indirect dependencies
 	return validator.ValidateAll()
 }
 
 func (pacman *PackageManager) Pack() error {
-	p, err := parser.ParsePackage(pacman.Package.Index.FilePath)
+	p, r, err := pacman.ParseWithCache()
 	if err != nil {
-		return fmt.Errorf("failed to parse package: %w", err)
+		return fmt.Errorf("failed to parse with cache: %w", err)
 	}
 	archive, err := os.Create(filepath.Join(pacman.BaseDir, BundleName))
 	if err != nil {
@@ -153,9 +189,10 @@ func (pacman *PackageManager) Pack() error {
 	defer zipWriter.Close()
 
 	for _, entity := range p.Registry.Instances {
-		typ, ok := p.Registry.Types[cti.GetParentCti(entity.Cti)]
+		tId := cti.GetParentCti(entity.Cti)
+		typ, ok := r.Types[tId]
 		if !ok {
-			return fmt.Errorf("type %s not found", entity.Cti)
+			return fmt.Errorf("type %s not found", tId)
 		}
 		// TODO: Collect annotations from the entire chain of CTI types
 		for key, annotation := range typ.Annotations {
