@@ -14,14 +14,20 @@ import (
 )
 
 type cmd struct {
-	opts    cti.Options
-	targets []string
+	opts     cti.Options
+	packOpts PackOptions
+	targets  []string
 }
 
-func New(opts cti.Options, targets []string) command.Command {
+type PackOptions struct {
+	IncludeSource bool
+}
+
+func New(opts cti.Options, packOpts PackOptions, targets []string) command.Command {
 	return &cmd{
-		opts:    opts,
-		targets: targets,
+		opts:     opts,
+		packOpts: packOpts,
+		targets:  targets,
 	}
 }
 
@@ -44,11 +50,11 @@ func (c *cmd) Execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create package manager: %w", err)
 	}
-	if err := pm.Pack(); err != nil {
+	if err := pm.Pack(c.packOpts.IncludeSource); err != nil {
 		return fmt.Errorf("failed to pack the package: %w", err)
 	}
 
-	slog.Info("Done!")
+	slog.Info("Packing has been completed", "filename", filepath.Join(pm.BaseDir, pacman.BundleName))
 
 	return nil
 }
