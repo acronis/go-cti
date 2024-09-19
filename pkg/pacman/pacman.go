@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/cti"
@@ -174,7 +175,7 @@ func (pacman *PackageManager) Validate() []error {
 	return validator.ValidateAll()
 }
 
-func (pacman *PackageManager) Pack() error {
+func (pacman *PackageManager) Pack(includeSource bool) error {
 	p, r, err := pacman.ParseWithCache()
 	if err != nil {
 		return fmt.Errorf("failed to parse with cache: %w", err)
@@ -187,6 +188,66 @@ func (pacman *PackageManager) Pack() error {
 
 	zipWriter := zip.NewWriter(archive)
 	defer zipWriter.Close()
+
+	w, err := zipWriter.Create("index.json")
+	if err != nil {
+		return fmt.Errorf("failed to create index in bundle: %w", err)
+	}
+
+	idx := pacman.Package.Index.Clone()
+	idx.PutSerialized(parser.MetadataCacheFile)
+
+	if _, err = w.Write(idx.ToBytes()); err != nil {
+		return fmt.Errorf("failed to write index to bundle: %w", err)
+	}
+
+	for _, metadata := range idx.Serialized {
+		f, err := os.OpenFile(filepath.Join(p.BaseDir, metadata), os.O_RDONLY, 0o644)
+		if err != nil {
+			return fmt.Errorf("failed to open serialized metadata %s: %w", metadata, err)
+		}
+		defer f.Close()
+
+		w, err := zipWriter.Create(metadata)
+		if err != nil {
+			return fmt.Errorf("failed to create serialized metadata %s in bundle: %w", metadata, err)
+		}
+		if _, err = io.Copy(w, f); err != nil {
+			return fmt.Errorf("failed to write serialized metadata %s to bundle: %w", metadata, err)
+		}
+	}
+
+	if includeSource {
+		err := filepath.WalkDir(p.BaseDir, func(path string, d os.DirEntry, err error) error {
+			rel := strings.TrimPrefix(path, p.BaseDir)
+			if rel == "" || d.IsDir() {
+				return nil
+			}
+			rel = filepath.ToSlash(rel[1:])
+			if err != nil {
+				return fmt.Errorf("failed to walk directory: %w", err)
+			}
+			if rel[0] == '.' || rel == BundleName || rel == _package.IndexFileName {
+				return nil
+			}
+			f, err := os.OpenFile(path, os.O_RDONLY, 0o644)
+			if err != nil {
+				return fmt.Errorf("failed to open index: %w", err)
+			}
+			w, err := zipWriter.Create(rel)
+			if err != nil {
+				return fmt.Errorf("failed to create file in bundle: %w", err)
+			}
+			if _, err = io.Copy(w, f); err != nil {
+				return fmt.Errorf("failed to copy file in bundle: %w", err)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to walk directory: %w", err)
+		}
+		return nil
+	}
 
 	for _, entity := range p.Registry.Instances {
 		tId := cti.GetParentCti(entity.Cti)
@@ -225,35 +286,6 @@ func (pacman *PackageManager) Pack() error {
 			}
 		}
 	}
-
-	w, err := zipWriter.Create("index.json")
-	if err != nil {
-		return fmt.Errorf("failed to create index in bundle: %w", err)
-	}
-
-	idx := pacman.Package.Index.Clone()
-	idx.PutSerialized(parser.MetadataCacheFile)
-
-	if _, err = w.Write(idx.ToBytes()); err != nil {
-		return fmt.Errorf("failed to write index to bundle: %w", err)
-	}
-
-	for _, metadata := range idx.Serialized {
-		f, err := os.OpenFile(filepath.Join(p.BaseDir, metadata), os.O_RDONLY, 0o644)
-		if err != nil {
-			return fmt.Errorf("failed to open serialized metadata %s: %w", metadata, err)
-		}
-		defer f.Close()
-
-		w, err := zipWriter.Create(metadata)
-		if err != nil {
-			return fmt.Errorf("failed to create serialized metadata %s in bundle: %w", metadata, err)
-		}
-		if _, err = io.Copy(w, f); err != nil {
-			return fmt.Errorf("failed to write serialized metadata %s to bundle: %w", metadata, err)
-		}
-	}
-	slog.Info("Packing has been completed", "filename", filepath.Join(pacman.BaseDir, BundleName))
 
 	return nil
 }

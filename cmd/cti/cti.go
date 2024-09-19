@@ -96,15 +96,22 @@ func mainFn() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer stop()
 
-	cmdBuild := &cobra.Command{
-		Use:   "pack",
-		Short: "pack cti bundle",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+	cmdPack := func() *cobra.Command {
+		packOpts := packcmd.PackOptions{}
+		cmd := &cobra.Command{
+			Use:   "pack",
+			Short: "pack cti bundle",
+			Args:  cobra.MinimumNArgs(0),
+			RunE: func(cmd *cobra.Command, args []string) error {
 
-			return InitLoggingAndRun(ctx, verbosity, packcmd.New(opts, args))
-		},
-	}
+				return InitLoggingAndRun(ctx, verbosity, packcmd.New(opts, packOpts, args))
+			},
+		}
+
+		cmd.Flags().BoolVarP(&packOpts.IncludeSource, "include-source", "s", false, "Include source files in the resulting bundle.")
+
+		return cmd
+	}()
 
 	cmdDep := &cobra.Command{
 		Use:   "dep",
@@ -248,7 +255,7 @@ func mainFn() int {
 		cmd.PersistentFlags().CountVarP(&verbosity, "verbose", "v", "Log with info log level.")
 
 		cmd.AddCommand(
-			cmdBuild,
+			cmdPack,
 			cmdDep,
 			cmdDeploy,
 			cmdEnv,
