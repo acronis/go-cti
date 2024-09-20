@@ -324,7 +324,7 @@ func (c *Collector) preProcessCtiType(shape *raml.Shape) error {
 		}
 		return nil
 	}
-	moveAnnotationsToArrayItem := func(s *raml.Shape, history []raml.Shape) error {
+	moveAnnotationsToArrayItem := func(s *raml.Shape, _ []raml.Shape) error {
 		array, ok := (*s).(*raml.ArrayShape)
 		if !ok {
 			return nil
@@ -410,7 +410,7 @@ func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension) er
 	ctiType := items.(*raml.ObjectShape)
 	// CTI types are checked before collecting CTI instances.
 	// We can be sure that if annotation includes cti.cti, it uses array of objects schema.
-	idProp := c.findPropertyWithAnnotation(ctiType, cti.Id)
+	idProp := c.findPropertyWithAnnotation(ctiType, cti.ID)
 	if idProp == nil {
 		return fmt.Errorf("cti.id not found")
 	}

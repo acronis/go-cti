@@ -3,7 +3,7 @@ package cti
 const (
 	Cti           = "cti.cti"
 	Final         = "cti.final"
-	Id            = "cti.id"
+	ID            = "cti.id"
 	L10n          = "cti.l10n"
 	DisplayName   = "cti.display_name"
 	Description   = "cti.description"

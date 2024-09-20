@@ -8,10 +8,8 @@ import (
 
 	"github.com/acronis/go-raml"
 
+	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/acronis/go-cti/pkg/collector"
-	_package "github.com/acronis/go-cti/pkg/package"
-
-	"github.com/acronis/go-cti/pkg/validator"
 )
 
 const (
@@ -20,7 +18,12 @@ const (
 
 // TODO: Maybe need to initialize one package parser instance and reuse it for all the parsing
 // This could possibly simplify caching strategy for external clients
-type Parser struct {
+type Parser interface {
+	DumpCache() error
+	GetRegistry() *collector.CtiRegistry
+}
+
+type parserImpl struct {
 	BaseDir string
 
 	Registry *collector.CtiRegistry
@@ -28,102 +31,93 @@ type Parser struct {
 	RAML *raml.RAML
 }
 
-func ParsePackage(path string) (*Parser, error) {
-	pkg, err := _package.New(path)
+func ParsePackage(path string) (Parser, error) {
+	b, err := bundle.New(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create package: %w", err)
+		return nil, fmt.Errorf("create bundle: %w", err)
 	}
 
-	baseDir := pkg.BaseDir
+	baseDir := b.BaseDir
 
-	r, err := raml.ParseFromString(pkg.Index.GenerateIndexRaml(false), "index.raml", baseDir, raml.OptWithValidate())
+	r, err := raml.ParseFromString(b.Index.GenerateIndexRaml(false), "index.raml", baseDir, raml.OptWithValidate())
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse index raml: %w", err)
+		return nil, fmt.Errorf("parse index.raml: %w", err)
 	}
 
 	c := collector.New(r, baseDir)
 	if err := c.Collect(); err != nil {
-		return nil, fmt.Errorf("failed to collect from package: %w", err)
+		return nil, fmt.Errorf("collect from bundle: %w", err)
 	}
 
-	return &Parser{
-		BaseDir: baseDir,
-
+	return &parserImpl{
+		BaseDir:  baseDir,
 		Registry: c.Registry,
-
-		RAML: r,
+		RAML:     r,
 	}, nil
 }
 
 // Parse parses a single entity file
 // Parser will take a path for example "/home/app-package/test.raml".
-func Parse(path string) (*Parser, error) {
-	if !filepath.IsAbs(path) {
-		wd, _ := os.Getwd()
-		path = filepath.Join(wd, path)
+func Parse(fPath string) (Parser, error) {
+	if !filepath.IsAbs(fPath) {
+		fPath, _ = filepath.Abs(fPath)
 	}
-	baseDir := filepath.Dir(path)
+	baseDir := filepath.Dir(fPath)
 
-	r, err := raml.ParseFromPath(path, raml.OptWithValidate())
+	r, err := raml.ParseFromPath(fPath, raml.OptWithValidate())
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse entity file: %w", err)
+		return nil, fmt.Errorf("parse entity file: %w", err)
 	}
 
 	c := collector.New(r, baseDir)
 	if err := c.Collect(); err != nil {
-		return nil, fmt.Errorf("failed to collect from raml file: %w", err)
+		return nil, fmt.Errorf("collect from raml file: %w", err)
 	}
 
-	return &Parser{
-		BaseDir: baseDir,
-
+	return &parserImpl{
+		BaseDir:  baseDir,
 		Registry: c.Registry,
-
-		RAML: r,
+		RAML:     r,
 	}, nil
 }
 
-func ParseString(content string, fileName string, baseDir string) (*Parser, error) {
+func ParseString(content string, fileName string, baseDir string) (Parser, error) {
 	r, err := raml.ParseFromString(content, fileName, baseDir, raml.OptWithValidate())
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse entity file: %w", err)
+		return nil, fmt.Errorf("parse entity file: %w", err)
 	}
 
 	c := collector.New(r, baseDir)
 	if err := c.Collect(); err != nil {
-		return nil, fmt.Errorf("failed to collect from raml string: %w", err)
+		return nil, fmt.Errorf("collect from raml string: %w", err)
 	}
 
-	return &Parser{
-		BaseDir: baseDir,
-
+	return &parserImpl{
+		BaseDir:  baseDir,
 		Registry: c.Registry,
-
-		RAML: r,
+		RAML:     r,
 	}, nil
 }
 
 func BuildPackageCache(path string) error {
 	p, err := ParsePackage(path)
 	if err != nil {
-		return fmt.Errorf("failed to parse package: %w", err)
+		return fmt.Errorf("parse package: %w", err)
 	}
 	if err := p.DumpCache(); err != nil {
-		return fmt.Errorf("failed to dump cache: %w", err)
+		return fmt.Errorf("dump cache: %w", err)
 	}
 	return nil
 }
 
-func (p *Parser) Validate() []error {
-	validator := validator.MakeCtiValidator()
-	validator.LoadFromRegistry(p.Registry)
-	return validator.ValidateAll()
-}
-
-func (p *Parser) DumpCache() error {
+func (p *parserImpl) DumpCache() error {
 	bytes, err := json.Marshal(p.Registry.Total)
 	if err != nil {
-		return fmt.Errorf("failed to serialize entities: %w", err)
+		return fmt.Errorf("serialize entities: %w", err)
 	}
-	return os.WriteFile(filepath.Join(p.BaseDir, MetadataCacheFile), bytes, 0o644)
+	return os.WriteFile(filepath.Join(p.BaseDir, MetadataCacheFile), bytes, 0600)
+}
+
+func (p *parserImpl) GetRegistry() *collector.CtiRegistry {
+	return p.Registry
 }

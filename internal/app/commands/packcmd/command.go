@@ -9,8 +9,8 @@ import (
 
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
-	_package "github.com/acronis/go-cti/pkg/package"
-	"github.com/acronis/go-cti/pkg/pacman"
+	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/depman"
 )
 
 type cmd struct {
@@ -31,7 +31,7 @@ func New(opts cti.Options, packOpts PackOptions, targets []string) command.Comma
 	}
 }
 
-func (c *cmd) Execute(ctx context.Context) error {
+func (c *cmd) Execute(_ context.Context) error {
 	var workDir string
 	if len(c.targets) == 0 {
 		wd, err := os.Getwd()
@@ -39,22 +39,23 @@ func (c *cmd) Execute(ctx context.Context) error {
 			return err
 		}
 		workDir = wd
-		slog.Info("Packing metadata for the current package...")
+		slog.Info("Packing metadata for the current bundle...")
 	} else {
-		workDir = filepath.Join(pacman.DependencyDirName, c.targets[0])
+		workDir = filepath.Join(depman.DependencyDirName, c.targets[0])
 		slog.Info(fmt.Sprintf("Packing metadata for %s...", c.targets[0]))
 	}
-	idxFile := filepath.Join(workDir, _package.IndexFileName)
+	idxFile := filepath.Join(workDir, bundle.IndexFileName)
 
-	pm, err := pacman.New(idxFile)
+	pm, err := depman.New(idxFile)
 	if err != nil {
-		return fmt.Errorf("failed to create package manager: %w", err)
+		return fmt.Errorf("create package manager: %w", err)
 	}
-	if err := pm.Pack(c.packOpts.IncludeSource); err != nil {
-		return fmt.Errorf("failed to pack the package: %w", err)
+	filename, err := pm.Pack(c.packOpts.IncludeSource)
+	if err != nil {
+		return fmt.Errorf("pack the bundle: %w", err)
 	}
 
-	slog.Info("Packing has been completed", "filename", filepath.Join(pm.BaseDir, pacman.BundleName))
+	slog.Info("Packing has been completed", "filename", filename)
 
 	return nil
 }

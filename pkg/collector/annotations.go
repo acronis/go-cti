@@ -94,9 +94,9 @@ func (c *AnnotationsCollector) collectAnnotations(ctx string, s *raml.BaseShape)
 		case cti.Final:
 			v := annotation.Extension.Value.(bool)
 			item.Final = &v
-		case cti.Id:
+		case cti.ID:
 			v := annotation.Extension.Value.(bool)
-			item.Id = &v
+			item.ID = &v
 		case cti.L10n:
 			v := annotation.Extension.Value.(bool)
 			item.L10N = &v

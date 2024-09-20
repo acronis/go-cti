@@ -1,8 +1,4 @@
 linters-settings:
-  govet:
-    check-shadowing: true
-  golint:
-    min-confidence: 0.8
   gocyclo:
     min-complexity: 30
   dupl:
@@ -11,15 +7,15 @@ linters-settings:
     min-len: 2
     min-occurrences: 2
   misspell:
-    locale: EN
+    locale: US
   lll:
     line-length: 160
   gocognit:
     min-complexity: 20
   gocritic:
     disabled-tags:
-      - opinionated
-      - experimental
+    - opinionated
+    - experimental
   funlen:
     lines: 150
     statements: 50
@@ -29,49 +25,47 @@ linters-settings:
 linters:
   disable-all: true
   enable:
-    - revive
-    - bodyclose
-    - dogsled
-    - dupl
-    - errcheck
-    - funlen
-    - gocognit
-    - goconst
-    - gocritic
-    - gocyclo
-    - gofmt
-    - goimports
-    - gosec
-    - gosimple
-    - govet
-    - ineffassign
-    - lll
-    - misspell
-    - nakedret
-    - exportloopref
-    - staticcheck
-    - stylecheck
-    - typecheck
-    - unconvert
-    - unused
-    - whitespace
+  - revive
+  - bodyclose
+  - dogsled
+  - dupl
+  - errcheck
+  - funlen
+  - gocognit
+  - goconst
+  - gocritic
+  - gocyclo
+  - gofmt
+  - goimports
+  - gosec
+  - gosimple
+  - govet
+  - ineffassign
+  - lll
+  - misspell
+  - nakedret
+  - copyloopvar
+  - staticcheck
+  - stylecheck
+  - typecheck
+  - unconvert
+  - unused
+  - whitespace
 
 run:
-  skip-dirs:
-  - extra
   tests: false
 
 issues:
   exclude-rules:
-    - path: test
-      linters:
-      - dupl
-      - gosec
-      - funlen
-      - gocyclo
-    - path: test\.go
-      linters:
-        - dupl
-        - gosec
-        - funlen
-        - gocyclo
+  - path: test
+    linters:
+    - dupl
+    - gosec
+    - funlen
+    - gocyclo
+  - path: test\.go
+    linters:
+    - dupl
+    - gosec
+    - funlen
+    - gocyclo

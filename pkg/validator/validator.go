@@ -15,6 +15,10 @@ import (
 	"github.com/acronis/go-cti/pkg/merger"
 )
 
+const (
+	TrueStr = "true"
+)
+
 type CtiValidator struct {
 	entities  cti.Entities
 	index     cti.EntitiesMap
@@ -122,12 +126,12 @@ func (v *CtiValidator) Validate(current *cti.Entity) error {
 					if ok, err := parent.Match(currentCtiExpr); !ok {
 						if err != nil {
 							return fmt.Errorf("%s: invalid inheritance. Reason: %s", current.Cti, err.Error())
-						} else {
-							return fmt.Errorf("%s: invalid inheritance", current.Cti)
 						}
+
+						return fmt.Errorf("%s: invalid inheritance", current.Cti)
 					}
 				}
-				if ref := annotation.ReadReference(); ref != "" && ref != "true" {
+				if ref := annotation.ReadReference(); ref != "" && ref != TrueStr {
 					value := key.GetValue(values)
 					if ref, err := v.ctiParser.Parse(ref); err == nil {
 						for _, val := range value.Array() {
@@ -183,7 +187,7 @@ func (v *CtiValidator) Validate(current *cti.Entity) error {
 			}
 			parentAnnotations := v.FindInheritedAnnotation(current.Cti, key, func(a *cti.Annotations) bool { return a.Reference != nil })
 			if parentAnnotations == nil {
-				if currentRef == "true" {
+				if currentRef == TrueStr {
 					continue
 				}
 				if _, err := v.ctiParser.Parse(currentRef); err != nil {
@@ -192,17 +196,17 @@ func (v *CtiValidator) Validate(current *cti.Entity) error {
 				continue
 			}
 			parentRef := parentAnnotations.ReadReference()
-			if parentRef != "true" && currentRef == "true" {
+			if parentRef != TrueStr && currentRef == TrueStr {
 				return fmt.Errorf("%s@%s: parent cti.reference defines a specific CTI, but child specifies true", current.Cti, key)
 			}
-			if currentRef == "true" {
+			if currentRef == TrueStr {
 				continue
 			}
 			expr, err := v.ctiParser.Parse(currentRef)
 			if err != nil {
 				return fmt.Errorf("%s@%s: %s", current.Cti, key, err.Error())
 			}
-			if parentRef == "true" {
+			if parentRef == TrueStr {
 				continue
 			}
 			if err := v.matchCti(&expr, parentRef); err != nil {
@@ -221,9 +225,9 @@ func (v *CtiValidator) matchCti(ref *identifier.Expression, id string) error {
 	if ok, err := ref.Match(val); !ok {
 		if err != nil {
 			return fmt.Errorf("%s doesn't match. Reason: %s", id, err.Error())
-		} else {
-			return fmt.Errorf("%s doesn't match", id)
 		}
+
+		return fmt.Errorf("%s doesn't match", id)
 	}
 	return nil
 }
