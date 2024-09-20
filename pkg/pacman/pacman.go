@@ -27,6 +27,7 @@ type PackageManager struct {
 	Package         *_package.Package
 	PackageCacheDir string
 	DependenciesDir string
+	Downloader      Downloader
 
 	BaseDir string
 }
@@ -41,12 +42,38 @@ func New(idxFile string) (*PackageManager, error) {
 		return nil, fmt.Errorf("failed to get package cache dir: %w", err)
 	}
 
-	return &PackageManager{
+	pacman := &PackageManager{
 		Package:         pkg,
 		PackageCacheDir: pkgCacheDir,
 		DependenciesDir: filepath.Join(pkg.BaseDir, DependencyDirName),
 		BaseDir:         pkg.BaseDir,
-	}, nil
+	}
+
+	pacman.Downloader = NewGoLikeDownloader(pacman)
+
+	return pacman, nil
+}
+
+func NewWithDownloader(idxFile string, dl Downloader) (*PackageManager, error) {
+	pkg, err := _package.New(idxFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create package: %w", err)
+	}
+	pkgCacheDir, err := filesys.GetPkgCacheDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get package cache dir: %w", err)
+	}
+
+	pacman := &PackageManager{
+		Package:         pkg,
+		PackageCacheDir: pkgCacheDir,
+		DependenciesDir: filepath.Join(pkg.BaseDir, DependencyDirName),
+		BaseDir:         pkg.BaseDir,
+	}
+
+	pacman.Downloader = dl
+
+	return pacman, nil
 }
 
 func (pacman *PackageManager) InstallNewDependencies(depends []string, replace bool) ([]string, error) {
@@ -105,7 +132,7 @@ func (pacman *PackageManager) InstallIndexDependencies() ([]string, error) {
 }
 
 func (pacman *PackageManager) installDependencies(depends []string, replace bool) ([]string, map[string]struct{}, error) {
-	installed, replaced, err := pacman.Download(depends, replace)
+	installed, replaced, err := pacman.Downloader.Download(depends, replace)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to download dependencies: %w", err)
 	}
@@ -304,6 +331,31 @@ func (pacman *PackageManager) processInstalledDependencies(installed []string) e
 		}
 		if err := parser.BuildPackageCache(filepath.Join(pkgPath, _package.IndexFileName)); err != nil {
 			return fmt.Errorf("failed to build cache: %w", err)
+		}
+	}
+	return nil
+}
+
+func (pacman *PackageManager) rewriteDepLinks(pkgPath, depName string) error {
+	relPath, err := filepath.Rel(pkgPath, pacman.Package.BaseDir)
+	if err != nil {
+		return err
+	}
+	relPath = strings.ReplaceAll(relPath, "\\", "/")
+
+	orig := fmt.Sprintf("%s/%s", DependencyDirName, depName)
+	repl := fmt.Sprintf("%s/%s/%s", relPath, DependencyDirName, depName)
+
+	for _, file := range filesys.WalkDir(pkgPath, ".raml") {
+		// TODO: Maybe read file line by line?
+		raw, err := os.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		contents := strings.ReplaceAll(string(raw), orig, repl)
+		err = os.WriteFile(file, []byte(contents), 0755)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
