@@ -41,6 +41,9 @@ func (c *cmd) Execute(ctx context.Context) error {
 
 	slog.Info(fmt.Sprintf("Loading package at %s", idxFile))
 	p, err := pacman.New(idxFile)
+	if err != nil {
+		return fmt.Errorf("failed to create package manager: %w", err)
+	}
 
 	var deps []string
 	if len(c.targets) != 0 {

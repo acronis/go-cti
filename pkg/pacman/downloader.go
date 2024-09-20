@@ -21,12 +21,32 @@ var (
 	wsRe       = regexp.MustCompile(`\s+`)
 )
 
-func (pacman *PackageManager) loadGitDependency(sourceName string, source string, ref string, hash string) (string, error) {
+type Downloader interface {
+	// Download downloads dependencies and returns a list of installed dependencies
+	// and a list of replaced dependencies.
+	Download(depends []string, replace bool) ([]string, map[string]struct{}, error)
+}
+
+type GoLikeDownloader struct {
+	indexLock       *_package.IndexLock
+	packageCacheDir string
+	dependenciesDir string
+}
+
+func NewGoLikeDownloader(pacman *PackageManager) *GoLikeDownloader {
+	return &GoLikeDownloader{
+		indexLock:       pacman.Package.IndexLock,
+		packageCacheDir: pacman.PackageCacheDir,
+		dependenciesDir: pacman.DependenciesDir,
+	}
+}
+
+func (dl *GoLikeDownloader) loadGitDependency(sourceName string, source string, ref string, hash string) (string, error) {
 	filename := fmt.Sprintf("%s-%s-%s.zip", filepath.Base(sourceName), ref, hash[:8])
-	cacheZip := filepath.Join(pacman.PackageCacheDir, filepath.Dir(sourceName), filename)
+	cacheZip := filepath.Join(dl.packageCacheDir, filepath.Dir(sourceName), filename)
 	// If cached ZIP does not exist - fetch the archive
 	if _, err := os.Stat(cacheZip); err != nil {
-		if err = os.MkdirAll(filepath.Join(pacman.PackageCacheDir, filepath.Dir(sourceName)), 0755); err != nil {
+		if err = os.MkdirAll(filepath.Join(dl.packageCacheDir, filepath.Dir(sourceName)), 0755); err != nil {
 			return "", err
 		}
 		// TODO: Ref discovery
@@ -40,32 +60,7 @@ func (pacman *PackageManager) loadGitDependency(sourceName string, source string
 	return cacheZip, nil
 }
 
-func (pacman *PackageManager) rewriteDepLinks(pkgPath, depName string) error {
-	relPath, err := filepath.Rel(pkgPath, pacman.Package.BaseDir)
-	if err != nil {
-		return err
-	}
-	relPath = strings.ReplaceAll(relPath, "\\", "/")
-
-	orig := fmt.Sprintf("%s/%s", DependencyDirName, depName)
-	repl := fmt.Sprintf("%s/%s/%s", relPath, DependencyDirName, depName)
-
-	for _, file := range filesys.WalkDir(pkgPath, ".raml") {
-		// TODO: Maybe read file line by line?
-		raw, err := os.ReadFile(file)
-		if err != nil {
-			return err
-		}
-		contents := strings.ReplaceAll(string(raw), orig, repl)
-		err = os.WriteFile(file, []byte(contents), 0755)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (pacman *PackageManager) Download(depends []string, replace bool) ([]string, map[string]struct{}, error) {
+func (dl *GoLikeDownloader) Download(depends []string, replace bool) ([]string, map[string]struct{}, error) {
 	var replaced = make(map[string]struct{})
 	var installed []string
 	for _, dep := range depends {
@@ -78,7 +73,7 @@ func (pacman *PackageManager) Download(depends []string, replace bool) ([]string
 		}
 
 		source := fmt.Sprintf("https://%s", sourceName)
-		body, err := loadSourceInfo(source)
+		body, err := dl.discoverSource(source)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -88,7 +83,7 @@ func (pacman *PackageManager) Download(depends []string, replace bool) ([]string
 			return nil, nil, fmt.Errorf("failed to find go-import at %s", source)
 		}
 		slog.Info(fmt.Sprintf("Discovered dependency %s", sourceName))
-		_, _, sourceLocation := parseGoQuery(m[len(m)-1])
+		_, _, sourceLocation := dl.parseGoQuery(m[len(m)-1])
 
 		// FIXME: This will only work with git source!
 		commitHash, err := gitLsRemote(sourceLocation, depVersion)
@@ -98,9 +93,10 @@ func (pacman *PackageManager) Download(depends []string, replace bool) ([]string
 			return nil, nil, fmt.Errorf("failed to find %s %s", sourceName, depVersion)
 		}
 
-		if pkg, ok := pacman.Package.IndexLock.Packages[sourceName]; ok {
+		if pkg, ok := dl.indexLock.Packages[sourceName]; ok {
 			// TODO: Package version comparison using semver?
-			if pkg.Integrity == commitHash {
+			_, err := os.Stat(filepath.Join(dl.dependenciesDir, pkg.AppCode))
+			if pkg.Integrity == commitHash && err == nil {
 				slog.Info("Package did not change. Skipping.")
 				continue
 			}
@@ -111,7 +107,7 @@ func (pacman *PackageManager) Download(depends []string, replace bool) ([]string
 		// 2. Source type (mod, vcs, git)
 		// 3. Source location
 		// TODO: Support other source types?
-		cacheZip, err := pacman.loadGitDependency(sourceName, sourceLocation, depVersion, commitHash)
+		cacheZip, err := dl.loadGitDependency(sourceName, sourceLocation, depVersion, commitHash)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -136,17 +132,17 @@ func (pacman *PackageManager) Download(depends []string, replace bool) ([]string
 		// }
 
 		// TODO: This probably should not be allowed for indirect dependencies as it would switch dependency back and forth
-		if s, ok := pacman.Package.IndexLock.Sources[depIdx.AppCode]; ok && s.Source != sourceName {
+		if s, ok := dl.indexLock.Sources[depIdx.AppCode]; ok && s.Source != sourceName {
 			slog.Warn(fmt.Sprintf("%s was already installed from %s.", depIdx.AppCode, s.Source))
 			if !replace {
 				continue
 			}
 			slog.Warn(fmt.Sprintf("Replacing %s with %s.", s.Source, sourceName))
-			delete(pacman.Package.IndexLock.Packages, s.Source)
+			delete(dl.indexLock.Packages, s.Source)
 			replaced[s.Source] = struct{}{}
 		}
 
-		dest := filepath.Join(pacman.DependenciesDir, depIdx.AppCode)
+		dest := filepath.Join(dl.dependenciesDir, depIdx.AppCode)
 		if _, err := os.Stat(dest); err == nil {
 			if err = os.RemoveAll(dest); err != nil {
 				return nil, nil, err
@@ -157,11 +153,11 @@ func (pacman *PackageManager) Download(depends []string, replace bool) ([]string
 			return nil, nil, err
 		}
 
-		pacman.Package.IndexLock.Sources[depIdx.AppCode] = _package.SourceInfo{
+		dl.indexLock.Sources[depIdx.AppCode] = _package.SourceInfo{
 			Source: sourceName,
 		}
 
-		pacman.Package.IndexLock.Packages[sourceName] = _package.PackageInfo{
+		dl.indexLock.Packages[sourceName] = _package.PackageInfo{
 			Name:      "",
 			AppCode:   depIdx.AppCode,
 			Integrity: commitHash,
@@ -171,7 +167,7 @@ func (pacman *PackageManager) Download(depends []string, replace bool) ([]string
 		}
 
 		if depIdx.Depends != nil {
-			depInstalled, depReplaced, err := pacman.Download(depIdx.Depends, replace)
+			depInstalled, depReplaced, err := dl.Download(depIdx.Depends, replace)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -184,6 +180,31 @@ func (pacman *PackageManager) Download(depends []string, replace bool) ([]string
 		installed = append(installed, sourceName)
 	}
 	return installed, replaced, nil
+}
+
+func (dl *GoLikeDownloader) discoverSource(source string) ([]byte, error) {
+	// TODO: Better dependency path handling
+	// Reuse the same resolution mechanism that go mod uses
+	// https://go.dev/ref/mod#vcs-find
+	url, err := url.Parse(source)
+	if err != nil {
+		return nil, err
+	}
+	query := url.Query()
+	query.Add("go-get", "1")
+
+	resp, err := http.Get(url.String() + "?" + query.Encode())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
+}
+
+func (dl *GoLikeDownloader) parseGoQuery(goQuery string) (string, string, string) {
+	parts := strings.Split(goQuery, " ")
+	return parts[0], parts[1], parts[2]
 }
 
 // TODO: Maybe use go-git. But it doesn't have git archive...
@@ -205,26 +226,4 @@ func gitLsRemote(remote string, ref string) (string, error) {
 	}
 	refData := strings.Split(wsRe.ReplaceAllString(string(out), " "), " ")
 	return refData[0], nil
-}
-
-func loadSourceInfo(source string) ([]byte, error) {
-	// TODO: Better dependency path handling
-	// Reuse the same resolution mechanism that go mod uses
-	// https://go.dev/ref/mod#vcs-find
-	url, err := url.Parse(source)
-	if err != nil {
-		return nil, err
-	}
-	query := url.Query()
-	query.Add("go-get", "1")
-
-	return func() ([]byte, error) {
-		resp, err := http.Get(url.String() + "?" + query.Encode())
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-
-		return io.ReadAll(resp.Body)
-	}()
 }
