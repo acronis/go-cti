@@ -19,7 +19,6 @@ func New(opts cti.Options, targets []string) command.Command {
 	}
 }
 
-func (c *cmd) Execute(ctx context.Context) error {
-
+func (c *cmd) Execute(_ context.Context) error {
 	return nil
 }

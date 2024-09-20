@@ -12,8 +12,8 @@ import (
 
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
-	_package "github.com/acronis/go-cti/pkg/package"
-	"github.com/acronis/go-cti/pkg/pacman"
+	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/depman"
 )
 
 type cmd struct {
@@ -28,14 +28,14 @@ func New(opts cti.Options, targets []string) command.Command {
 	}
 }
 
-func (c *cmd) Execute(ctx context.Context) error {
+func (c *cmd) Execute(_ context.Context) error {
 	// workDir := filepath.Dir(c.targets[0])
 	workDir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	p, err := pacman.New(filepath.Join(workDir, _package.IndexFileName))
+	p, err := depman.New(filepath.Join(workDir, bundle.IndexFileName))
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (c *cmd) Execute(ctx context.Context) error {
 				slog.Error(err.Error())
 			}
 		}
-		return errors.New("failed to validate the package")
+		return errors.New("failed to validate the bundle")
 	}
 	slog.Info("No errors found")
 	return nil

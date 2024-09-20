@@ -70,7 +70,7 @@ func InitLoggingAndRun(ctx context.Context, verbosity int, cmd command.Command) 
 		slogformatter.NewFormatterHandler(
 			slogformatter.HTTPRequestFormatter(false),
 			slogformatter.HTTPResponseFormatter(false),
-			slogformatter.FormatByType[[]string](func(s []string) slog.Value {
+			slogformatter.FormatByType(func(s []string) slog.Value {
 				return slog.StringValue(strings.Join(s, ","))
 			}),
 		)(
@@ -102,8 +102,7 @@ func mainFn() int {
 			Use:   "pack",
 			Short: "pack cti bundle",
 			Args:  cobra.MinimumNArgs(0),
-			RunE: func(cmd *cobra.Command, args []string) error {
-
+			RunE: func(_ *cobra.Command, args []string) error {
 				return InitLoggingAndRun(ctx, verbosity, packcmd.New(opts, packOpts, args))
 			},
 		}
@@ -117,18 +116,16 @@ func mainFn() int {
 		Use:   "dep",
 		Short: "tool to manage cti dependencies",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, depcmd.New(opts, args))
 		},
 	}
 
 	cmdDeploy := &cobra.Command{
 		Use:   "deploy",
-		Short: "build and deploy cti package and dependencies to testing stand or production",
+		Short: "build and deploy cti bundle and dependencies to testing stand or production",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, deploycmd.New(opts, args))
 		},
 	}
@@ -137,8 +134,7 @@ func mainFn() int {
 		Use:   "env",
 		Short: "print cti environment information",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, envcmd.New(opts, args))
 		},
 	}
@@ -147,8 +143,7 @@ func mainFn() int {
 		Use:   "fmt",
 		Short: "cti fmt (reformat) cti sources",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, fmtcmd.New(opts, args))
 		},
 	}
@@ -157,25 +152,23 @@ func mainFn() int {
 		getOpts := getcmd.GetOptions{}
 		cmd := &cobra.Command{
 			Use:   "get",
-			Short: "tool to download cti packages",
+			Short: "tool to download cti bundles from a remote repository",
 			Args:  cobra.MinimumNArgs(0),
-			RunE: func(cmd *cobra.Command, args []string) error {
-
+			RunE: func(_ *cobra.Command, args []string) error {
 				return InitLoggingAndRun(ctx, verbosity, getcmd.New(opts, getOpts, args))
 			},
 		}
 
-		cmd.Flags().BoolVarP(&getOpts.Replace, "replace", "r", false, "Replace package source on conflict.")
+		cmd.Flags().BoolVarP(&getOpts.Replace, "replace", "r", false, "Replace bundle source on conflict.")
 
 		return cmd
 	}()
 
 	cmdInfo := &cobra.Command{
 		Use:   "info",
-		Short: "print detailed information for cti package",
+		Short: "print detailed information for cti bundle",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, infocmd.New(opts, args))
 		},
 	}
@@ -184,18 +177,16 @@ func mainFn() int {
 		Use:   "init",
 		Short: "generate cti project with default dependencies",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, initcmd.New(opts, args))
 		},
 	}
 
 	cmdLint := &cobra.Command{
 		Use:   "lint",
-		Short: "lint cti package",
+		Short: "lint cti bundle",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, lintcmd.New(opts, args))
 		},
 	}
@@ -204,18 +195,16 @@ func mainFn() int {
 		Use:   "rest",
 		Short: "run http server to expose restful api",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, restcmd.New(opts, args))
 		},
 	}
 
 	cmdTest := &cobra.Command{
 		Use:   "test",
-		Short: "test cti package",
+		Short: "test cti bundle",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, testcmd.New(opts, args))
 		},
 	}
@@ -224,8 +213,7 @@ func mainFn() int {
 		Use:   "validate",
 		Short: "validate cti",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, validatecmd.New(opts, args))
 		},
 	}
@@ -234,19 +222,17 @@ func mainFn() int {
 		Use:   "version",
 		Short: "print a version of tool",
 		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			return InitLoggingAndRun(ctx, verbosity, versioncmd.New(opts, args))
 		},
 	}
 
 	rootCmd := func() *cobra.Command {
 		cmd := &cobra.Command{
-			Use:              "cti",
-			Short:            "cti is a tool for managing cti projects",
-			PersistentPreRun: func(cmd *cobra.Command, args []string) {},
-			SilenceUsage:     true,
-			SilenceErrors:    true,
+			Use:           "cti",
+			Short:         "cti is a tool for managing cti projects",
+			SilenceUsage:  true,
+			SilenceErrors: true,
 			CompletionOptions: cobra.CompletionOptions{
 				DisableDefaultCmd: true,
 			},

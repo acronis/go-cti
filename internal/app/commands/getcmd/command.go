@@ -10,8 +10,8 @@ import (
 
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
-	_package "github.com/acronis/go-cti/pkg/package"
-	"github.com/acronis/go-cti/pkg/pacman"
+	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/depman"
 )
 
 type cmd struct {
@@ -32,34 +32,34 @@ func New(opts cti.Options, getOpts GetOptions, targets []string) command.Command
 	}
 }
 
-func (c *cmd) Execute(ctx context.Context) error {
+func (c *cmd) Execute(_ context.Context) error {
 	workDir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	idxFile := filepath.Join(workDir, _package.IndexFileName)
+	idxFile := filepath.Join(workDir, bundle.IndexFileName)
 
-	slog.Info(fmt.Sprintf("Loading package at %s", idxFile))
-	p, err := pacman.New(idxFile)
+	slog.Info("Loading bundle", slog.String("index", idxFile))
+	p, err := depman.New(idxFile)
 	if err != nil {
-		return fmt.Errorf("failed to create package manager: %w", err)
+		return fmt.Errorf("create package manager: %w", err)
 	}
 
 	var deps []string
 	if len(c.targets) != 0 {
 		for i := range c.targets {
 			// TODO: Potentially unreliable
-			c.targets[i] = strings.Replace(c.targets[i], "@", " ", -1)
+			c.targets[i] = strings.ReplaceAll(c.targets[i], "@", " ")
 		}
 		installed, err := p.InstallNewDependencies(c.targets, c.getOpts.Replace)
 		if err != nil {
-			return fmt.Errorf("failed to install dependencies: %w", err)
+			return fmt.Errorf("install dependencies: %w", err)
 		}
 		deps = installed
 	} else {
 		installed, err := p.InstallIndexDependencies()
 		if err != nil {
-			return fmt.Errorf("failed to install dependencies: %w", err)
+			return fmt.Errorf("install dependencies: %w", err)
 		}
 		deps = installed
 	}

@@ -44,7 +44,7 @@ type EntityStructured struct {
 
 type Annotations struct {
 	Cti           interface{}            `json:"cti.cti,omitempty"` // string or []string
-	Id            *bool                  `json:"cti.id,omitempty"`  // string or []string
+	ID            *bool                  `json:"cti.id,omitempty"`  // string or []string
 	DisplayName   *bool                  `json:"cti.display_name,omitempty"`
 	Description   *bool                  `json:"cti.description,omitempty"`
 	Reference     interface{}            `json:"cti.reference,omitempty"` // bool or string or []string

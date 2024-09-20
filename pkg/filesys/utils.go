@@ -22,20 +22,19 @@ const (
 // GetBaseName Get filename without extension.
 func GetBaseName(fileName string) string {
 	filename := path.Base(fileName)
-	name := filename[:len(filename)-len(filepath.Ext(filename))]
 
-	return name
+	return filename[:len(filename)-len(filepath.Ext(filename))]
 }
 
 func GetDirName(filePath string) string {
 	return filepath.Base(filepath.Dir(filePath))
 }
 
-func ComputeFileHexdigest(filePath string) (string, error) {
-	slog.Info(fmt.Sprintf("Computing hash of %s", filePath))
+func ComputeFileChecksum(filePath string) (string, error) {
+	slog.Info("Computing checksum", slog.String("path", filePath))
 	f, err := os.Open(filePath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("open file: %w", err)
 	}
 	defer f.Close()
 
@@ -48,14 +47,16 @@ func ComputeFileHexdigest(filePath string) (string, error) {
 			break
 		}
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("read file: %w", err)
 		}
-		hasher.Write(buf[:nRead])
+		if _, err := hasher.Write(buf[:nRead]); err != nil {
+			return "", fmt.Errorf("write hash: %w", err)
+		}
 	}
 	sum128 := hasher.Sum128()
-	hexdigest := fmt.Sprintf("%x%x", sum128.Lo, sum128.Hi)
-	slog.Info(fmt.Sprintf("Computed file hexdigest: %s", hexdigest))
-	return hexdigest, nil
+	hexDigest := fmt.Sprintf("%x%x", sum128.Lo, sum128.Hi)
+	slog.Info("Checksum created", slog.String("hex", hexDigest))
+	return hexDigest, nil
 }
 
 func GetRootDir() (string, error) {
@@ -68,19 +69,24 @@ func GetRootDir() (string, error) {
 		rootDir = filepath.Join(userDir, AppUserDir)
 	}
 	if _, err := os.Stat(rootDir); err != nil {
-		os.Mkdir(rootDir, 0755)
+		err := os.Mkdir(rootDir, 0755)
+		if err != nil {
+			return "", fmt.Errorf("create root dir: %w", err)
+		}
 	}
 	return rootDir, nil
 }
 
-func GetPkgCacheDir() (string, error) {
+func GetCtiBundlesCacheDir() (string, error) {
 	rootDir, err := GetRootDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get root dir: %w", err)
 	}
 	pkgCacheDir := filepath.Join(rootDir, "src")
 	if _, err := os.Stat(pkgCacheDir); err != nil {
-		os.Mkdir(pkgCacheDir, 0755)
+		if err := os.Mkdir(pkgCacheDir, 0755); err != nil {
+			return "", fmt.Errorf("create package cache dir: %w", err)
+		}
 	}
 	return pkgCacheDir, nil
 }
@@ -88,7 +94,7 @@ func GetPkgCacheDir() (string, error) {
 func OpenZipFile(source string, fpath string) ([]byte, error) {
 	reader, err := zip.OpenReader(source)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open zip file: %w", err)
 	}
 	defer reader.Close()
 
@@ -103,7 +109,7 @@ func OpenZipFile(source string, fpath string) ([]byte, error) {
 
 		rc, err := file.Open()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("open file in archive: %w", err)
 		}
 		defer rc.Close()
 

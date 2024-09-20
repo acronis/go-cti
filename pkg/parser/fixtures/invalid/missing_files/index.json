@@ -1,5 +1,4 @@
 {
-    "type": "cti.a.p.app.package.v1.0",
     "app_code": "a.p",
     "entities": [
         "non_existent_file.raml"
