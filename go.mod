@@ -7,7 +7,7 @@ toolchain go1.22.6
 require (
 	github.com/acronis/go-cti/pkg/identifier v1.0.0
 	github.com/acronis/go-raml v0.8.0
-	github.com/lmittmann/tint v1.0.4
+	github.com/dusted-go/logging v1.3.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/samber/slog-formatter v1.0.1
 	github.com/spf13/cobra v1.6.1

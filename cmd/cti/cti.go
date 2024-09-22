@@ -8,9 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
-
-	"github.com/acronis/go-raml/stacktrace"
 
 	"github.com/acronis/go-cti/internal/app/commands/depcmd"
 	"github.com/acronis/go-cti/internal/app/commands/deploycmd"
@@ -25,13 +22,13 @@ import (
 	"github.com/acronis/go-cti/internal/app/commands/testcmd"
 	"github.com/acronis/go-cti/internal/app/commands/validatecmd"
 	"github.com/acronis/go-cti/internal/app/commands/versioncmd"
-
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
 	"github.com/acronis/go-cti/internal/pkg/execx"
-	"github.com/acronis/go-cti/internal/pkg/slogex"
 
-	"github.com/lmittmann/tint"
+	"github.com/acronis/go-cti/pkg/slogex"
+
+	"github.com/dusted-go/logging/prettylog"
 	"github.com/mattn/go-isatty"
 	slogformatter "github.com/samber/slog-formatter"
 	"github.com/spf13/cobra"
@@ -62,10 +59,10 @@ func InitLoggingAndRun(ctx context.Context, verbosity int, cmd command.Command) 
 		if verbosity > 0 {
 			return slog.LevelDebug
 		}
-
 		return slog.LevelInfo
 	}()
 	w := os.Stderr
+
 	logger := slog.New(
 		slogformatter.NewFormatterHandler(
 			slogformatter.HTTPRequestFormatter(false),
@@ -74,11 +71,19 @@ func InitLoggingAndRun(ctx context.Context, verbosity int, cmd command.Command) 
 				return slog.StringValue(strings.Join(s, ","))
 			}),
 		)(
-			tint.NewHandler(w, &tint.Options{
-				Level:      logLvl,
-				TimeFormat: time.TimeOnly,
-				NoColor:    !isatty.IsTerminal(w.Fd()),
-			}),
+			prettylog.New(&slog.HandlerOptions{
+				Level:       logLvl,
+				AddSource:   false,
+				ReplaceAttr: nil,
+			},
+				prettylog.WithDestinationWriter(w),
+				func() prettylog.Option {
+					if isatty.IsTerminal(w.Fd()) {
+						return prettylog.WithColor()
+					}
+					return func(_ *prettylog.Handler) {}
+				}(),
+			),
 		),
 	)
 	slog.SetDefault(logger)
@@ -275,17 +280,8 @@ func mainFn() int {
 			slog.Error(`                |                   `)
 			slog.Error(`                |                   `)
 		}
-		if errors.As(err, &cmdErr) {
-			var st *stacktrace.StackTrace
-			var isStackTrace bool
-			if cmdErr.Inner != nil {
-				st, isStackTrace = stacktrace.Unwrap(cmdErr.Inner)
-			}
-			if isStackTrace {
-				slog.Error(fmt.Sprintf("Command failed: tracebacks:\n%s", st.Sprint(stacktrace.WithEnsureDuplicates())))
-			} else {
-				slog.Error("Command failed", slogex.Error(err))
-			}
+		if errors.As(err, &cmdErr) && cmdErr.Inner != nil {
+			slog.Error("Command failed", slogex.Error(cmdErr.Inner))
 		} else {
 			_ = rootCmd.Usage()
 		}

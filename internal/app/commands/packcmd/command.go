@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
 	"github.com/acronis/go-cti/pkg/bundle"
-	"github.com/acronis/go-cti/pkg/depman"
+	"github.com/acronis/go-cti/pkg/bunman"
 )
 
 type cmd struct {
@@ -32,25 +30,19 @@ func New(opts cti.Options, packOpts PackOptions, targets []string) command.Comma
 }
 
 func (c *cmd) Execute(_ context.Context) error {
-	var workDir string
-	if len(c.targets) == 0 {
-		wd, err := os.Getwd()
-		if err != nil {
-			return err
+	bd, err := func() (*bundle.Bundle, error) {
+		if len(c.targets) == 0 {
+			slog.Info("Packing metadata for the current bundle...")
+			return bundle.New("")
 		}
-		workDir = wd
-		slog.Info("Packing metadata for the current bundle...")
-	} else {
-		workDir = filepath.Join(depman.DependencyDirName, c.targets[0])
 		slog.Info(fmt.Sprintf("Packing metadata for %s...", c.targets[0]))
-	}
-	idxFile := filepath.Join(workDir, bundle.IndexFileName)
-
-	pm, err := depman.New(idxFile)
+		return bundle.New(c.targets[0])
+	}()
 	if err != nil {
-		return fmt.Errorf("create package manager: %w", err)
+		return fmt.Errorf("initialize a new bundle: %w", err)
 	}
-	filename, err := pm.Pack(c.packOpts.IncludeSource)
+
+	filename, err := bunman.Pack(bd, c.packOpts.IncludeSource)
 	if err != nil {
 		return fmt.Errorf("pack the bundle: %w", err)
 	}
