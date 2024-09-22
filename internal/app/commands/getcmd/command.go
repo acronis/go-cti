@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/acronis/go-cti/internal/app/cti"
@@ -33,14 +31,12 @@ func New(opts cti.Options, getOpts GetOptions, targets []string) command.Command
 }
 
 func (c *cmd) Execute(_ context.Context) error {
-	workDir, err := os.Getwd()
+	bd, err := bundle.New("")
 	if err != nil {
-		return err
+		return fmt.Errorf("initialize a new bundle: %w", err)
 	}
-	idxFile := filepath.Join(workDir, bundle.IndexFileName)
 
-	slog.Info("Loading bundle", slog.String("index", idxFile))
-	p, err := depman.New(idxFile)
+	dm, err := depman.New(bd)
 	if err != nil {
 		return fmt.Errorf("create package manager: %w", err)
 	}
@@ -51,13 +47,13 @@ func (c *cmd) Execute(_ context.Context) error {
 			// TODO: Potentially unreliable
 			c.targets[i] = strings.ReplaceAll(c.targets[i], "@", " ")
 		}
-		installed, err := p.InstallNewDependencies(c.targets, c.getOpts.Replace)
+		installed, err := dm.InstallNewDependencies(c.targets, c.getOpts.Replace)
 		if err != nil {
 			return fmt.Errorf("install dependencies: %w", err)
 		}
 		deps = installed
 	} else {
-		installed, err := p.InstallIndexDependencies()
+		installed, err := dm.InstallIndexDependencies()
 		if err != nil {
 			return fmt.Errorf("install dependencies: %w", err)
 		}

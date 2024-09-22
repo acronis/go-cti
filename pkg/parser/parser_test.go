@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/acronis/go-cti/pkg/cti"
 )
 
@@ -18,31 +19,36 @@ func getAbsPath(path string) string {
 }
 
 func Test_ParsePackageAbsPath(t *testing.T) {
-	path := getAbsPath("./fixtures/valid/empty/index.json")
-	pp, err := ParsePackage(path)
+	path := getAbsPath("./fixtures/valid/empty")
+
+	bd, err := bundle.New(path)
+	require.NoError(t, err)
+
+	pp, err := ParseBundle(bd)
 	p := pp.(*parserImpl)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
-	baseDir := filepath.Dir(path)
-
-	require.Equal(t, baseDir, p.BaseDir)
+	require.Equal(t, getAbsPath("./fixtures/valid/empty"), p.BaseDir)
 	require.NotNil(t, p.Registry)
 	require.Empty(t, p.Registry.Total)
 	require.NotNil(t, p.RAML)
 }
 
 func Test_ParsePackageRelPath(t *testing.T) {
-	path := "./fixtures/valid/empty/index.json"
-	pp, err := ParsePackage(path)
+	path := "./fixtures/valid/empty"
+
+	bd, err := bundle.New(path)
+	require.NoError(t, err)
+
+	pp, err := ParseBundle(bd)
+	require.NoError(t, err)
+
 	p := pp.(*parserImpl)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
-	absPath := getAbsPath(path)
-	baseDir := filepath.Dir(absPath)
-
-	require.Equal(t, baseDir, p.BaseDir)
+	require.Equal(t, getAbsPath(path), p.BaseDir)
 	require.NotNil(t, p.Registry)
 	require.Empty(t, p.Registry.Total)
 	require.NotNil(t, p.RAML)
@@ -58,34 +64,37 @@ func Test_Invalid(t *testing.T) {
 	testCases := []testCase{
 		{
 			name:          "empty package",
-			fixturePath:   "./fixtures/invalid/empty/index.json",
+			fixturePath:   "./fixtures/invalid/empty",
 			expectedError: "error checking index file: missing app code",
 		},
 		{
 			name:          "missing file",
-			fixturePath:   "./fixtures/invalid/missing_files/index.json",
+			fixturePath:   "./fixtures/invalid/missing_files",
 			expectedError: "non_existent_file.raml: The system cannot find the file specified.",
 		},
 		{
 			name:          "duplicate type",
-			fixturePath:   "./fixtures/invalid/duplicate_type/index.json",
+			fixturePath:   "./fixtures/invalid/duplicate_type",
 			expectedError: "duplicate cti.cti: cti.a.p.unique_entity.v1.0",
 		},
 		{
 			name:          "duplicate instance",
-			fixturePath:   "./fixtures/invalid/duplicate_instance/index.json",
+			fixturePath:   "./fixtures/invalid/duplicate_instance",
 			expectedError: "duplicate cti entity cti.a.p.sample_entity.v1.0~a.p._.v1.0",
 		},
 		{
 			name:          "duplicate type instance",
-			fixturePath:   "./fixtures/invalid/duplicate_type_instance/index.json",
+			fixturePath:   "./fixtures/invalid/duplicate_type_instance",
 			expectedError: "duplicate cti entity cti.a.p.sample_entity.v1.0~a.p._.v1.0",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := ParsePackage(getAbsPath(tc.fixturePath))
+			bd, err := bundle.New(tc.fixturePath)
+			require.NoError(t, err)
+
+			_, err = ParseBundle(bd)
 			require.Error(t, err)
 			require.ErrorContains(t, err, tc.expectedError)
 		})
@@ -148,9 +157,10 @@ func generateGoldenFiles(t *testing.T, baseDir string, collections map[string]ct
 }
 
 func Test_ParseAnnotations(t *testing.T) {
-	path := "./fixtures/valid/annotations/index.json"
+	bd, err := bundle.New("./fixtures/valid/annotations")
+	require.NoError(t, err)
 
-	pp, err := ParsePackage(path)
+	pp, err := ParseBundle(bd)
 	p := pp.(*parserImpl)
 	require.NoError(t, err)
 	generateGoldenFiles(t, p.BaseDir, p.Registry.FragmentEntities)

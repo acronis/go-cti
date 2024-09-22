@@ -2,6 +2,8 @@ package bundle
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 )
 
 type Bundle struct {
@@ -11,7 +13,18 @@ type Bundle struct {
 	BaseDir string
 }
 
+// New creates a new bundle from the specified path.
+// If the path is empty, the current working directory is used.
 func New(path string) (*Bundle, error) {
+	if path == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("get current working directory: %w", err)
+		}
+		path = cwd
+	}
+	path = filepath.Join(path, IndexFileName)
+
 	idx, err := ReadIndexFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read index file: %w", err)

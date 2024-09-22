@@ -5,15 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
-
-	"github.com/acronis/go-raml/stacktrace"
 
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
 	"github.com/acronis/go-cti/pkg/bundle"
-	"github.com/acronis/go-cti/pkg/depman"
+	"github.com/acronis/go-cti/pkg/bunman"
+	"github.com/acronis/go-cti/pkg/slogex"
 )
 
 type cmd struct {
@@ -29,25 +26,22 @@ func New(opts cti.Options, targets []string) command.Command {
 }
 
 func (c *cmd) Execute(_ context.Context) error {
-	// workDir := filepath.Dir(c.targets[0])
-	workDir, err := os.Getwd()
+	bd, err := func() (*bundle.Bundle, error) {
+		if len(c.targets) == 0 {
+			slog.Info("Validating current bundle...")
+			return bundle.New("")
+		}
+		slog.Info(fmt.Sprintf("Validating bundle in %s...", c.targets[0]))
+		return bundle.New(c.targets[0])
+	}()
 	if err != nil {
-		return err
+		return fmt.Errorf("initialize a new bundle: %w", err)
 	}
 
-	p, err := depman.New(filepath.Join(workDir, bundle.IndexFileName))
-	if err != nil {
-		return err
-	}
-	errs := p.Validate()
-	if errs != nil {
+	// TODO: Validation for usage of indirect dependencies
+	if errs := bunman.Validate(bd); errs != nil {
 		for i := range errs {
-			err := errs[i]
-			if st, ok := stacktrace.Unwrap(err); ok {
-				slog.Error(fmt.Sprintf("Tracebacks:\n%s", st.Sprint(stacktrace.WithEnsureDuplicates())))
-			} else {
-				slog.Error(err.Error())
-			}
+			slog.Error("Validation error", slogex.ErrorWithTrace(errs[i]))
 		}
 		return errors.New("failed to validate the bundle")
 	}

@@ -31,15 +31,10 @@ type parserImpl struct {
 	RAML *raml.RAML
 }
 
-func ParsePackage(path string) (Parser, error) {
-	b, err := bundle.New(path)
-	if err != nil {
-		return nil, fmt.Errorf("create bundle: %w", err)
-	}
+func ParseBundle(bd *bundle.Bundle) (Parser, error) {
+	baseDir := bd.BaseDir
 
-	baseDir := b.BaseDir
-
-	r, err := raml.ParseFromString(b.Index.GenerateIndexRaml(false), "index.raml", baseDir, raml.OptWithValidate())
+	r, err := raml.ParseFromString(bd.Index.GenerateIndexRaml(false), "index.raml", baseDir, raml.OptWithValidate())
 	if err != nil {
 		return nil, fmt.Errorf("parse index.raml: %w", err)
 	}
@@ -56,9 +51,9 @@ func ParsePackage(path string) (Parser, error) {
 	}, nil
 }
 
-// Parse parses a single entity file
+// ParseFromPath parses a single entity file
 // Parser will take a path for example "/home/app-package/test.raml".
-func Parse(fPath string) (Parser, error) {
+func ParseFromPath(fPath string) (Parser, error) {
 	if !filepath.IsAbs(fPath) {
 		fPath, _ = filepath.Abs(fPath)
 	}
@@ -99,8 +94,8 @@ func ParseString(content string, fileName string, baseDir string) (Parser, error
 	}, nil
 }
 
-func BuildPackageCache(path string) error {
-	p, err := ParsePackage(path)
+func BuildPackageCache(bd *bundle.Bundle) error {
+	p, err := ParseBundle(bd)
 	if err != nil {
 		return fmt.Errorf("parse package: %w", err)
 	}

@@ -33,26 +33,30 @@ type Index struct {
 	FilePath string `json:"-"`
 }
 
-func ReadIndexFile(path string) (*Index, error) {
-	if !filepath.IsAbs(path) {
-		wd, _ := os.Getwd()
-		path = filepath.Join(wd, path)
+func ReadIndexFile(idxPath string) (*Index, error) {
+	if !filepath.IsAbs(idxPath) {
+		fixedPath, err := filepath.Abs(idxPath)
+		if err != nil {
+			return nil, fmt.Errorf("get absolute path: %w", err)
+		}
+		idxPath = fixedPath
 	}
-	file, err := os.Open(path)
+
+	file, err := os.Open(idxPath)
 	if err != nil {
-		return nil, fmt.Errorf("error opening index file: %w", err)
+		return nil, fmt.Errorf("open index file: %w", err)
 	}
 	defer file.Close()
 
 	idx, err := DecodeIndexFile(file)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding index file: %w", err)
+		return nil, fmt.Errorf("decode index file: %w", err)
 	}
 
-	idx.BaseDir = filepath.Dir(path)
-	idx.FilePath = path
+	idx.BaseDir = filepath.Dir(idxPath)
+	idx.FilePath = idxPath
 	if err := idx.Check(); err != nil {
-		return nil, fmt.Errorf("error checking index file: %w", err)
+		return nil, fmt.Errorf("check index file: %w", err)
 	}
 
 	return idx, nil
@@ -78,29 +82,29 @@ func DecodeIndexFile(file io.Reader) (*Index, error) {
 }
 
 func (idx *Index) Check() error {
-	for i, path := range idx.Apis {
-		if path == "" {
+	for i, p := range idx.Apis {
+		if p == "" {
 			return fmt.Errorf("$.apis[%d]: api path cannot be empty", i)
 		}
-		ext := filepath.Ext(path)
+		ext := filepath.Ext(p)
 		if ext != RAMLExt {
 			return fmt.Errorf("$.apis[%d]: invalid api path extension: %s", i, ext)
 		}
 	}
-	for i, path := range idx.Entities {
-		if path == "" {
+	for i, p := range idx.Entities {
+		if p == "" {
 			return fmt.Errorf("$.entities[%d]: entity path cannot be empty", i)
 		}
-		ext := filepath.Ext(path)
+		ext := filepath.Ext(p)
 		if ext != RAMLExt {
 			return fmt.Errorf("$.entities[%d]: invalid entity extension: %s", i, ext)
 		}
 	}
-	for i, path := range idx.Examples {
-		if path == "" {
+	for i, p := range idx.Examples {
+		if p == "" {
 			return fmt.Errorf("$.examples[%d]: example path cannot be empty", i)
 		}
-		ext := filepath.Ext(path)
+		ext := filepath.Ext(p)
 		if ext != RAMLExt {
 			return fmt.Errorf("$.examples[%d]: invalid example extension: %s", i, ext)
 		}
@@ -180,13 +184,13 @@ func (idx *Index) GetDictionaries() (Dictionaries, error) {
 	for _, dict := range idx.Dictionaries {
 		file, err := os.Open(path.Join(idx.BaseDir, dict))
 		if err != nil {
-			return Dictionaries{}, err
+			return Dictionaries{}, fmt.Errorf("open dictionary file: %w", err)
 		}
 		defer file.Close()
 
 		entry, err := ValidateDictionary(file)
 		if err != nil {
-			return Dictionaries{}, err
+			return Dictionaries{}, fmt.Errorf("validate dictionary: %w", err)
 		}
 		lang := filesys.GetBaseName(file.Name())
 		dictionaries.Dictionaries[LangCode(lang)] = entry
@@ -196,11 +200,11 @@ func (idx *Index) GetDictionaries() (Dictionaries, error) {
 }
 
 func ValidateDictionary(file *os.File) (Entry, error) {
-	var config Entry
 	decoder := json.NewDecoder(file)
-	err := decoder.Decode(&config)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding dictionary file: %w", err)
+
+	var config Entry
+	if err := decoder.Decode(&config); err != nil {
+		return nil, fmt.Errorf("decode dictionary file: %w", err)
 	}
 
 	return config, nil
