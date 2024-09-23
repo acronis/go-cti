@@ -25,8 +25,7 @@ import (
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
 	"github.com/acronis/go-cti/internal/pkg/execx"
-
-	"github.com/acronis/go-cti/pkg/slogex"
+	"github.com/acronis/go-stacktrace"
 
 	"github.com/dusted-go/logging/prettylog"
 	"github.com/mattn/go-isatty"
@@ -281,7 +280,7 @@ func mainFn() int {
 			slog.Error(`                |                   `)
 		}
 		if errors.As(err, &cmdErr) && cmdErr.Inner != nil {
-			slog.Error("Command failed", slogex.ErrorWithTrace(cmdErr.Inner))
+			slog.Error("Command failed", stacktrace.ErrToSlogAttr(cmdErr.Inner))
 		} else {
 			_ = rootCmd.Usage()
 		}

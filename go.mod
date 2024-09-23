@@ -7,7 +7,7 @@ toolchain go1.23.0
 require (
 	github.com/acronis/go-cti/pkg/identifier v1.0.0
 	github.com/acronis/go-raml v0.9.0
-	github.com/acronis/go-stacktrace v0.1.0
+	github.com/acronis/go-stacktrace v0.2.0
 	github.com/dusted-go/logging v1.3.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/samber/slog-formatter v1.1.0

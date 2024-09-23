@@ -10,7 +10,7 @@ import (
 	"github.com/acronis/go-cti/internal/pkg/command"
 	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/acronis/go-cti/pkg/bunman"
-	"github.com/acronis/go-cti/pkg/slogex"
+	"github.com/acronis/go-stacktrace"
 )
 
 type cmd struct {

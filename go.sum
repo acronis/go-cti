@@ -2,8 +2,8 @@ github.com/acronis/go-cti/pkg/identifier v1.0.0 h1:iGRP+UV4FbobDTM+cH9feihUl17KB
 github.com/acronis/go-cti/pkg/identifier v1.0.0/go.mod h1:ZsdPnq7a72g5d+kRQg2fCpdfmhhCd8moQzuNhY23YxM=
 github.com/acronis/go-raml v0.9.0 h1:5jvIInX44u9HDkqc7g7zJltUJsHaplQqG6aKcNnT50o=
 github.com/acronis/go-raml v0.9.0/go.mod h1:NwovfR4e7ufFaoH77/3U0f82lu6soXlNc+vdFfpik4A=
-github.com/acronis/go-stacktrace v0.1.0 h1:XtE2lmIOzD7sFYqct5Bo+YmjQ7RhvtazfETsMsETYvo=
-github.com/acronis/go-stacktrace v0.1.0/go.mod h1:FOvjPOpMOpJhNgt2adD+FEnOpzcOzUBeiRkPaAd2aLQ=
+github.com/acronis/go-stacktrace v0.2.0 h1:aUME2BnO2WwBpmidhSq+C2cCm6T0i7u1mwraetKPyjQ=
+github.com/acronis/go-stacktrace v0.2.0/go.mod h1:FOvjPOpMOpJhNgt2adD+FEnOpzcOzUBeiRkPaAd2aLQ=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=
 github.com/antlr4-go/antlr/v4 v4.13.1/go.mod h1:GKmUxMtwp6ZgGwZSva4eWPC5mS6vUAmOABFgjdkM7Nw=
 github.com/bahlo/generic-list-go v0.2.0 h1:5sz/EEAK+ls5wF+NeqDpk5+iNdMDXrh3z3nPnH1Wvgk=
