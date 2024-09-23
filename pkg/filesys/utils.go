@@ -88,9 +88,9 @@ func GetCtiBundlesCacheDir() (string, error) {
 	return pkgCacheDir, nil
 }
 
-func WalkDir(root, ext string) []string {
+func CollectFilesWithExt(root, ext string) ([]string, error) {
 	var files []string
-	filepath.WalkDir(root, func(file string, dir fs.DirEntry, err error) error {
+	if err := filepath.WalkDir(root, func(file string, dir fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -98,6 +98,8 @@ func WalkDir(root, ext string) []string {
 			files = append(files, file)
 		}
 		return nil
-	})
-	return files
+	}); err != nil {
+		return nil, fmt.Errorf("walk dir: %w", err)
+	}
+	return files, nil
 }

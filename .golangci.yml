@@ -21,6 +21,13 @@ linters-settings:
     statements: 50
   nakedret:
     max-func-lines: 40
+  revive:
+    rules:
+    - name: var-naming
+      disabled: true
+  stylecheck:
+    checks: ["all", "-ST1003"]
+
 
 linters:
   disable-all: true

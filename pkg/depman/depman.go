@@ -162,7 +162,12 @@ func (dm *dependencyManager) rewriteDepLinks(pkgPath, depName string) error {
 	orig := fmt.Sprintf("%s/%s", DependencyDirName, depName)
 	repl := fmt.Sprintf("%s/%s/%s", relPath, DependencyDirName, depName)
 
-	for _, file := range filesys.WalkDir(pkgPath, ".raml") {
+	files, err := filesys.CollectFilesWithExt(pkgPath, ".raml")
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
 		// TODO: Maybe read file line by line?
 		raw, err := os.ReadFile(file)
 		if err != nil {

@@ -34,13 +34,15 @@ func ParseWithCache(bd *bundle.Bundle) (*collector.CtiRegistry, error) {
 			return nil, fmt.Errorf("load cache file %s: %w", cacheFile, err)
 		}
 		for _, entity := range entities {
-			if entity.Values != nil {
+			switch {
+			case entity.Values != nil:
 				r.Instances[entity.Cti] = entity
-			} else if entity.Schema != nil {
+			case entity.Schema != nil:
 				r.Types[entity.Cti] = entity
-			} else {
+			default:
 				return nil, fmt.Errorf("invalid entity: %s", entity.Cti)
 			}
+
 			// TODO: Check for duplicates?
 			r.TotalIndex[entity.Cti] = entity
 			r.Total = append(r.Total, entity)
