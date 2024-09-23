@@ -1,15 +1,12 @@
 package filesys
 
 import (
-	"archive/zip"
 	"fmt"
-	"io"
 	"io/fs"
 	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/zeebo/xxh3"
 )
@@ -89,104 +86,6 @@ func GetCtiBundlesCacheDir() (string, error) {
 		}
 	}
 	return pkgCacheDir, nil
-}
-
-func OpenZipFile(source string, fpath string) ([]byte, error) {
-	reader, err := zip.OpenReader(source)
-	if err != nil {
-		return nil, fmt.Errorf("open zip file: %w", err)
-	}
-	defer reader.Close()
-
-	for _, file := range reader.File {
-		if file.Name != fpath {
-			continue
-		}
-
-		if file.FileInfo().IsDir() {
-			return nil, fmt.Errorf("specified file path %s is a directory", fpath)
-		}
-
-		rc, err := file.Open()
-		if err != nil {
-			return nil, fmt.Errorf("open file in archive: %w", err)
-		}
-		defer rc.Close()
-
-		return io.ReadAll(rc)
-	}
-
-	return nil, fmt.Errorf("failed to find %s in archive", fpath)
-}
-
-func UnzipToFS(source string, destination string) ([]string, error) {
-	var filenames []string
-
-	reader, err := zip.OpenReader(source)
-	if err != nil {
-		return filenames, err
-	}
-	defer reader.Close()
-
-	for _, file := range reader.File {
-		fpath := filepath.Join(destination, file.Name)
-
-		// ZipSlip mitigation (https://snyk.io/research/zip-slip-vulnerability)
-		if !strings.HasPrefix(fpath, filepath.Clean(destination)+string(os.PathSeparator)) {
-			return filenames, fmt.Errorf("illegal file path: %s", fpath)
-		}
-		if strings.Contains(fpath, "..") {
-			return filenames, fmt.Errorf("illegal file path: %s", fpath)
-		}
-
-		// Prevent symbolic links
-		if file.FileInfo().Mode()&os.ModeSymlink != 0 {
-			return filenames, fmt.Errorf("symbolic link found: %s", fpath)
-		}
-
-		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(fpath, os.ModePerm); err != nil {
-				return filenames, err
-			}
-			continue
-		}
-
-		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-			return filenames, err
-		}
-
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-		if err != nil {
-			return filenames, err
-		}
-
-		rc, err := file.Open()
-		if err != nil {
-			return filenames, err
-		}
-
-		// Limit the amount of data read to prevent zip bombs
-		const maxFileSize = 10 * 1024 * 1024 // 10MB
-		_, err = io.CopyN(outFile, rc, maxFileSize+1)
-		if err != nil && err != io.EOF {
-			return filenames, err
-		}
-		if err == nil {
-			return filenames, fmt.Errorf("file %s exceeds the maximum allowed size", fpath)
-		}
-
-		// Close the file without defer before next iteration of loop
-		_ = outFile.Close()
-		_ = rc.Close()
-
-		if err != io.EOF {
-			return filenames, err
-		}
-
-		filenames = append(filenames, file.Name)
-	}
-
-	return filenames, nil
 }
 
 func WalkDir(root, ext string) []string {

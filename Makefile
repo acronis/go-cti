@@ -17,10 +17,7 @@ TEST_DIRS = .
 all: lint cover
 
 .PHONY: lint
-lint: golangci-lint
-
-.PHONY: golangci-lint
-golangci-lint:
+lint: 
 	@$(foreach mod,$(MODULE_DIRS), \
 		(cd $(mod) && \
 		echo "[lint] golangci-lint: $(mod)" && \

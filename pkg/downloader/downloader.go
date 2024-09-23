@@ -130,7 +130,7 @@ func (dl *goLikeDownloader) Download(depends []string, replace bool) ([]string, 
 			}
 		}
 
-		if _, err = filesys.UnzipToFS(cacheZip, dest); err != nil {
+		if err := filesys.SecureUnzip(cacheZip, dest); err != nil {
 			return nil, nil, err
 		}
 

@@ -150,13 +150,13 @@ func (idx *Index) Save() error {
 	return os.WriteFile(idx.FilePath, data, 0600)
 }
 
-func (idx *Index) PutSerialized(file string) {
+func (idx *Index) PutSerialized(fName string) {
 	for _, f := range idx.Serialized {
-		if f == file {
+		if f == fName {
 			return
 		}
 	}
-	idx.Serialized = append(idx.Serialized, file)
+	idx.Serialized = append(idx.Serialized, fName)
 }
 
 func (idx *Index) GetEntities() ([]Entity, error) {

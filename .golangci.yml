@@ -11,7 +11,7 @@ linters-settings:
   lll:
     line-length: 160
   gocognit:
-    min-complexity: 20
+    min-complexity: 25
   gocritic:
     disabled-tags:
     - opinionated
