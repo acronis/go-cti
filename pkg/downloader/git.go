@@ -1,7 +1,6 @@
 package downloader
 
 import (
-	"fmt"
 	"log/slog"
 	"os/exec"
 	"strings"
@@ -10,7 +9,7 @@ import (
 // TODO: Maybe use go-git. But it doesn't have git archive...
 func gitArchive(remote string, ref string, destination string) error {
 	cmd := exec.Command("git", "archive", "--remote", remote, ref, "-o", destination)
-	slog.Info(fmt.Sprintf("Executing command: %s", cmd.String()))
+	slog.Info("Executing", slog.String("command", cmd.String()))
 	if _, err := cmd.Output(); err != nil {
 		return err
 	}
@@ -19,7 +18,7 @@ func gitArchive(remote string, ref string, destination string) error {
 
 func gitLsRemote(remote string, ref string) (string, error) {
 	cmd := exec.Command("git", "ls-remote", remote, ref)
-	slog.Info(fmt.Sprintf("Executing command: %s", cmd.String()))
+	slog.Info("Executing", slog.String("command", cmd.String()))
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

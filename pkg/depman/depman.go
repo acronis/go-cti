@@ -91,7 +91,7 @@ func (dm *dependencyManager) InstallNewDependencies(depends []string, replace bo
 		}
 		if !found {
 			dm.RootBundle.Index.Depends = append(dm.RootBundle.Index.Depends, depName)
-			slog.Info(fmt.Sprintf("Added %s as direct dependency", depName))
+			slog.Info("Added direct dependency", slog.String("bundle", depName))
 		}
 	}
 

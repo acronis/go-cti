@@ -35,7 +35,7 @@ func (c *cmd) Execute(_ context.Context) error {
 			slog.Info("Packing metadata for the current bundle...")
 			return bundle.New("")
 		}
-		slog.Info(fmt.Sprintf("Packing metadata for %s...", c.targets[0]))
+		slog.Info("Packing metadata", slog.String("target", c.targets[0]))
 		return bundle.New(c.targets[0])
 	}()
 	if err != nil {

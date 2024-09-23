@@ -60,7 +60,7 @@ func (c *cmd) Execute(_ context.Context) error {
 		deps = installed
 	}
 	if deps != nil {
-		slog.Info(fmt.Sprintf("Installed: %s", strings.Join(deps, ", ")))
+		slog.Info("Installed", slog.String("bundles", strings.Join(deps, ", ")))
 	} else {
 		slog.Info("Nothing to install.")
 	}

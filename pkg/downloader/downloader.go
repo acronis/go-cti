@@ -62,7 +62,7 @@ func (dl *goLikeDownloader) Download(depends []string, replace bool) ([]string, 
 		if len(m) == 0 {
 			return nil, nil, fmt.Errorf("find go-import at %s", source)
 		}
-		slog.Info(fmt.Sprintf("Discovered dependency %s", sourceName))
+		slog.Info("Discovered dependency", slog.String("bundle", sourceName))
 		_, _, sourceLocation := dl.parseGoQuery(m[len(m)-1])
 
 		// FIXME: This will only work with git source!
@@ -172,12 +172,12 @@ func (dl *goLikeDownloader) loadGitDependency(sourceName string, source string, 
 			return "", err
 		}
 		// TODO: Ref discovery
-		slog.Info(fmt.Sprintf("Cache miss. Loading from: %s", source))
+		slog.Info("Cache miss. Loading", slog.String("source", source))
 		if err = gitArchive(source, ref, cacheZip); err != nil {
 			return "", err
 		}
 	} else {
-		slog.Info(fmt.Sprintf("Cache hit. Loading %s from cache.", filename))
+		slog.Info("Cache hit. Loading cache.", slog.String("path", filename))
 	}
 	return cacheZip, nil
 }

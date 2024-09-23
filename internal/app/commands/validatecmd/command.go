@@ -31,7 +31,7 @@ func (c *cmd) Execute(_ context.Context) error {
 			slog.Info("Validating current bundle...")
 			return bundle.New("")
 		}
-		slog.Info(fmt.Sprintf("Validating bundle in %s...", c.targets[0]))
+		slog.Info("Validating", slog.String("bundle path", c.targets[0]))
 		return bundle.New(c.targets[0])
 	}()
 	if err != nil {
@@ -41,7 +41,7 @@ func (c *cmd) Execute(_ context.Context) error {
 	// TODO: Validation for usage of indirect dependencies
 	if errs := bunman.Validate(bd); errs != nil {
 		for i := range errs {
-			slog.Error("Validation error", slogex.ErrorWithTrace(errs[i]))
+			slog.Error("Validation error", stacktrace.ErrToSlogAttr(errs[i]))
 		}
 		return errors.New("failed to validate the bundle")
 	}
