@@ -43,7 +43,7 @@ func ErrorWithTrace(err error) slog.Attr {
 			stackAttr := slog.Group(key, slog.String("header", header), slog.String("message", message))
 			stackAttrs = append(stackAttrs, stackAttr)
 		}
-		tracebackAttr := slog.Group(fmt.Sprintf("%d", traceIndex), "stacks", stackAttrs)
+		tracebackAttr := slog.Group(fmt.Sprintf("%d", traceIndex), "stack", stackAttrs)
 		tracebackAttrs = append(tracebackAttrs, tracebackAttr)
 	}
 

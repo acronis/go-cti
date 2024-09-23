@@ -281,7 +281,7 @@ func mainFn() int {
 			slog.Error(`                |                   `)
 		}
 		if errors.As(err, &cmdErr) && cmdErr.Inner != nil {
-			slog.Error("Command failed", slogex.Error(cmdErr.Inner))
+			slog.Error("Command failed", slogex.ErrorWithTrace(cmdErr.Inner))
 		} else {
 			_ = rootCmd.Usage()
 		}
