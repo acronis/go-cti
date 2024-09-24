@@ -18,43 +18,33 @@ const (
 )
 
 type Index struct {
-	Type                 string      `json:"type"`
-	AppCode              string      `json:"app_code"`
-	Apis                 []string    `json:"apis,omitempty"`
-	Entities             []string    `json:"entities,omitempty"`
-	Assets               []string    `json:"assets,omitempty"`
-	Dictionaries         []string    `json:"dictionaries,omitempty"`
-	Depends              []string    `json:"depends,omitempty"`
-	Examples             []string    `json:"examples,omitempty"`
-	AdditionalProperties interface{} `json:"additional_properties,omitempty"`
-	Serialized           []string    `json:"serialized,omitempty"`
-
-	BaseDir  string `json:"-"`
-	FilePath string `json:"-"`
+	AppCode              string            `json:"app_code"`
+	RamlxVersion         string            `json:"ramlx_version"`
+	Apis                 []string          `json:"apis,omitempty"`
+	Entities             []string          `json:"entities,omitempty"`
+	Assets               []string          `json:"assets,omitempty"`
+	Dictionaries         []string          `json:"dictionaries,omitempty"`
+	Depends              map[string]string `json:"depends,omitempty"`
+	Examples             []string          `json:"examples,omitempty"`
+	AdditionalProperties interface{}       `json:"additional_properties,omitempty"`
+	Serialized           []string          `json:"serialized,omitempty"`
 }
 
-func ReadIndexFile(idxPath string) (*Index, error) {
-	if !filepath.IsAbs(idxPath) {
-		fixedPath, err := filepath.Abs(idxPath)
-		if err != nil {
-			return nil, fmt.Errorf("get absolute path: %w", err)
-		}
-		idxPath = fixedPath
-	}
+func ReadIndex(dirPath string) (*Index, error) {
+	return ReadIndexFile(path.Join(dirPath, IndexFileName))
+}
 
-	file, err := os.Open(idxPath)
+func ReadIndexFile(fPath string) (*Index, error) {
+	file, err := os.Open(fPath)
 	if err != nil {
 		return nil, fmt.Errorf("open index file: %w", err)
 	}
 	defer file.Close()
 
-	idx, err := DecodeIndexFile(file)
+	idx, err := DecodeIndex(file)
 	if err != nil {
 		return nil, fmt.Errorf("decode index file: %w", err)
 	}
-
-	idx.BaseDir = filepath.Dir(idxPath)
-	idx.FilePath = idxPath
 	if err := idx.Check(); err != nil {
 		return nil, fmt.Errorf("check index file: %w", err)
 	}
@@ -62,18 +52,9 @@ func ReadIndexFile(idxPath string) (*Index, error) {
 	return idx, nil
 }
 
-func UnmarshalIndexFile(v []byte) (*Index, error) {
+func DecodeIndex(input io.Reader) (*Index, error) {
 	var idx *Index
-	if err := json.Unmarshal(v, &idx); err != nil {
-		return nil, fmt.Errorf("error unmarshalling index file: %w", err)
-	}
-
-	return idx, nil
-}
-
-func DecodeIndexFile(file io.Reader) (*Index, error) {
-	var idx *Index
-	decoder := json.NewDecoder(file)
+	decoder := json.NewDecoder(input)
 	if err := decoder.Decode(&idx); err != nil {
 		return nil, fmt.Errorf("error decoding index file: %w", err)
 	}
@@ -86,8 +67,7 @@ func (idx *Index) Check() error {
 		if p == "" {
 			return fmt.Errorf("$.apis[%d]: api path cannot be empty", i)
 		}
-		ext := filepath.Ext(p)
-		if ext != RAMLExt {
+		if ext := filepath.Ext(p); ext != RAMLExt {
 			return fmt.Errorf("$.apis[%d]: invalid api path extension: %s", i, ext)
 		}
 	}
@@ -95,8 +75,7 @@ func (idx *Index) Check() error {
 		if p == "" {
 			return fmt.Errorf("$.entities[%d]: entity path cannot be empty", i)
 		}
-		ext := filepath.Ext(p)
-		if ext != RAMLExt {
+		if ext := filepath.Ext(p); ext != RAMLExt {
 			return fmt.Errorf("$.entities[%d]: invalid entity extension: %s", i, ext)
 		}
 	}
@@ -104,8 +83,7 @@ func (idx *Index) Check() error {
 		if p == "" {
 			return fmt.Errorf("$.examples[%d]: example path cannot be empty", i)
 		}
-		ext := filepath.Ext(p)
-		if ext != RAMLExt {
+		if ext := filepath.Ext(p); ext != RAMLExt {
 			return fmt.Errorf("$.examples[%d]: invalid example extension: %s", i, ext)
 		}
 	}
@@ -142,12 +120,8 @@ func (idx *Index) ToBytes() []byte {
 	return bytes
 }
 
-func (idx *Index) Save() error {
-	data, err := json.MarshalIndent(idx, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling index file: %w", err)
-	}
-	return os.WriteFile(idx.FilePath, data, 0600)
+func (idx *Index) Save(baseDir string) error {
+	return filesys.WriteJSON(filepath.Join(baseDir, IndexFileName), idx)
 }
 
 func (idx *Index) PutSerialized(fName string) {
@@ -174,38 +148,4 @@ func (idx *Index) GetEntities() ([]Entity, error) {
 
 func (idx *Index) GetAssets() []string {
 	return idx.Assets
-}
-
-func (idx *Index) GetDictionaries() (Dictionaries, error) {
-	dictionaries := Dictionaries{
-		Dictionaries: make(map[LangCode]Entry),
-	}
-
-	for _, dict := range idx.Dictionaries {
-		file, err := os.Open(path.Join(idx.BaseDir, dict))
-		if err != nil {
-			return Dictionaries{}, fmt.Errorf("open dictionary file: %w", err)
-		}
-		defer file.Close()
-
-		entry, err := ValidateDictionary(file)
-		if err != nil {
-			return Dictionaries{}, fmt.Errorf("validate dictionary: %w", err)
-		}
-		lang := filesys.GetBaseName(file.Name())
-		dictionaries.Dictionaries[LangCode(lang)] = entry
-	}
-
-	return dictionaries, nil
-}
-
-func ValidateDictionary(file *os.File) (Entry, error) {
-	decoder := json.NewDecoder(file)
-
-	var config Entry
-	if err := decoder.Decode(&config); err != nil {
-		return nil, fmt.Errorf("decode dictionary file: %w", err)
-	}
-
-	return config, nil
 }

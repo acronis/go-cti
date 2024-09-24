@@ -12,7 +12,6 @@ import (
 	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/cti"
-	"github.com/acronis/go-cti/pkg/parser"
 )
 
 const (
@@ -43,7 +42,7 @@ func writeIndex(bd *bundle.Bundle, zipWriter *zip.Writer) error {
 	}
 
 	idx := bd.Index.Clone()
-	idx.PutSerialized(parser.MetadataCacheFile)
+	idx.PutSerialized(bundle.MetadataCacheFile)
 
 	if _, err = w.Write(idx.ToBytes()); err != nil {
 		return fmt.Errorf("write index to bundle: %w", err)

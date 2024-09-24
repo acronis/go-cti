@@ -97,6 +97,7 @@ func main() {
 func mainFn() int {
 	opts := cti.Options{}
 	var verbosity int
+	var ensureDuplicates bool
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer stop()
 
@@ -162,8 +163,6 @@ func mainFn() int {
 				return InitLoggingAndRun(ctx, verbosity, getcmd.New(opts, getOpts, args))
 			},
 		}
-
-		cmd.Flags().BoolVarP(&getOpts.Replace, "replace", "r", false, "Replace bundle source on conflict.")
 
 		return cmd
 	}()
@@ -242,7 +241,9 @@ func mainFn() int {
 			},
 		}
 
-		cmd.PersistentFlags().CountVarP(&verbosity, "verbose", "v", "Log with info log level.")
+		cmd.PersistentFlags().CountVarP(&verbosity, "verbosity", "v", "increase verbosity level: -v for debug")
+		cmd.Flags().BoolVarP(&ensureDuplicates, "ensure-duplicates", "d", false,
+			"ensure that there are no duplicates in tracebacks")
 
 		cmd.AddCommand(
 			cmdPack,
@@ -280,7 +281,11 @@ func mainFn() int {
 			slog.Error(`                |                   `)
 		}
 		if errors.As(err, &cmdErr) && cmdErr.Inner != nil {
-			slog.Error("Command failed", stacktrace.ErrToSlogAttr(cmdErr.Inner))
+			stOpts := []stacktrace.TracesOpt{}
+			if ensureDuplicates {
+				stOpts = append(stOpts, stacktrace.WithEnsureDuplicates())
+			}
+			slog.Error("Command failed", stacktrace.ErrToSlogAttr(cmdErr.Inner, stOpts...))
 		} else {
 			_ = rootCmd.Usage()
 		}

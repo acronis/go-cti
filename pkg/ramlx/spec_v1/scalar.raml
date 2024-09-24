@@ -1,0 +1,223 @@
+#%RAML 1.0 Library
+
+# This library defines a set of common scalar types
+
+types:
+
+  # Strings with different lengths
+
+  string8:
+    type: string
+    description: The string value with maximum length of 8 characters.
+    maxLength: 8
+
+  string16:
+    type: string
+    description: The string value with maximum length of 16 characters.
+    maxLength: 16
+
+  string32:
+    type: string
+    description: The string value with maximum length of 32 characters.
+    maxLength: 32
+
+  string64:
+    type: string
+    description: The string value with maximum length of 64 characters.
+    maxLength: 64
+
+  string128:
+    type: string
+    description: The string value with maximum length of 128 characters.
+    maxLength: 128
+
+  string255:
+    type: string
+    description: The string value with maximum length of 255 characters.
+    maxLength: 255
+
+  string256:
+    type: string
+    description: The string value with maximum length of 256 characters.
+    maxLength: 256
+
+  string512:
+    type: string
+    description: The string value with maximum length of 512 characters.
+    maxLength: 512
+
+  string1K: string1024
+
+  string2K: string2048
+
+  string4K: string4096
+
+  string8K: string8192
+
+  string16K: string16384
+
+  string32K: string32768
+
+  # It is not recommended to use strings longer than 64K
+  string64K: string65536
+
+  string1024:
+    type: string
+    description: The string value with maximum length of 1024 characters.
+    maxLength: 1024
+
+  string2048:
+    type: string
+    description: The string value with maximum length of 2048 characters.
+    maxLength: 2048
+
+  string4096:
+    type: string
+    description: The string value with maximum length of 4096 characters.
+    maxLength: 4096
+
+  string8192:
+    type: string
+    description: The string value with maximum length of 8192 characters.
+    maxLength: 8192
+
+  string16384:
+    type: string
+    description: The string value with maximum length of 16384 characters.
+    maxLength: 16384
+
+  string32768:
+    type: string
+    description: The string value with maximum length of 32768 characters.
+    maxLength: 32768
+
+  string65536:
+    type: string
+    description: The string value with maximum length of 65536 characters.
+    maxLength: 65536
+
+  # Language tag(s)
+
+  LangCode:
+    type: string8
+    pattern: "^[a-z]{2}(-[A-Z]{2}|-[A-Z]{1}[a-z]{3})$"
+    description: |-
+      The language name defined using [BCP 47 language tag](https://www.ietf.org/rfc/bcp/bcp47.html). It should be in form of `<primary language tag>-(<region subtag> or <script subtag>)` where:
+        - `<primary language tag>` will follow two letter language code as defined by [ISO 639-1](https://www.loc.gov/standards/iso639-2/php/code_list.php), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_639-1) for easy explanation
+        - `<region subtag>` will follow 2-letter country code as defined by [ISO 3166-1 Alpha-2 code](https://www.iso.org/obp/ui/#search), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) for simple explanation
+        - `<script subtag>` will follow 4-letter script code as defined by [ISO 15924](https://www.unicode.org/iso15924/iso15924-codes.html), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_15924) for easy explanation
+
+        e.g.
+        - `en-US` - U.S. English
+        - `pt-BR` - Brazil Portuguese
+        - `pt-PT` - Portugal Portuguese
+        - `zh-TW` - Traditional Chinese
+        - `zh-CN` - Simplified Chinese
+
+      Prefer using `<region subtag>` over `<script subtag>` for language localization.
+
+      Acronis Cyber Cloud supported languages are listed at [here](https://kb.acronis.com/content/25954#For_service_providers0).
+
+  # Integers with different ranges, Go-style
+
+  uint8:
+    type: integer
+    maximum: 255
+    minimum: 0
+    description: "Unsigned 8-bit integer"
+
+  uint16:
+    type: integer
+    maximum: 65535
+    minimum: 0
+    description: "Unsigned 16-bit integer"
+
+  uint32:
+    type: integer
+    maximum: 4294967295
+    minimum: 0
+    description: "Unsigned 32-bit integer"
+
+  uint64:
+    type: integer
+    maximum: 18446744073709551615
+    minimum: 0
+    description: "Unsigned 64-bit integer"
+
+  int8:
+    type: integer
+    maximum: 127
+    minimum: -128
+    description: "Signed 8-bit integer"
+
+  int16:
+    type: integer
+    maximum: 32767
+    minimum: -32768
+    description: "Signed 16-bit integer"
+
+  int32:
+    type: integer
+    maximum: 2147483647
+    minimum: -2147483648
+    description: "Signed 32-bit integer"
+
+  int64:
+    type: integer
+    maximum: 9223372036854775807
+    minimum: -9223372036854775808
+    description: "Signed 64-bit integer"
+
+  # Floating point numbers with different precisions, Go-style
+
+  float8:
+    type: number
+    format: float
+    description: "8-bit floating point number"
+    maximum: 127
+    minimum: -128
+
+  float16:
+    type: number
+    format: float
+    description: "16-bit floating point number"
+    maximum: 65504
+    minimum: -65504
+
+  float32:
+    type: number
+    format: float
+    description: "32-bit floating point number"
+    maximum: 3.4028235e+38
+    minimum: -3.4028235e+38
+    examples:
+      1: 3.14159
+      2: 1.0e-10
+
+  float64:
+    type: number
+    format: double
+    description: "64-bit floating point number"
+    maximum: 1.7976931348623157e+308
+    minimum: -1.7976931348623157e+308
+    examples:
+      1: 3.14159
+      2: 1.0e-10
+
+  # Byte and rune types, Go-style
+
+  byte: int8
+
+  rune: int32
+
+  # Boolean types
+
+  True:
+    type: boolean
+    enum: [true]
+    description: "Boolean value `true` only"
+
+  False:
+    type: boolean
+    enum: [false]
+    description: "Boolean value `false` only"

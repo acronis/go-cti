@@ -1,0 +1,53 @@
+package depman
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func Test_replaceCaptureGroup(t *testing.T) {
+	type testCase struct {
+		input  string
+		output string
+	}
+
+	for _, tc := range []testCase{
+		{
+			input:  "123123 .dep/123/323",
+			output: "123123 ../.dep/123/323",
+		},
+		{
+			input:  ".dep/123/dsd",
+			output: "../.dep/123/dsd",
+		},
+		{
+			input:  "123123 ../.dep/123/323",
+			output: "123123 ../../.dep/123/323",
+		},
+		{
+			input:  "123123 .dep/123/323 ../.dep/123/323",
+			output: "123123 ../.dep/123/323 ../../.dep/123/323",
+		},
+		{
+			input:  "123123 .dep123/323",
+			output: "123123 .dep123/323",
+		},
+		{
+			input:  "123123",
+			output: "123123",
+		},
+		{
+			input:  ".dep/",
+			output: "../.dep/",
+		},
+		{
+			input:  "  bundle_1: ../.dep/mock.bundle1/foo.raml",
+			output: "  bundle_1: ../../.dep/mock.bundle1/foo.raml",
+		},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			require.Equal(t, tc.output, replaceCaptureGroup(patchDepsRe, tc.input, "../.dep", 1))
+		})
+	}
+}

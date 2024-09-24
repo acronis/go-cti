@@ -1,0 +1,10 @@
+{
+  "app_code": "mock.bundle2",
+  "app_name": "Bundle 2",
+  "app_version": "1.2.3",
+  
+  "ramlx_version": "v0.1.0",
+  "depends": {
+    "mock@b1": "v1.0.0"
+  }
+}

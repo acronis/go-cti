@@ -1,4 +1,4 @@
-package bundle_test
+package bundle
 
 import (
 	"encoding/json"
@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,11 +21,11 @@ func TestConfig_IsValid_OK(t *testing.T) {
 	defer os.Remove(tempFilePath)
 
 	file, err := os.Open(tempFilePath)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer file.Close()
 
-	_, err = bundle.DecodeIndexFile(file)
-	require.Nil(t, err)
+	_, err = DecodeIndex(file)
+	require.NoError(t, err)
 }
 
 func TestConfig_IsValid_Err(t *testing.T) {
@@ -35,10 +34,10 @@ func TestConfig_IsValid_Err(t *testing.T) {
 	defer os.Remove(tempFilePath)
 
 	file, err := os.Open(tempFilePath)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer file.Close()
 
-	_, err = bundle.DecodeIndexFile(file)
+	_, err = DecodeIndex(file)
 	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal object into Go struct field Config.entities of type []string")
 }
 
@@ -46,8 +45,8 @@ func TestOpenIndexFile_OK(t *testing.T) {
 	tempFilePath, _ := getTempIndexJson()
 	defer os.Remove(tempFilePath)
 
-	config, err := bundle.ReadIndexFile("json")
-	require.Nil(t, err)
+	config, err := ReadIndexFile("json")
+	require.NoError(t, err)
 	require.NotNil(t, config)
 }
 
@@ -55,13 +54,13 @@ func TestOpenIndexFile_err(t *testing.T) {
 	tempFilePath, _ := getTmpJsonFile("nonIndex.json")
 	defer os.Remove(tempFilePath)
 
-	_, err := bundle.ReadIndexFile(tempFilePath)
+	_, err := ReadIndexFile(tempFilePath)
 	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.BundleIndex")
 }
 
 func TestOpenIndexFile_err2(t *testing.T) {
 	nonExistenceFile := "nonExistenceFile.json"
-	_, err := bundle.ReadIndexFile(nonExistenceFile)
+	_, err := ReadIndexFile(nonExistenceFile)
 	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.BundleIndex")
 }
 
@@ -70,10 +69,10 @@ func TestValidateIndex_Err(t *testing.T) {
 	defer os.Remove(tempFilePath)
 
 	file, err := os.Open(tempFilePath)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer file.Close()
 
-	_, err = bundle.DecodeIndexFile(file)
+	_, err = DecodeIndex(file)
 	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.BundleIndex")
 }
 
@@ -94,11 +93,11 @@ func TestValidateIndex_OK(t *testing.T) {
 	defer os.Remove(tempFilePath)
 
 	file, err := os.Open(tempFilePath)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer file.Close()
 
-	config, err := bundle.DecodeIndexFile(file)
-	require.Nil(t, err)
+	config, err := DecodeIndex(file)
+	require.NoError(t, err)
 	require.NotNil(t, config)
 }
 
@@ -147,35 +146,39 @@ func createTestFile(filePath string, content []byte) error {
 }
 
 func TestGetEntities(t *testing.T) {
+	// TODO rework
 	path := getIndexFilePath()
-	idx, _ := bundle.ReadIndexFile(path)
+	idx, _ := ReadIndexFile(path)
 	entities, err := idx.GetEntities()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.NotEmpty(t, entities)
 
 	jsonOutput, err := json.Marshal(entities)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotEmpty(t, jsonOutput)
 }
 
 func TestGetAssets(t *testing.T) {
+	// TODO rework
 	path := getIndexFilePath()
-	idx, _ := bundle.ReadIndexFile(path)
+	idx, _ := ReadIndexFile(path)
 	assets := idx.GetAssets()
 
 	require.Empty(t, assets)
 }
 
 func TestGetDictionaries(t *testing.T) {
-	path := getIndexFilePath()
-	idx, _ := bundle.ReadIndexFile(path)
-	dictionaries, err := idx.GetDictionaries()
-	require.Nil(t, err)
+	// TODO rework
+	bd := New(getIndexFilePath())
+	require.NoError(t, bd.Read())
+
+	dictionaries, err := bd.GetDictionaries()
+	require.NoError(t, err)
 	require.NotEmpty(t, dictionaries)
 
 	jsonOutput, err := json.Marshal(dictionaries)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotEmpty(t, jsonOutput)
 }
 
@@ -193,11 +196,11 @@ func TestValidateDictionary_OK(t *testing.T) {
 	defer os.Remove(tempFilePath)
 
 	file, err := os.Open(tempFilePath)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer file.Close()
 
-	config, err := bundle.ValidateDictionary(file)
-	require.Nil(t, err)
+	config, err := validateDictionary(file)
+	require.NoError(t, err)
 	require.NotNil(t, config)
 }
 
@@ -206,9 +209,9 @@ func TestValidateDictionary_Err(t *testing.T) {
 	defer os.Remove(tempFilePath)
 
 	file, err := os.Open(tempFilePath)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer file.Close()
 
-	_, err = bundle.ValidateDictionary(file)
+	_, err = validateDictionary(file)
 	require.Errorf(t, err, "error decoding dictionary file: json: cannot unmarshal string into Go value of type models.Entry")
 }

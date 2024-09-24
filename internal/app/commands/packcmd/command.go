@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/acronis/go-cti/internal/app/cti"
 	"github.com/acronis/go-cti/internal/pkg/command"
@@ -30,16 +31,24 @@ func New(opts cti.Options, packOpts PackOptions, targets []string) command.Comma
 }
 
 func (c *cmd) Execute(_ context.Context) error {
-	bd, err := func() (*bundle.Bundle, error) {
+	bundlePath, err := func() (string, error) {
 		if len(c.targets) == 0 {
-			slog.Info("Packing metadata for the current bundle...")
-			return bundle.New("")
+			cwd, err := os.Getwd()
+			if err != nil {
+				return "", fmt.Errorf("get current working directory: %w", err)
+			}
+			return cwd, nil
 		}
-		slog.Info("Packing metadata", slog.String("target", c.targets[0]))
-		return bundle.New(c.targets[0])
+		return c.targets[0], nil
 	}()
 	if err != nil {
-		return fmt.Errorf("initialize a new bundle: %w", err)
+		return fmt.Errorf("get bundle path: %w", err)
+	}
+
+	slog.Info("Packing bundle", slog.String("path", bundlePath))
+	bd := bundle.New(bundlePath)
+	if err := bd.Read(); err != nil {
+		return fmt.Errorf("read bundle: %w", err)
 	}
 
 	filename, err := bunman.Pack(bd, c.packOpts.IncludeSource)
