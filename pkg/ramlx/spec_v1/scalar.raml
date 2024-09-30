@@ -96,28 +96,6 @@ types:
     description: The string value with maximum length of 65536 characters.
     maxLength: 65536
 
-  # Language tag(s)
-
-  LangCode:
-    type: string8
-    pattern: "^[a-z]{2}(-[A-Z]{2}|-[A-Z]{1}[a-z]{3})$"
-    description: |-
-      The language name defined using [BCP 47 language tag](https://www.ietf.org/rfc/bcp/bcp47.html). It should be in form of `<primary language tag>-(<region subtag> or <script subtag>)` where:
-        - `<primary language tag>` will follow two letter language code as defined by [ISO 639-1](https://www.loc.gov/standards/iso639-2/php/code_list.php), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_639-1) for easy explanation
-        - `<region subtag>` will follow 2-letter country code as defined by [ISO 3166-1 Alpha-2 code](https://www.iso.org/obp/ui/#search), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) for simple explanation
-        - `<script subtag>` will follow 4-letter script code as defined by [ISO 15924](https://www.unicode.org/iso15924/iso15924-codes.html), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_15924) for easy explanation
-
-        e.g.
-        - `en-US` - U.S. English
-        - `pt-BR` - Brazil Portuguese
-        - `pt-PT` - Portugal Portuguese
-        - `zh-TW` - Traditional Chinese
-        - `zh-CN` - Simplified Chinese
-
-      Prefer using `<region subtag>` over `<script subtag>` for language localization.
-
-      Acronis Cyber Cloud supported languages are listed at [here](https://kb.acronis.com/content/25954#For_service_providers0).
-
   # Integers with different ranges, Go-style
 
   uint8:
@@ -221,3 +199,41 @@ types:
     type: boolean
     enum: [false]
     description: "Boolean value `false` only"
+
+  # Date and time types
+  
+  duration:
+    description: >
+      Duration format compliant to [ISO 8606](https://en.wikipedia.org/wiki/ISO_8601#Durations).
+      See regex with unit tests [here](https://regex101.com/r/A2fis4).
+
+    type: string
+    pattern: ^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$
+    examples: 
+      1: PT1S
+      2: P2M
+      3: P30D
+      4: P1Y2WT5S
+      5: PT0S
+      6: P1W
+      7: P1Y2M3W4DT12H45M93S
+
+  # Language tag(s)
+
+  langCode:
+    type: string8
+    pattern: "^[a-z]{2}(-[A-Z]{2}|-[A-Z]{1}[a-z]{3})$"
+    description: |-
+      The language name defined using [BCP 47 language tag](https://www.ietf.org/rfc/bcp/bcp47.html). It should be in form of `<primary language tag>-(<region subtag> or <script subtag>)` where:
+        - `<primary language tag>` will follow two letter language code as defined by [ISO 639-1](https://www.loc.gov/standards/iso639-2/php/code_list.php), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_639-1) for easy explanation
+        - `<region subtag>` will follow 2-letter country code as defined by [ISO 3166-1 Alpha-2 code](https://www.iso.org/obp/ui/#search), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) for simple explanation
+        - `<script subtag>` will follow 4-letter script code as defined by [ISO 15924](https://www.unicode.org/iso15924/iso15924-codes.html), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_15924) for easy explanation
+
+        e.g.
+        - `en-US` - U.S. English
+        - `pt-BR` - Brazil Portuguese
+        - `pt-PT` - Portugal Portuguese
+        - `zh-TW` - Traditional Chinese
+        - `zh-CN` - Simplified Chinese
+
+      Prefer using `<region subtag>` over `<script subtag>` for language localization.

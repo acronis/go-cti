@@ -54,11 +54,6 @@ annotationTypes:
       Following annotation could be applied to the field with `object` type to define that this object schema should conform schema of cti type referenced
       in annotation value. It is an error if entity CTI is provided as a value.
 
-  indexed: # TODO introduce annotations for Type trait fields
-    type: boolean
-    description: >
-      If set for a type field defines that field should be indexed by backend service
-
   embed:
     type: string
     description: >
@@ -75,25 +70,6 @@ annotationTypes:
       in instances of such type.
     allowedTargets: TypeDeclaration
 
-  meta:
-    type: string
-    description: |
-      indicates that property value set from referenced instance. Annotation should contain string in JsonQuery format, e.g.
-       that the field is reference to other field in linked object, e.g.
-        `.topic.description` - the value of `description` field used in instance referenced in `topic` property.
-
-      Only properties with (reference) annotation could referenced in query.
-      Type traits could be referenced with `$traits` keyword.
-      ?TODO? Recursive references (not?) allowed, e.g. `.$traits.topic.description`
-    allowedTargets: TypeDeclaration
-
-  hidden:
-    type: boolean
-    description: >
-      describe `hidden` fields that should not be presented in service API but defined to support CTI queries
-    default: false
-    allowedTargets: TypeDeclaration
-
   asset:
     type: boolean
     description: >
@@ -102,38 +78,10 @@ annotationTypes:
     default: false
     allowedTargets: TypeDeclaration
 
-  l10n:
-    type: boolean
-    description: |
-      Indicates field with this annotation may be localized, dictionary key would be the value in english language of this field.
-      It will be used in conjuction with type `L10NType`. Types with fields supporting localization needs to support `L10NType`'s interface.
-    allowedTargets: TypeDeclaration
-
-  #
-  # RAML extension.
-  #
-  propertyNames:
-    type: object
-    description: >
-      Equivalent to JsonSchema draft 6 `propertyNames` facet.
-      https://json-schema.org/understanding-json-schema/reference/object.html#property-names
-
-  unevaluatedProperties:
-    type: boolean
-    description: |
-      If set to false restricts child type to have additional properties in schema.
-
-      Same as unevaluatedProperties keyword in Json schema draft 2019-09
-      https://json-schema.org/understanding-json-schema/reference/object.html#unevaluatedproperties
-    default: false
-    allowedTargets: TypeDeclaration
-
-
 types:
   CTI:
-    type: string
+    type: scalar.string1024
     pattern: ^cti\.([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+)(~([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+))*(~[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12})?$
-    maxLength: 1024
     description: |
       ID used in Cyber Application to uniquely identify an entity either type or instance.
 
@@ -155,14 +103,13 @@ types:
       4: cti.a.p.xx.v1.0~vendor.app.yy.v1.0
       5: cti.a.p.wr.report_config.v1.0~a.p.mc.alerts_report.v1.0
       6: cti.a.p.wm.workload.v1.0~a.p.wm.aspect.v1.0~a.p.machine.v1.0
-      7: cti.a.p.stm.s3_buckets_pool.v1.0~my_vendor.my_app.assests.v1.0
+      7: cti.a.p.stm.s3_buckets_pool.v1.0~my_vendor.my_app.assets.v1.0
 
   CTIWildcard:
-    type: string
-    maxLength: 1024
+    type: scalar.string1024
     pattern: ^cti((\.([a-z][a-z0-9_]*))|\.)?(\.([a-z][a-z0-9_]*))?(\.([a-z_][a-z0-9_.]*))?(\.v(\d+|\d*\.\d*|\d*\.)?)?(~(([a-z][a-z0-9_]*)|([a-z][a-z0-9_]*)\.)?(\.([a-z][a-z0-9_]*))?(\.([a-z_][a-z0-9_.]*))?(\.v(\d+|\d*\.\d*|\d*\.)?)?)*\*$|^cti\.([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+)(~([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+))*(~[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12})?$
     description: |
-      CTI with wildcard support, where the wilcard `*` can only be used as the final character of a segment.
+      CTI with wildcard support, where the wildcard `*` can only be used as the final character of a segment.
     examples:
       1: cti.a.p.wr.report_config.v1.0
       2: cti.a.p.wr.report_config.v1.0~a.p.mc.alerts_report.v1.0
@@ -190,8 +137,7 @@ types:
       24: cti.a.p.wr.report_config.v1.0~a.p.mc.alerts_report.v1.0~a.p.mc.alerts_report.v1.*
 
   CTIAttribute:
-    type: string
-    maxLength: 1024
+    type: scalar.string1024
     pattern: ^cti\.([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+)(~([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+))*(~[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12})?@[\w.]+$
     description: |
       To reference attributes in CTI, use a path notation separated by `@`, with object properties divided by `.`.
