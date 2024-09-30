@@ -1,0 +1,15 @@
+#%RAML 1.0 Library
+#
+# Fixture for testing the use of a library with a relative path
+#
+
+uses:
+  cti: .ramlx/cti.raml
+
+types:
+  FooType:
+    (cti.cti): cti.mock.bundle1.foo.v1.0
+
+    additionalProperties: false
+    properties:
+      field_a: string

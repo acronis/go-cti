@@ -10,37 +10,37 @@ import (
 	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/depman"
-	"github.com/acronis/go-cti/pkg/parser"
 )
 
 func ParseWithCache(bd *bundle.Bundle) (*collector.CtiRegistry, error) {
-	p, err := parser.ParseBundle(bd)
-	if err != nil {
+	if err := bd.Parse(); err != nil {
 		return nil, fmt.Errorf("parse bundle: %w", err)
 	}
 
-	if err := p.DumpCache(); err != nil {
+	if err := bd.DumpCache(); err != nil {
 		return nil, fmt.Errorf("dump cache: %w", err)
 	}
 
 	// Make a shallow clone of the resulting registry to make an enriched registry
-	r := p.GetRegistry().Clone()
+	r := bd.Registry.Clone()
 
-	for _, dep := range bd.IndexLock.Bundles {
-		cacheFile := filepath.Join(bd.BaseDir, depman.DependencyDirName, dep.AppCode, parser.MetadataCacheFile)
+	for _, dep := range bd.IndexLock.SourceInfo {
+		cacheFile := filepath.Join(bd.BaseDir, depman.DependencyDirName, dep.AppCode, bundle.MetadataCacheFile)
 		// TODO: Automatically rebuild cache if missing?
 		entities, err := loadEntitiesFromCache(cacheFile)
 		if err != nil {
 			return nil, fmt.Errorf("load cache file %s: %w", cacheFile, err)
 		}
 		for _, entity := range entities {
-			if entity.Values != nil {
+			switch {
+			case entity.Values != nil:
 				r.Instances[entity.Cti] = entity
-			} else if entity.Schema != nil {
+			case entity.Schema != nil:
 				r.Types[entity.Cti] = entity
-			} else {
+			default:
 				return nil, fmt.Errorf("invalid entity: %s", entity.Cti)
 			}
+
 			// TODO: Check for duplicates?
 			r.TotalIndex[entity.Cti] = entity
 			r.Total = append(r.Total, entity)

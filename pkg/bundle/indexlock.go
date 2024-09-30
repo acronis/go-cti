@@ -1,11 +1,11 @@
 package bundle
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/acronis/go-cti/pkg/filesys"
 )
 
 const (
@@ -15,22 +15,14 @@ const (
 
 type IndexLock struct {
 	Version string `json:"version"`
-	// Reverse map: key - application code, value - SourceInfo
-	Sources map[string]SourceInfo `json:"sources"`
-	// Direct map: key - source, value - BundleInfo
-	Bundles map[string]Info `json:"bundles"`
-
-	BaseDir  string `json:"-"`
-	FilePath string `json:"-"`
+	// Reverse map: key - application code, value - source
+	DependentBundles map[string]string `json:"depends"`
+	// Direct map: key - source, value - Info
+	SourceInfo map[string]Info `json:"dependsInfo"`
 }
 
-func (idx *IndexLock) Save() error {
-	data, err := json.MarshalIndent(idx, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal index lock: %w", err)
-	}
-
-	return os.WriteFile(idx.FilePath, data, 0600)
+func (idx *IndexLock) Save(baseDir string) error {
+	return filesys.WriteJSON(filepath.Join(baseDir, IndexLockFileName), idx)
 }
 
 type SourceInfo struct {
@@ -38,37 +30,25 @@ type SourceInfo struct {
 }
 
 type Info struct {
-	Name      string   `json:"name"`
-	AppCode   string   `json:"app_code"`
-	Version   string   `json:"version"`
-	Integrity string   `json:"integrity"`
-	Source    string   `json:"source"`
-	Depends   []string `json:"depends"`
+	AppCode         string            `json:"app_code"`
+	Version         string            `json:"version"`
+	Integrity       string            `json:"integrity"`
+	Source          string            `json:"source"`
+	SourceIntegrity string            `json:"source_integrity"`
+	Depends         map[string]string `json:"depends"`
 }
 
-func MakeIndexLock(pkgDir string) (*IndexLock, error) {
+func ReadIndexLock(pkgDir string) (*IndexLock, error) {
 	filePath := filepath.Join(pkgDir, IndexLockFileName)
 	idxLock := &IndexLock{
-		Version:  IndexLockVersion,
-		Sources:  make(map[string]SourceInfo),
-		Bundles:  make(map[string]Info),
-		BaseDir:  pkgDir,
-		FilePath: filePath,
+		Version:          IndexLockVersion,
+		DependentBundles: make(map[string]string),
+		SourceInfo:       make(map[string]Info),
 	}
 
-	if data, err := os.ReadFile(filePath); err == nil {
-		if err = json.Unmarshal(data, idxLock); err != nil {
-			return nil, fmt.Errorf("unmarshal index lock: %w", err)
-		}
+	if err := filesys.ReadJSON(filePath, idxLock); os.IsNotExist(err) {
+		return nil, fmt.Errorf("read index lock: %w", err)
 	}
 
 	return idxLock, nil
-}
-
-func ParseIndexDependency(dep string) (string, string) {
-	parts := strings.Split(dep, " ")
-	if len(parts) == 1 {
-		return parts[0], ""
-	}
-	return parts[0], parts[1]
 }

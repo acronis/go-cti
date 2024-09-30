@@ -1,0 +1,17 @@
+#%RAML 1.0 Library
+#
+# Fixture for testing the use of a library with a relative path
+#
+
+uses:
+  cti: .ramlx/cti.raml
+  bundle_2: .dep/mock.bundle2/foo/bar.raml
+
+types:
+  QuxType:
+    type: bundle_2.BarType
+    (cti.cti): cti.mock.bundle1.foo.v1.0~mock.bundle2.bar.v1.0~mock.bundle3.qux.v1.0
+
+    additionalProperties: false
+    properties:
+      field_c: boolean

@@ -30,7 +30,8 @@ func (c *Collector) unwrapCtiType(s *raml.ObjectShape, history []raml.Shape) (ra
 		// Alias simply points to another shape, so we just change the name and return it as is.
 		us.Base().Name = base.Name
 		return us, nil
-	} else if base.Link != nil {
+	}
+	if base.Link != nil {
 		us, err := c.unwrapCtiType((*base.Link.Shape).(*raml.ObjectShape), history)
 		if err != nil {
 			return nil, fmt.Errorf("link unwrap: %w", err)
