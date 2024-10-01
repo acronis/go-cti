@@ -1,4 +1,4 @@
-package godownloader
+package gitstorage
 
 import (
 	"fmt"

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/acronis/go-cti/pkg/downloader"
+	"github.com/acronis/go-cti/pkg/storage"
 
 	"github.com/otiai10/copy"
 )
@@ -15,15 +15,33 @@ type mockDownloader struct {
 	version string
 }
 
-func (m *mockDownloader) Discover(source string, version string) (downloader.DownloadFn, downloader.Info, error) {
+type mockInfo struct {
+	Version string
+}
+
+func (i *mockInfo) Validate(o storage.Origin) error {
+	oi, ok := o.(*mockInfo)
+	if !ok {
+		return fmt.Errorf("origin is not a mockInfo")
+	}
+
+	if i.Version != oi.Version {
+		return fmt.Errorf("version mismatch: %s != %s", i.Version, oi.Version)
+	}
+
+	return nil
+}
+
+func (m *mockDownloader) Origin() storage.Origin {
+	return &mockInfo{}
+}
+
+func (m *mockDownloader) Discover(source string, version string) (storage.DownloadFn, storage.Origin, error) {
 	m.source = source
 	m.version = version
 
-	return m.download, downloader.Info{
-		VCS:  "mock",
-		URL:  "mock:" + source + "@" + version,
-		Hash: "mock-hash",
-		Ref:  version,
+	return m.download, &mockInfo{
+		Version: version,
 	}, nil
 }
 

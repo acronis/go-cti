@@ -10,7 +10,7 @@ import (
 )
 
 func (dm *dependencyManager) downloadDependency(source, version string) (CachedDependencyInfo, error) {
-	downloadFn, info, err := dm.Downloader.Discover(source, version)
+	downloadFn, info, err := dm.Storage.Discover(source, version)
 	if err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("discover source %s version %s: %w", source, version, err)
 	}

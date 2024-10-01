@@ -5,6 +5,8 @@ go 1.22.6
 toolchain go1.23.0
 
 require (
+	github.com/acronis/go-cti/pkg/identifier v1.0.0
+	github.com/acronis/go-cti/pkg/ramlx v0.0.0-20240930161533-2ce9cb06b81e
 	github.com/acronis/go-raml v0.9.0
 	github.com/acronis/go-stacktrace v0.2.0
 	github.com/dusted-go/logging v1.3.0
@@ -18,6 +20,7 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/zeebo/xxh3 v1.0.2
+	golang.org/x/mod v0.21.0
 )
 
 require (
@@ -25,6 +28,7 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
