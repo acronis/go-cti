@@ -5,9 +5,9 @@ import (
 	"log/slog"
 
 	"github.com/acronis/go-cti/pkg/bundle"
-	"github.com/acronis/go-cti/pkg/downloader"
-	"github.com/acronis/go-cti/pkg/downloader/godownloader"
 	"github.com/acronis/go-cti/pkg/filesys"
+	"github.com/acronis/go-cti/pkg/storage"
+	"github.com/acronis/go-cti/pkg/storage/gitstorage"
 )
 
 const (
@@ -27,7 +27,7 @@ type Option func(*dependencyManager)
 
 type dependencyManager struct {
 	BundlesDir string
-	Downloader downloader.Downloader
+	Storage    storage.Storage
 }
 
 func New(options ...Option) (DependencyManager, error) {
@@ -37,8 +37,8 @@ func New(options ...Option) (DependencyManager, error) {
 		o(depman)
 	}
 
-	if depman.Downloader == nil {
-		depman.Downloader = godownloader.New()
+	if depman.Storage == nil {
+		depman.Storage = gitstorage.New()
 	}
 	if depman.BundlesDir == "" {
 		cacheDir, err := filesys.GetCtiBundlesCacheDir()
@@ -51,9 +51,9 @@ func New(options ...Option) (DependencyManager, error) {
 	return depman, nil
 }
 
-func WithDownloader(dl downloader.Downloader) Option {
+func WithDownloader(st storage.Storage) Option {
 	return func(dm *dependencyManager) {
-		dm.Downloader = dl
+		dm.Storage = st
 	}
 }
 
@@ -64,6 +64,7 @@ func WithBundlesCache(cacheDir string) Option {
 }
 
 func (dm *dependencyManager) Add(bd *bundle.Bundle, depends map[string]string) error {
+	// Validate dependencies
 	if err := dm.installDependencies(bd, depends); err != nil {
 		return fmt.Errorf("install dependencies: %w", err)
 	}
@@ -101,10 +102,10 @@ func (dm *dependencyManager) Install(bd *bundle.Bundle) error {
 func (dm *dependencyManager) Download(depends map[string]string) ([]CachedDependencyInfo, error) {
 	installed := []CachedDependencyInfo{}
 	subDepends := map[string]string{}
-	for source, tag := range depends {
-		info, err := dm.downloadDependency(source, tag)
+	for source, version := range depends {
+		info, err := dm.downloadDependency(source, version)
 		if err != nil {
-			return nil, fmt.Errorf("download dependency %s %s: %w", source, tag, err)
+			return nil, fmt.Errorf("download dependency %s %s: %w", source, version, err)
 		}
 
 		installed = append(installed, info)

@@ -1,15 +1,17 @@
-package godownloader
+package gitstorage
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/acronis/go-cti/pkg/downloader"
 	"github.com/acronis/go-cti/pkg/filesys"
+	"github.com/acronis/go-cti/pkg/storage"
+
+	"golang.org/x/mod/semver"
 )
 
-type downloaderImpl struct {
+type storageImpl struct {
 	name string
 	ref  string
 
@@ -17,38 +19,46 @@ type downloaderImpl struct {
 	commitHash string
 }
 
-func New() downloader.Downloader {
-	return &downloaderImpl{}
+func New() storage.Storage {
+	return &storageImpl{}
 }
 
-func (g *downloaderImpl) Discover(name string, version string) (downloader.DownloadFn, downloader.Info, error) {
+func (g *storageImpl) Origin() storage.Origin {
+	return &gitInfo{}
+}
+
+func (g *storageImpl) Discover(name string, version string) (storage.DownloadFn, storage.Origin, error) {
+	if !semver.IsValid(version) {
+		return nil, nil, fmt.Errorf("invalid version %s", version)
+	}
+
 	source := fmt.Sprintf("https://%s", name)
 	body, err := discoverSource(source)
 	if err != nil {
-		return nil, downloader.Info{}, fmt.Errorf("discover source at %s: %w", source, err)
+		return nil, nil, fmt.Errorf("discover source at %s: %w", source, err)
 	}
 
 	m := goImportRe.FindStringSubmatch(string(body))
 	if len(m) == 0 {
-		return nil, downloader.Info{}, fmt.Errorf("find go-import at %s", source)
+		return nil, nil, fmt.Errorf("find go-import at %s", source)
 	}
 	_, _, sourceLocation := parseGoQuery(m[len(m)-1])
-
+	// TODO: use module.PseudoVersion() to get commit hash
 	commitHash, err := gitLsRemote(sourceLocation, version)
 	if err != nil {
-		return nil, downloader.Info{}, fmt.Errorf("git ls-remote: %w", err)
+		return nil, nil, fmt.Errorf("git ls-remote: %w", err)
 	}
 	if commitHash == "" {
-		return nil, downloader.Info{}, fmt.Errorf("failed to find %s %s", sourceLocation, version)
+		return nil, nil, fmt.Errorf("failed to find %s %s", sourceLocation, version)
 	}
 
-	impl := &downloaderImpl{
+	impl := &storageImpl{
 		name:       name,
 		ref:        version,
 		location:   sourceLocation,
 		commitHash: commitHash,
 	}
-	return impl.download, downloader.Info{
+	return impl.download, &gitInfo{
 		VCS:  "git",
 		URL:  sourceLocation,
 		Hash: commitHash,
@@ -56,7 +66,7 @@ func (g *downloaderImpl) Discover(name string, version string) (downloader.Downl
 	}, nil
 }
 
-func (g *downloaderImpl) download(cacheDir string) (string, error) {
+func (g *storageImpl) download(cacheDir string) (string, error) {
 	filename := fmt.Sprintf("%s-%s-%s.zip", filepath.Base(g.name), g.ref, g.commitHash[:8])
 	cacheZip := filepath.Join(cacheDir, filepath.Dir(g.name), filename)
 

@@ -2,13 +2,12 @@ package depman
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/acronis/go-cti/pkg/bundle"
-	"github.com/acronis/go-cti/pkg/downloader"
 	"github.com/acronis/go-cti/pkg/filesys"
+	"github.com/acronis/go-cti/pkg/storage"
 )
 
 /*
@@ -25,9 +24,9 @@ import (
 */
 
 type SourceIntegrityInfo struct {
-	Version string          `json:"Version"`
-	Time    string          `json:"Time"`
-	Origin  downloader.Info `json:"Origin"`
+	Version string         `json:"Version"`
+	Time    string         `json:"Time"`
+	Origin  storage.Origin `json:"Origin"`
 }
 
 func (inf *SourceIntegrityInfo) Read(dm *dependencyManager, source string, version string) error {
@@ -96,43 +95,30 @@ func (inf *BundleIntegrityInfo) Write(dm *dependencyManager, appCode string, ver
 	return nil
 }
 
-func (dm *dependencyManager) validateSourceInformation(source string, version string, info downloader.Info) error {
-	sourceInfo := SourceIntegrityInfo{}
+func (dm *dependencyManager) validateSourceInformation(source string, version string, info storage.Origin) error {
+	sourceInfo := SourceIntegrityInfo{
+		Origin: dm.Storage.Origin(), // required for proper parsing
+	}
 	if err := sourceInfo.Read(dm, source, version); err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
-
 		return fmt.Errorf("read source info: %w", err)
 	}
 
-	valid := true
-	if sourceInfo.Origin.VCS != info.VCS {
-		slog.Error("vcs mismatch", slog.String("known", sourceInfo.Origin.VCS), slog.String("new", info.VCS))
-		valid = false
-	}
-	if sourceInfo.Origin.URL != info.URL {
-		slog.Error("url mismatch", slog.String("known", sourceInfo.Origin.URL), slog.String("new", info.URL))
-		valid = false
-	}
-	if sourceInfo.Origin.Hash != info.Hash {
-		slog.Error("hash mismatch", slog.String("known", sourceInfo.Origin.Hash), slog.String("new", info.Hash))
-		valid = false
-	}
-	if sourceInfo.Origin.Ref != info.Ref {
-		slog.Error("ref mismatch", slog.String("known", sourceInfo.Origin.Ref), slog.String("new", info.Ref))
-		valid = false
-	}
-	if !valid {
-		return fmt.Errorf("integrity check failed, please see logs for details")
+	if err := sourceInfo.Origin.Validate(info); err != nil {
+		return fmt.Errorf("integrity check failed: %w", err)
 	}
 
 	return nil
 }
 
 // Check source and bundle integrity cache and update both
-func (dm *dependencyManager) updateDependencyCache(source string, version string, info downloader.Info, depDir string, depIdx *bundle.Index) error {
-	sourceInfo := SourceIntegrityInfo{}
+func (dm *dependencyManager) updateDependencyCache(source string, version string, info storage.Origin, depDir string, depIdx *bundle.Index) error {
+	sourceInfo := SourceIntegrityInfo{
+		Origin: dm.Storage.Origin(), // required for proper parsing
+	}
+
 	if err := sourceInfo.Read(dm, source, version); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("read source info: %w", err)
@@ -153,7 +139,7 @@ func (dm *dependencyManager) updateDependencyCache(source string, version string
 	}
 
 	// move dependency from cache to the dependencies directory, calculate directory integrity information
-	// TODO save additional downloader specific information
+	// TODO save additional storage specific information
 
 	bundleInfo := BundleIntegrityInfo{}
 	if err := bundleInfo.Read(dm, depIdx.AppCode, version); err != nil {
