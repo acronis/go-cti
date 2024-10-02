@@ -2,7 +2,6 @@ package validatecmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"github.com/acronis/go-cti/internal/pkg/command"
 	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/acronis/go-cti/pkg/bunman"
-	"github.com/acronis/go-stacktrace"
 )
 
 type cmd struct {
@@ -48,11 +46,8 @@ func (c *cmd) Execute(_ context.Context) error {
 	}
 
 	// TODO: Validation for usage of indirect dependencies
-	if errs := bunman.Validate(bd); errs != nil {
-		for i := range errs {
-			slog.Error("Validation error", stacktrace.ErrToSlogAttr(errs[i]))
-		}
-		return errors.New("failed to validate the bundle")
+	if err := bunman.Validate(bd); err != nil {
+		return fmt.Errorf("validate bundle: %w", err)
 	}
 	slog.Info("No errors found")
 	return nil
