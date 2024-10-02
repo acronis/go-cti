@@ -10,6 +10,7 @@ import (
 
 	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/identifier"
+	"github.com/acronis/go-stacktrace"
 
 	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/merger"
@@ -54,19 +55,18 @@ func (v *CtiValidator) Reset() {
 	v.entities = nil
 }
 
-// func (v *CtiValidator) AddEntity(entity CtiEntity) {}
-
-func (v *CtiValidator) ValidateAll() []error {
-	var errors []error
+func (v *CtiValidator) ValidateAll() error {
+	st := stacktrace.StackTrace{}
 	for i := range v.entities {
 		entity := v.entities[i]
 		if err := v.Validate(entity); err != nil {
-			errors = append(errors, err)
+			_ = st.Append(stacktrace.NewWrapped("validation failed", err, entity.Cti, stacktrace.WithType("validation")))
 		}
 	}
-	if len(errors) > 0 {
-		return errors
+	if len(st.List) > 0 {
+		return &st
 	}
+
 	return nil
 }
 

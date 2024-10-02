@@ -281,10 +281,13 @@ func mainFn() int {
 			slog.Error(`                |                   `)
 		}
 		if errors.As(err, &cmdErr) && cmdErr.Inner != nil {
-			stOpts := []stacktrace.TracesOpt{}
-			if ensureDuplicates {
-				stOpts = append(stOpts, stacktrace.WithEnsureDuplicates())
-			}
+			stOpts := func() []stacktrace.TracesOpt {
+				if ensureDuplicates {
+					return []stacktrace.TracesOpt{stacktrace.WithEnsureDuplicates()}
+				}
+				return []stacktrace.TracesOpt{}
+			}()
+
 			slog.Error("Command failed", stacktrace.ErrToSlogAttr(cmdErr.Inner, stOpts...))
 		} else {
 			_ = rootCmd.Usage()
