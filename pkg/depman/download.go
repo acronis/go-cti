@@ -10,7 +10,7 @@ import (
 )
 
 func (dm *dependencyManager) downloadDependency(source, version string) (CachedDependencyInfo, error) {
-	downloadFn, info, err := dm.Storage.Discover(source, version)
+	info, err := dm.Storage.Discover(source, version)
 	if err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("discover source %s version %s: %w", source, version, err)
 	}
@@ -34,7 +34,7 @@ func (dm *dependencyManager) downloadDependency(source, version string) (CachedD
 	}
 	defer os.RemoveAll(cacheDir)
 
-	depDir, err := downloadFn(cacheDir)
+	depDir, err := info.Download(cacheDir)
 	if err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("download bundle: %w", err)
 	}
