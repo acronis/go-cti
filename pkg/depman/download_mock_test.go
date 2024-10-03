@@ -11,11 +11,10 @@ import (
 )
 
 type mockDownloader struct {
-	source  string
-	version string
 }
 
 type mockInfo struct {
+	Name    string
 	Version string
 }
 
@@ -32,32 +31,30 @@ func (i *mockInfo) Validate(o storage.Origin) error {
 	return nil
 }
 
-func (m *mockDownloader) Origin() storage.Origin {
-	return &mockInfo{}
-}
-
-func (m *mockDownloader) Discover(source string, version string) (storage.DownloadFn, storage.Origin, error) {
-	m.source = source
-	m.version = version
-
-	return m.download, &mockInfo{
-		Version: version,
-	}, nil
-}
-
-func (m *mockDownloader) download(dst string) (string, error) {
-	src := filepath.Join("fixtures", "storage", m.source, m.version)
+func (i *mockInfo) Download(dst string) (string, error) {
+	src := filepath.Join("fixtures", "storage", i.Name, i.Version)
 	if _, err := os.Stat(src); err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("bundle source %s with version %s not found", m.source, m.version)
+			return "", fmt.Errorf("bundle name %s with version %s not found", i.Name, i.Version)
 		}
 		return "", fmt.Errorf("stat %s: %w", src, err)
 	}
 
 	target := filepath.Join(dst, "bundle")
 	if err := copy.Copy(src, target); err != nil {
-		return "", fmt.Errorf("copy %s to %s: %w", m.source, target, err)
+		return "", fmt.Errorf("copy %s to %s: %w", i.Name, target, err)
 	}
 
 	return target, nil
+}
+
+func (m *mockDownloader) Origin() storage.Origin {
+	return &mockInfo{}
+}
+
+func (m *mockDownloader) Discover(name string, version string) (storage.Origin, error) {
+	return &mockInfo{
+		Name:    name,
+		Version: version,
+	}, nil
 }

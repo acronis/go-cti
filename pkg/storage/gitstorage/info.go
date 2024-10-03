@@ -2,11 +2,15 @@ package gitstorage
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/acronis/go-cti/pkg/filesys"
 	"github.com/acronis/go-cti/pkg/storage"
 )
 
 type gitInfo struct {
+	Name string `json:"Name"`
 	VCS  string `json:"VCS"`
 	URL  string `json:"URL"`
 	Hash string `json:"Hash"`
@@ -33,4 +37,25 @@ func (i *gitInfo) Validate(o storage.Origin) error {
 	}
 
 	return nil
+}
+
+func (i *gitInfo) Download(cacheDir string) (string, error) {
+	filename := fmt.Sprintf("%s-%s-%s.zip", filepath.Base(i.Name), i.Ref, i.Hash[:8])
+	cacheZip := filepath.Join(cacheDir, filepath.Dir(i.Name), filename)
+
+	// TODO: download by commit hash not by ref
+	if err := gitArchive(i.URL, i.Ref, cacheZip); err != nil {
+		return "", err
+	}
+
+	destDir := filepath.Join(cacheDir, "bundle")
+	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
+		return "", err
+	}
+
+	if err := filesys.SecureUnzip(cacheZip, destDir); err != nil {
+		return "", fmt.Errorf("unzip %s to %s: %w", cacheZip, destDir, err)
+	}
+
+	return destDir, nil
 }
