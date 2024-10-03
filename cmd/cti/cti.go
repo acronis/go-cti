@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 
+	"github.com/acronis/go-cti/internal/app/command"
 	"github.com/acronis/go-cti/internal/app/commands/depcmd"
 	"github.com/acronis/go-cti/internal/app/commands/deploycmd"
 	"github.com/acronis/go-cti/internal/app/commands/envcmd"
@@ -21,9 +22,6 @@ import (
 	"github.com/acronis/go-cti/internal/app/commands/restcmd"
 	"github.com/acronis/go-cti/internal/app/commands/testcmd"
 	"github.com/acronis/go-cti/internal/app/commands/validatecmd"
-	"github.com/acronis/go-cti/internal/app/commands/versioncmd"
-	"github.com/acronis/go-cti/internal/app/cti"
-	"github.com/acronis/go-cti/internal/pkg/command"
 	"github.com/acronis/go-cti/internal/pkg/execx"
 	"github.com/acronis/go-stacktrace"
 
@@ -33,29 +31,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type CommandError struct {
-	Inner error
-	Msg   string
-}
-
-func (e *CommandError) Error() string {
-	return fmt.Sprintf("%s: %v", e.Msg, e.Inner)
-}
-
-func (e *CommandError) Unwrap() error {
-	return e.Inner
-}
-
-func NewCommandError(err error, msg string) error {
-	if err != nil {
-		return &CommandError{Inner: err, Msg: msg}
-	}
-	return nil
-}
-
-func InitLoggingAndRun(ctx context.Context, verbosity int, cmd command.Command) error {
+func initLogging(verbose bool) {
 	logLvl := func() slog.Level {
-		if verbosity > 0 {
+		if verbose {
 			return slog.LevelDebug
 		}
 		return slog.LevelInfo
@@ -70,11 +48,7 @@ func InitLoggingAndRun(ctx context.Context, verbosity int, cmd command.Command) 
 				return slog.StringValue(strings.Join(s, ","))
 			}),
 		)(
-			prettylog.New(&slog.HandlerOptions{
-				Level:       logLvl,
-				AddSource:   false,
-				ReplaceAttr: nil,
-			},
+			prettylog.New(&slog.HandlerOptions{Level: logLvl},
 				prettylog.WithDestinationWriter(w),
 				func() prettylog.Option {
 					if isatty.IsTerminal(w.Fd()) {
@@ -86,149 +60,20 @@ func InitLoggingAndRun(ctx context.Context, verbosity int, cmd command.Command) 
 		),
 	)
 	slog.SetDefault(logger)
-
-	return NewCommandError(cmd.Execute(ctx), "command error")
 }
+
+const (
+	verboseFlag = "verbose"
+)
 
 func main() {
 	os.Exit(mainFn())
 }
 
 func mainFn() int {
-	opts := cti.Options{}
-	var verbosity int
 	var ensureDuplicates bool
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer stop()
-
-	cmdPack := func() *cobra.Command {
-		packOpts := packcmd.PackOptions{}
-		cmd := &cobra.Command{
-			Use:   "pack",
-			Short: "pack cti bundle",
-			Args:  cobra.MinimumNArgs(0),
-			RunE: func(_ *cobra.Command, args []string) error {
-				return InitLoggingAndRun(ctx, verbosity, packcmd.New(opts, packOpts, args))
-			},
-		}
-
-		cmd.Flags().BoolVarP(&packOpts.IncludeSource, "include-source", "s", false, "Include source files in the resulting bundle.")
-
-		return cmd
-	}()
-
-	cmdDep := &cobra.Command{
-		Use:   "dep",
-		Short: "tool to manage cti dependencies",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, depcmd.New(opts, args))
-		},
-	}
-
-	cmdDeploy := &cobra.Command{
-		Use:   "deploy",
-		Short: "build and deploy cti bundle and dependencies to testing stand or production",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, deploycmd.New(opts, args))
-		},
-	}
-
-	cmdEnv := &cobra.Command{
-		Use:   "env",
-		Short: "print cti environment information",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, envcmd.New(opts, args))
-		},
-	}
-
-	cmdFmt := &cobra.Command{
-		Use:   "fmt",
-		Short: "cti fmt (reformat) cti sources",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, fmtcmd.New(opts, args))
-		},
-	}
-
-	cmdGet := func() *cobra.Command {
-		getOpts := getcmd.GetOptions{}
-		cmd := &cobra.Command{
-			Use:   "get",
-			Short: "tool to download cti bundles from a remote repository",
-			Args:  cobra.MinimumNArgs(0),
-			RunE: func(_ *cobra.Command, args []string) error {
-				return InitLoggingAndRun(ctx, verbosity, getcmd.New(opts, getOpts, args))
-			},
-		}
-
-		return cmd
-	}()
-
-	cmdInfo := &cobra.Command{
-		Use:   "info",
-		Short: "print detailed information for cti bundle",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, infocmd.New(opts, args))
-		},
-	}
-
-	cmdInit := &cobra.Command{
-		Use:   "init",
-		Short: "generate cti project with default dependencies",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, initcmd.New(opts, args))
-		},
-	}
-
-	cmdLint := &cobra.Command{
-		Use:   "lint",
-		Short: "lint cti bundle",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, lintcmd.New(opts, args))
-		},
-	}
-
-	cmdRest := &cobra.Command{
-		Use:   "rest",
-		Short: "run http server to expose restful api",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, restcmd.New(opts, args))
-		},
-	}
-
-	cmdTest := &cobra.Command{
-		Use:   "test",
-		Short: "test cti bundle",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, testcmd.New(opts, args))
-		},
-	}
-
-	cmdValidate := &cobra.Command{
-		Use:   "validate",
-		Short: "validate cti",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, validatecmd.New(opts, args))
-		},
-	}
-
-	cmdVersion := &cobra.Command{
-		Use:   "version",
-		Short: "print a version of tool",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return InitLoggingAndRun(ctx, verbosity, versioncmd.New(opts, args))
-		},
-	}
 
 	rootCmd := func() *cobra.Command {
 		cmd := &cobra.Command{
@@ -236,35 +81,53 @@ func mainFn() int {
 			Short:         "cti is a tool for managing cti projects",
 			SilenceUsage:  true,
 			SilenceErrors: true,
+			PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+				verbose, err := cmd.Flags().GetBool(verboseFlag)
+				if err != nil {
+					fmt.Printf("Failed to get verbosity flag: %v\n", err)
+					os.Exit(1)
+				}
+
+				initLogging(verbose)
+			},
 			CompletionOptions: cobra.CompletionOptions{
 				DisableDefaultCmd: true,
 			},
 		}
 
-		cmd.PersistentFlags().CountVarP(&verbosity, "verbosity", "v", "increase verbosity level: -v for debug")
-		cmd.Flags().BoolVarP(&ensureDuplicates, "ensure-duplicates", "d", false,
-			"ensure that there are no duplicates in tracebacks")
+		command.AddWorkDirFlag(cmd)
+
+		cmd.Flags().BoolP(verboseFlag, "v", false, "verbose output")
+		cmd.Flags().BoolVarP(&ensureDuplicates, "ensure-duplicates", "d", false, "ensure that there are no duplicates in tracebacks")
 
 		cmd.AddCommand(
-			cmdPack,
-			cmdDep,
-			cmdDeploy,
-			cmdEnv,
-			cmdFmt,
-			cmdGet,
-			cmdInfo,
-			cmdInit,
-			cmdLint,
-			cmdRest,
-			cmdTest,
-			cmdValidate,
-			cmdVersion,
+			packcmd.New(ctx),
+			depcmd.New(ctx),
+			deploycmd.New(ctx),
+			envcmd.New(ctx),
+			fmtcmd.New(ctx),
+			getcmd.New(ctx),
+			infocmd.New(ctx),
+			initcmd.New(ctx),
+			lintcmd.New(ctx),
+			restcmd.New(ctx),
+			testcmd.New(ctx),
+			validatecmd.New(ctx),
+			&cobra.Command{
+				Use:   "version",
+				Short: "print a version of tool",
+				Args:  cobra.MinimumNArgs(0),
+				RunE: func(_ *cobra.Command, args []string) error {
+					// TODO: implement in-place solution
+					return nil
+				},
+			},
 		)
 		return cmd
 	}()
 
 	if err := rootCmd.Execute(); err != nil {
-		var cmdErr *CommandError
+		var cmdErr *command.Error
 		var execError *execx.ExecutionError
 		if errors.As(err, &execError) {
 			slog.Error(`                ^                   `)

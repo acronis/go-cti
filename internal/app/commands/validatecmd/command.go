@@ -4,43 +4,34 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 
-	"github.com/acronis/go-cti/internal/app/cti"
-	"github.com/acronis/go-cti/internal/pkg/command"
+	"github.com/acronis/go-cti/internal/app/command"
+
 	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/acronis/go-cti/pkg/bunman"
+
+	"github.com/spf13/cobra"
 )
 
-type cmd struct {
-	opts    cti.Options
-	targets []string
-}
-
-func New(opts cti.Options, targets []string) command.Command {
-	return &cmd{
-		opts:    opts,
-		targets: targets,
-	}
-}
-
-func (c *cmd) Execute(_ context.Context) error {
-	bundlePath, err := func() (string, error) {
-		if len(c.targets) == 0 {
-			cwd, err := os.Getwd()
+func New(ctx context.Context) *cobra.Command {
+	return &cobra.Command{
+		Use:   "validate",
+		Short: "validate cti",
+		Args:  cobra.MinimumNArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			baseDir, err := command.GetWorkingDir(cmd)
 			if err != nil {
-				return "", fmt.Errorf("get current working directory: %w", err)
+				return fmt.Errorf("get base directory: %w", err)
 			}
-			return cwd, nil
-		}
-		return c.targets[0], nil
-	}()
-	if err != nil {
-		return fmt.Errorf("get bundle path: %w", err)
-	}
 
-	slog.Info("Validating bundle", slog.String("path", bundlePath))
-	bd := bundle.New(bundlePath)
+			return command.WrapError(execute(ctx, baseDir))
+		},
+	}
+}
+
+func execute(ctx context.Context, baseDir string) error {
+	slog.Info("Validating bundle", slog.String("path", baseDir))
+	bd := bundle.New(baseDir)
 	if err := bd.Read(); err != nil {
 		return fmt.Errorf("read bundle: %w", err)
 	}

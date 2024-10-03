@@ -2,23 +2,30 @@ package initcmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
-	"github.com/acronis/go-cti/internal/app/cti"
-	"github.com/acronis/go-cti/internal/pkg/command"
+	"github.com/acronis/go-cti/internal/app/command"
+
+	"github.com/spf13/cobra"
 )
 
-type cmd struct {
-	opts    cti.Options
-	targets []string
-}
+func New(ctx context.Context) *cobra.Command {
+	return &cobra.Command{
+		Use:   "init",
+		Short: "generate cti project with default dependencies",
+		Args:  cobra.MinimumNArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			baseDir, err := command.GetWorkingDir(cmd)
+			if err != nil {
+				return fmt.Errorf("get base directory: %w", err)
+			}
 
-func New(opts cti.Options, targets []string) command.Command {
-	return &cmd{
-		opts:    opts,
-		targets: targets,
+			return command.WrapError(execute(ctx, baseDir))
+		},
 	}
 }
 
-func (c *cmd) Execute(_ context.Context) error {
-	return nil
+func execute(ctx context.Context, baseDir string) error {
+	return errors.New("not implemented")
 }

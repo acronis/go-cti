@@ -4,50 +4,37 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 
-	"github.com/acronis/go-cti/internal/app/cti"
-	"github.com/acronis/go-cti/internal/pkg/command"
+	"github.com/acronis/go-cti/internal/app/command"
 	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/acronis/go-cti/pkg/depman"
+	"github.com/spf13/cobra"
 )
 
-type cmd struct {
-	opts    cti.Options
-	getOpts GetOptions
-	targets []string
-}
-
-type GetOptions struct {
-}
-
-func New(opts cti.Options, getOpts GetOptions, targets []string) command.Command {
-	return &cmd{
-		opts:    opts,
-		getOpts: getOpts,
-		targets: targets,
-	}
-}
-
-func (c *cmd) Execute(_ context.Context) error {
-	bundlePath, err := func() (string, error) {
-		if len(c.targets) == 0 {
-			cwd, err := os.Getwd()
+func New(ctx context.Context) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get",
+		Short: "tool to download cti bundles from a remote repository",
+		Args:  cobra.MinimumNArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			baseDir, err := command.GetWorkingDir(cmd)
 			if err != nil {
-				return "", fmt.Errorf("get current working directory: %w", err)
+				return fmt.Errorf("get base directory: %w", err)
 			}
-			return cwd, nil
-		}
-		return c.targets[0], nil
-	}()
-	if err != nil {
-		return fmt.Errorf("get bundle path: %w", err)
+
+			return command.WrapError(execute(ctx, baseDir, args))
+		},
 	}
+}
 
-	slog.Info("Get depends for bundle", slog.String("path", bundlePath))
+func execute(_ context.Context, baseDir string, targets []string) error {
+	slog.Info("Get depends for bundle",
+		slog.String("path", baseDir),
+		slog.Any("targets", targets),
+	)
 
-	bd := bundle.New(bundlePath)
+	bd := bundle.New(baseDir)
 	if err := bd.Read(); err != nil {
 		return fmt.Errorf("read bundle: %w", err)
 	}
@@ -57,9 +44,9 @@ func (c *cmd) Execute(_ context.Context) error {
 		return fmt.Errorf("create package manager: %w", err)
 	}
 
-	if len(c.targets) != 0 {
+	if len(targets) != 0 {
 		depends := make(map[string]string)
-		for _, tgt := range c.targets {
+		for _, tgt := range targets {
 			chunks := strings.Split(tgt, "@")
 			if len(chunks) != 2 {
 				return fmt.Errorf("invalid depends format: %s, should be `<source>@<version>`", tgt)
