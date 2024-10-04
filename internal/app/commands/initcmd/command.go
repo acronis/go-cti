@@ -29,7 +29,11 @@ func New(ctx context.Context) *cobra.Command {
 
 func execute(_ context.Context, baseDir string) error {
 	slog.Info("Initialize package", slog.String("path", baseDir))
-	pkg := ctipackage.New(baseDir)
+
+	pkg, err := ctipackage.New(baseDir)
+	if err != nil {
+		return fmt.Errorf("new package: %w", err)
+	}
 	if pkg.Read() == nil {
 		slog.Info("Package already initialized")
 		return nil

@@ -15,7 +15,7 @@ const (
 
 type IndexLock struct {
 	Version string `json:"version"`
-	// Reverse map: key - application code, value - source
+	// Reverse map: key - package id, value - source
 	DependentPackages map[string]string `json:"depends"`
 	// Direct map: key - source, value - Info
 	SourceInfo map[string]Info `json:"dependsInfo"`
@@ -30,7 +30,7 @@ type SourceInfo struct {
 }
 
 type Info struct {
-	AppCode         string            `json:"app_code"`
+	PackageID       string            `json:"package_id"`
 	Version         string            `json:"version"`
 	Integrity       string            `json:"integrity"`
 	Source          string            `json:"source"`

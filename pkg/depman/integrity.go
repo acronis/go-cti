@@ -65,8 +65,8 @@ type PackageIntegrityInfo struct {
 	Hash    string `json:"Hash"`
 }
 
-func (inf *PackageIntegrityInfo) Read(dm *dependencyManager, appCode string, version string) error {
-	infoPath := dm.getPackageInfoPath(appCode, version)
+func (inf *PackageIntegrityInfo) Read(dm *dependencyManager, pkgId string, version string) error {
+	infoPath := dm.getPackageInfoPath(pkgId, version)
 	if _, err := os.Stat(infoPath); err != nil {
 		if os.IsNotExist(err) {
 			return err
@@ -81,8 +81,8 @@ func (inf *PackageIntegrityInfo) Read(dm *dependencyManager, appCode string, ver
 	return nil
 }
 
-func (inf *PackageIntegrityInfo) Write(dm *dependencyManager, appCode string, version string) error {
-	infoPath := dm.getPackageInfoPath(appCode, version)
+func (inf *PackageIntegrityInfo) Write(dm *dependencyManager, pkgId string, version string) error {
+	infoPath := dm.getPackageInfoPath(pkgId, version)
 
 	if err := os.MkdirAll(filepath.Dir(infoPath), os.ModePerm); err != nil {
 		return fmt.Errorf("create package info directory: %w", err)
@@ -142,7 +142,7 @@ func (dm *dependencyManager) updateDependencyCache(source string, version string
 	// TODO save additional storage specific information
 
 	packageInfo := PackageIntegrityInfo{}
-	if err := packageInfo.Read(dm, depIdx.AppCode, version); err != nil {
+	if err := packageInfo.Read(dm, depIdx.PackageID, version); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("read package info: %w", err)
 		}
@@ -158,7 +158,7 @@ func (dm *dependencyManager) updateDependencyCache(source string, version string
 			Hash:    hash,
 		}
 
-		if err := packageInfo.Write(dm, depIdx.AppCode, version); err != nil {
+		if err := packageInfo.Write(dm, depIdx.PackageID, version); err != nil {
 			return fmt.Errorf("write package integrity info: %w", err)
 		}
 	} else {

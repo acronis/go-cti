@@ -1,7 +1,5 @@
 {
-  "app_code": "mock.package3",
-  "app_name": "Package 3",
-  "app_version": "3.4.5",
+  "package_id": "mock.package3",
   
   "ramlx_version": "v0.1.0",
   "depends": {

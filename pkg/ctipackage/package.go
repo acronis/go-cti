@@ -22,7 +22,7 @@ type Package struct {
 
 // New creates a new package from the specified path.
 // If the path is empty, the current working directory is used.
-func New(path string, options ...InitializeOption) *Package {
+func New(path string, options ...InitializeOption) (*Package, error) {
 	b := &Package{
 		BaseDir: path,
 		Index:   &Index{},
@@ -34,31 +34,39 @@ func New(path string, options ...InitializeOption) *Package {
 	}
 
 	for _, opt := range options {
-		opt(b)
+		if err := opt(b); err != nil {
+			return nil, err
+		}
 	}
 
-	return b
+	return b, nil
 }
 
-type InitializeOption func(*Package)
+type InitializeOption func(*Package) error
 
-func WithAppCode(appCode string) InitializeOption {
-	return func(b *Package) {
-		// TODO: Validate appCode
-		b.Index.AppCode = appCode
+func WithID(id string) InitializeOption {
+	return func(b *Package) error {
+		if ValidateID(id) != nil {
+			return fmt.Errorf("validate id: %w", ValidateID(id))
+		}
+		b.Index.PackageID = id
+		return nil
 	}
 }
 
 func WithRamlxVersion(version string) InitializeOption {
-	return func(b *Package) {
+	return func(b *Package) error {
+		// TODO validate that version is a valid ramlx version and supported by the current version of tool
 		b.Index.RamlxVersion = version
+		return nil
 	}
 }
 func WithEntities(entities []string) InitializeOption {
-	return func(b *Package) {
+	return func(b *Package) error {
 		if entities != nil {
 			b.Index.Entities = entities
 		}
+		return nil
 	}
 }
 

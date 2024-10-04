@@ -25,7 +25,7 @@ func ParseWithCache(pkg *ctipackage.Package) (*collector.CtiRegistry, error) {
 	r := pkg.Registry.Clone()
 
 	for _, dep := range pkg.IndexLock.SourceInfo {
-		cacheFile := filepath.Join(pkg.BaseDir, depman.DependencyDirName, dep.AppCode, ctipackage.MetadataCacheFile)
+		cacheFile := filepath.Join(pkg.BaseDir, depman.DependencyDirName, dep.PackageID, ctipackage.MetadataCacheFile)
 		// TODO: Automatically rebuild cache if missing?
 		entities, err := loadEntitiesFromCache(cacheFile)
 		if err != nil {

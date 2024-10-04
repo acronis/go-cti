@@ -29,7 +29,12 @@ func New(ctx context.Context) *cobra.Command {
 
 func execute(_ context.Context, baseDir string) error {
 	slog.Info("Synchronize package directory", slog.String("path", baseDir))
-	pkg := ctipackage.New(baseDir)
+
+	pkg, err := ctipackage.New(baseDir)
+	if err != nil {
+		return fmt.Errorf("new package: %w", err)
+	}
+
 	if pkg.Read() != nil {
 		slog.Info("Failed to read package, you can reinitialize it with 'cti init' command")
 		return nil

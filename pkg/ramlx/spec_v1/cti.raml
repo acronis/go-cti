@@ -74,7 +74,7 @@ annotationTypes:
     type: boolean
     description: >
       Indicates that field contains local path to binary asset.
-      Could be used for special processing then CyberApp package uploading.
+      Could be used for special processing then package is deployed.
     default: false
     allowedTargets: TypeDeclaration
 
@@ -83,14 +83,13 @@ types:
     type: scalar.string1024
     pattern: ^cti\.([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+)(~([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+))*(~[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12})?$
     description: |
-      ID used in Cyber Application to uniquely identify an entity either type or instance.
+      ID used in CTI Package to uniquely identify an entity either type or instance.
 
       Generic format - `cti.<ctx>[~<ctx>]*[~(<ctx>|<uuid>)]`
 
-      * `<ctx>` - `<vendor>.<application>.<name>.v<major>.<minor>`
+      * `<ctx>` - `<package id>.<name>.v<major>.<minor>`
       * `<vendor>` - vendor's short code (max 50 characters)
-      * `<application>` - application's short code (max 50 characters)
-      * `<name>` - entity's name (max 128 characters), may include `.` and `_` to be used for structuring
+      * `<package id>` - short code (max 101 characters) consisting of two dot  separated  fragments
       * `v<major>.<minor>` - entity's version
 
       Better regex pattern (for advanced regex processors)

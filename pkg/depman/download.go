@@ -50,9 +50,9 @@ func (dm *dependencyManager) downloadDependency(source, version string) (CachedD
 	}
 
 	// Move package to the final destination
-	targetDir := dm.getPackageDir(depIdx.AppCode, version)
+	targetDir := dm.getPackageDir(depIdx.PackageID, version)
 	if err := filesys.ReplaceWithMove(depDir, targetDir); err != nil {
-		return CachedDependencyInfo{}, fmt.Errorf("move package %s from source %s: %w", depIdx.AppCode, source, err)
+		return CachedDependencyInfo{}, fmt.Errorf("move package %s from source %s: %w", depIdx.PackageID, source, err)
 	}
 
 	// Patch links

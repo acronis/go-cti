@@ -33,11 +33,11 @@ func (dm *dependencyManager) installFromCache(target *ctipackage.Package, depend
 	// put new dependencies from cache and replace links
 	for _, info := range depends {
 		// Validate integrity with installed package
-		if source, ok := target.IndexLock.DependentPackages[info.Index.AppCode]; ok {
+		if source, ok := target.IndexLock.DependentPackages[info.Index.PackageID]; ok {
 			// TODO check integrity
 			if source != info.Source {
 				slog.Error("Package from different source was already installed",
-					slog.String("app_code", info.Index.AppCode),
+					slog.String("id", info.Index.PackageID),
 					slog.String("known", source),
 					slog.String("new", info.Source))
 				return fmt.Errorf("package from different source was already installed")
@@ -47,7 +47,7 @@ func (dm *dependencyManager) installFromCache(target *ctipackage.Package, depend
 		}
 
 		// Replace the dependency in the root package
-		depPath := filepath.Join(target.BaseDir, DependencyDirName, info.Index.AppCode)
+		depPath := filepath.Join(target.BaseDir, DependencyDirName, info.Index.PackageID)
 		if err := filesys.ReplaceWithCopy(info.Path, depPath); err != nil {
 			return fmt.Errorf("replace with copy: %w", err)
 		}
@@ -57,9 +57,13 @@ func (dm *dependencyManager) installFromCache(target *ctipackage.Package, depend
 
 	// Pre-build dependencies and update target's index lock
 	for _, info := range depends {
-		depPath := filepath.Join(target.BaseDir, DependencyDirName, info.Index.AppCode)
+		depPath := filepath.Join(target.BaseDir, DependencyDirName, info.Index.PackageID)
 
-		pkg := ctipackage.New(depPath)
+		pkg, err := ctipackage.New(depPath)
+		if err != nil {
+			return fmt.Errorf("new package: %w", err)
+		}
+
 		if err := pkg.Read(); err != nil {
 			return fmt.Errorf("read package: %w", err)
 		}
@@ -77,9 +81,9 @@ func (dm *dependencyManager) installFromCache(target *ctipackage.Package, depend
 			return fmt.Errorf("compute directory hash: %w", err)
 		}
 
-		target.IndexLock.DependentPackages[info.Index.AppCode] = info.Source
+		target.IndexLock.DependentPackages[info.Index.PackageID] = info.Source
 		target.IndexLock.SourceInfo[info.Source] = ctipackage.Info{
-			AppCode:   info.Index.AppCode,
+			PackageID: info.Index.PackageID,
 			Version:   info.Version,
 			Integrity: checksum,
 			Source:    info.Source,

@@ -15,13 +15,14 @@ import (
 
 type parserTestCase struct {
 	name     string
-	appCode  string
+	pkgId    string
 	entities []string
 	files    map[string]string
 }
 
 func Test_EmptyPackage(t *testing.T) {
-	pkg := New("./fixtures/valid/empty")
+	pkg, err := New("./fixtures/valid/empty")
+	require.NoError(t, err)
 	require.NoError(t, pkg.Read())
 	require.NoError(t, pkg.Parse())
 
@@ -36,8 +37,9 @@ func Test_EmptyIndex(t *testing.T) {
 	require.NoError(t, os.MkdirAll(testPath, os.ModePerm))
 	require.NoError(t, os.WriteFile(filepath.Join(testPath, "index.json"), []byte(`{}`), os.ModePerm))
 
-	pkg := New(testPath)
-	require.ErrorContains(t, pkg.Read(), "read index file: check index file: missing app code")
+	pkg, err := New(testPath)
+	require.NoError(t, err)
+	require.ErrorContains(t, pkg.Read(), "read index file: check index file: package id is missing")
 }
 
 func initParseTest(t *testing.T, tc parserTestCase) string {
@@ -67,7 +69,7 @@ func Test_InvalidPackage(t *testing.T) {
 		{
 			parserTestCase: parserTestCase{
 				name:     "duplicate type",
-				appCode:  "x.y",
+				pkgId:    "x.y",
 				entities: []string{"entities.raml"},
 				files: map[string]string{"entities.raml": strings.TrimSpace(`
 #%RAML 1.0 Library
@@ -90,7 +92,7 @@ types:
 		{
 			parserTestCase: parserTestCase{
 				name:     "duplicate instance",
-				appCode:  "x.y",
+				pkgId:    "x.y",
 				entities: []string{"entities.raml"},
 				files: map[string]string{"entities.raml": strings.TrimSpace(`
 #%RAML 1.0 Library
@@ -119,7 +121,7 @@ types:
 		{
 			parserTestCase: parserTestCase{
 				name:     "duplicate type instance",
-				appCode:  "x.y",
+				pkgId:    "x.y",
 				entities: []string{"entities.raml"},
 				files: map[string]string{"entities.raml": strings.TrimSpace(`
 #%RAML 1.0 Library
@@ -151,7 +153,7 @@ types:
 		{
 			parserTestCase: parserTestCase{
 				name:     "missing file",
-				appCode:  "x.y",
+				pkgId:    "x.y",
 				entities: []string{"non_existent_file.raml"},
 			},
 			expectedError: "non_existent_file.raml: The system cannot find the file specified.",
@@ -161,20 +163,22 @@ types:
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			pkg := New(initParseTest(t, tc.parserTestCase),
+			pkg, err := New(initParseTest(t, tc.parserTestCase),
 				WithRamlxVersion("1.0"),
-				WithAppCode(tc.appCode),
+				WithID(tc.pkgId),
 				WithEntities(tc.entities))
 
+			require.NoError(t, err)
 			require.NoError(t, pkg.Initialize())
 			require.NoError(t, pkg.Read())
 
-			err := pkg.Parse()
-			require.Error(t, err)
+			{
+				err := pkg.Parse()
+				require.Error(t, err)
+				require.ErrorContains(t, err, tc.expectedError)
 
-			slog.Error("Command failed", stacktrace.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
-
-			require.ErrorContains(t, pkg.Parse(), tc.expectedError)
+				slog.Error("Command failed", stacktrace.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
+			}
 		})
 	}
 }

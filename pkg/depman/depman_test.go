@@ -12,21 +12,21 @@ import (
 
 func Test_Add(t *testing.T) {
 	type testcase struct {
-		app_code string
-		depends  map[string]string
+		pkgId   string
+		depends map[string]string
 	}
 
 	testcases := map[string]testcase{
 		"single dependency": {
-			app_code: "app.mock",
-			depends:  map[string]string{"mock@b1": "v1.0.0"},
+			pkgId:   "xyz.mock",
+			depends: map[string]string{"mock@b1": "v1.0.0"},
 		},
 		"chained dependency": {
-			app_code: "app.mock",
-			depends:  map[string]string{"mock@b2": "v0.0.0-20210101120000-abcdef123456"},
+			pkgId:   "xyz.mock",
+			depends: map[string]string{"mock@b2": "v0.0.0-20210101120000-abcdef123456"},
 		},
 		"multiple dependencies": {
-			app_code: "app.mock",
+			pkgId: "xyz.mock",
 			depends: map[string]string{
 				"mock@b1": "v1.0.0",
 				"mock@b3": "v3.4.5",
@@ -48,8 +48,9 @@ func Test_Add(t *testing.T) {
 				WithPackagesCache(cacheDir))
 			require.NoError(t, err)
 
-			pkg := ctipackage.New(packagePath,
-				ctipackage.WithAppCode(tc.app_code))
+			pkg, err := ctipackage.New(packagePath,
+				ctipackage.WithID(tc.pkgId))
+			require.NoError(t, err)
 			require.NoError(t, pkg.Initialize())
 
 			require.NoError(t, dm.Add(pkg, tc.depends))

@@ -170,7 +170,8 @@ func TestGetAssets(t *testing.T) {
 
 func TestGetDictionaries(t *testing.T) {
 	// TODO rework
-	pkg := New(getIndexFilePath())
+	pkg, err := New(getIndexFilePath())
+	require.NoError(t, err)
 	require.NoError(t, pkg.Read())
 
 	dictionaries, err := pkg.GetDictionaries()

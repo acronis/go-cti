@@ -31,7 +31,12 @@ func New(ctx context.Context) *cobra.Command {
 
 func execute(ctx context.Context, baseDir string) error {
 	slog.Info("Validating package", slog.String("path", baseDir))
-	pkg := ctipackage.New(baseDir)
+
+	pkg, err := ctipackage.New(baseDir)
+	if err != nil {
+		return fmt.Errorf("new package: %w", err)
+	}
+
 	if err := pkg.Read(); err != nil {
 		return fmt.Errorf("read package: %w", err)
 	}

@@ -34,7 +34,10 @@ func execute(_ context.Context, baseDir string, targets []string) error {
 		slog.Any("targets", targets),
 	)
 
-	pkg := ctipackage.New(baseDir)
+	pkg, err := ctipackage.New(baseDir)
+	if err != nil {
+		return fmt.Errorf("new package: %w", err)
+	}
 	if err := pkg.Read(); err != nil {
 		return fmt.Errorf("read package: %w", err)
 	}

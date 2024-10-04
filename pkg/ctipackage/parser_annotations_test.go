@@ -83,8 +83,8 @@ func Test_ParseAnnotations(t *testing.T) {
 	testCases := []testCase{
 		{
 			parserTestCase: parserTestCase{
-				name:    "annotations",
-				appCode: "x.y",
+				name:  "annotations",
+				pkgId: "x.y",
 				entities: []string{
 					"entities/cti.raml",
 					"entities/final.raml",
@@ -320,11 +320,12 @@ types:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pkg := New(initParseTest(t, tc.parserTestCase),
+			pkg, err := New(initParseTest(t, tc.parserTestCase),
 				WithRamlxVersion("1.0"),
-				WithAppCode(tc.appCode),
+				WithID(tc.pkgId),
 				WithEntities(tc.entities))
 
+			require.NoError(t, err)
 			require.NoError(t, pkg.Initialize())
 			require.NoError(t, pkg.Read())
 
