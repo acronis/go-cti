@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/acronis/go-cti/internal/app/command"
-	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/acronis/go-cti/pkg/depman"
 	"github.com/spf13/cobra"
 )
@@ -15,7 +15,7 @@ import (
 func New(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get",
-		Short: "tool to download cti bundles from a remote repository",
+		Short: "tool to download cti packages from a remote repository",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			baseDir, err := command.GetWorkingDir(cmd)
@@ -29,14 +29,14 @@ func New(ctx context.Context) *cobra.Command {
 }
 
 func execute(_ context.Context, baseDir string, targets []string) error {
-	slog.Info("Get depends for bundle",
+	slog.Info("Get package depends",
 		slog.String("path", baseDir),
 		slog.Any("targets", targets),
 	)
 
-	bd := bundle.New(baseDir)
-	if err := bd.Read(); err != nil {
-		return fmt.Errorf("read bundle: %w", err)
+	pkg := ctipackage.New(baseDir)
+	if err := pkg.Read(); err != nil {
+		return fmt.Errorf("read package: %w", err)
 	}
 
 	dm, err := depman.New()
@@ -57,11 +57,11 @@ func execute(_ context.Context, baseDir string, targets []string) error {
 			depends[chunks[0]] = chunks[1]
 		}
 
-		if err := dm.Add(bd, depends); err != nil {
+		if err := dm.Add(pkg, depends); err != nil {
 			return fmt.Errorf("install dependencies: %w", err)
 		}
 	} else {
-		if err := dm.Install(bd); err != nil {
+		if err := dm.Install(pkg); err != nil {
 			return fmt.Errorf("install dependencies: %w", err)
 		}
 	}

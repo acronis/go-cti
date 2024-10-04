@@ -10,7 +10,7 @@ import (
 func New(_ context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "test",
-		Short: "test cti bundle",
+		Short: "test cti package",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return errors.New("not implemented")

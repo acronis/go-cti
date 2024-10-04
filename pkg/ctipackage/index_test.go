@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 import (
 	"encoding/json"
@@ -55,13 +55,13 @@ func TestOpenIndexFile_err(t *testing.T) {
 	defer os.Remove(tempFilePath)
 
 	_, err := ReadIndexFile(tempFilePath)
-	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.BundleIndex")
+	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.PackageIndex")
 }
 
 func TestOpenIndexFile_err2(t *testing.T) {
 	nonExistenceFile := "nonExistenceFile.json"
 	_, err := ReadIndexFile(nonExistenceFile)
-	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.BundleIndex")
+	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.PackageIndex")
 }
 
 func TestValidateIndex_Err(t *testing.T) {
@@ -73,7 +73,7 @@ func TestValidateIndex_Err(t *testing.T) {
 	defer file.Close()
 
 	_, err = DecodeIndex(file)
-	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.BundleIndex")
+	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.PackageIndex")
 }
 
 func getTmpJsonFile(fileName string) (string, []byte) {
@@ -170,10 +170,10 @@ func TestGetAssets(t *testing.T) {
 
 func TestGetDictionaries(t *testing.T) {
 	// TODO rework
-	bd := New(getIndexFilePath())
-	require.NoError(t, bd.Read())
+	pkg := New(getIndexFilePath())
+	require.NoError(t, pkg.Read())
 
-	dictionaries, err := bd.GetDictionaries()
+	dictionaries, err := pkg.GetDictionaries()
 	require.NoError(t, err)
 	require.NotEmpty(t, dictionaries)
 

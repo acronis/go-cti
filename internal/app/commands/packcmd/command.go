@@ -6,8 +6,8 @@ import (
 	"log/slog"
 
 	"github.com/acronis/go-cti/internal/app/command"
-	"github.com/acronis/go-cti/pkg/bundle"
-	"github.com/acronis/go-cti/pkg/bunman"
+	"github.com/acronis/go-cti/pkg/ctipackage"
+	"github.com/acronis/go-cti/pkg/pacman"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +19,7 @@ func New(ctx context.Context) *cobra.Command {
 	packOpts := PackOptions{}
 	cmd := &cobra.Command{
 		Use:   "pack",
-		Short: "pack cti bundle",
+		Short: "pack cti package",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			baseDir, err := command.GetWorkingDir(cmd)
@@ -31,20 +31,20 @@ func New(ctx context.Context) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&packOpts.IncludeSource, "include-source", "s", false, "Include source files in the resulting bundle.")
+	cmd.Flags().BoolVarP(&packOpts.IncludeSource, "include-source", "s", false, "Include source files in the resulting package.")
 	return cmd
 }
 
 func execute(_ context.Context, baseDir string, opts PackOptions) error {
-	slog.Info("Packing bundle", slog.String("path", baseDir))
-	bd := bundle.New(baseDir)
-	if err := bd.Read(); err != nil {
-		return fmt.Errorf("read bundle: %w", err)
+	slog.Info("Packing package", slog.String("path", baseDir))
+	pkg := ctipackage.New(baseDir)
+	if err := pkg.Read(); err != nil {
+		return fmt.Errorf("read package: %w", err)
 	}
 
-	filename, err := bunman.Pack(bd, opts.IncludeSource)
+	filename, err := pacman.Pack(pkg, opts.IncludeSource)
 	if err != nil {
-		return fmt.Errorf("pack the bundle: %w", err)
+		return fmt.Errorf("pack the package: %w", err)
 	}
 
 	slog.Info("Packing has been completed", "filename", filename)

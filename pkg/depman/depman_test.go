@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,19 +40,19 @@ func Test_Add(t *testing.T) {
 			require.NoError(t, os.RemoveAll(test_dir))
 
 			cacheDir := filepath.Join(test_dir, "_cache")
-			bundlePath := filepath.Join(test_dir, "local")
-			require.NoError(t, os.MkdirAll(bundlePath, os.ModePerm))
+			packagePath := filepath.Join(test_dir, "local")
+			require.NoError(t, os.MkdirAll(packagePath, os.ModePerm))
 
 			dm, err := New(
 				WithDownloader(&mockDownloader{}),
-				WithBundlesCache(cacheDir))
+				WithPackagesCache(cacheDir))
 			require.NoError(t, err)
 
-			bd := bundle.New(bundlePath,
-				bundle.WithAppCode(tc.app_code))
-			require.NoError(t, bd.Initialize())
+			pkg := ctipackage.New(packagePath,
+				ctipackage.WithAppCode(tc.app_code))
+			require.NoError(t, pkg.Initialize())
 
-			require.NoError(t, dm.Add(bd, tc.depends))
+			require.NoError(t, dm.Add(pkg, tc.depends))
 		})
 	}
 }

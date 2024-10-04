@@ -1,6 +1,6 @@
 {
-  "app_code": "mock.bundle3",
-  "app_name": "Bundle 3",
+  "app_code": "mock.package3",
+  "app_name": "Package 3",
   "app_version": "3.4.5",
   
   "ramlx_version": "v0.1.0",

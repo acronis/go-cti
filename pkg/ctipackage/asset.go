@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 type Asset struct {
 	Name  string `json:"name"`

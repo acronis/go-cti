@@ -42,8 +42,8 @@ func Test_replaceCaptureGroup(t *testing.T) {
 			output: "../.dep/",
 		},
 		{
-			input:  "  bundle_1: ../.dep/mock.bundle1/foo.raml",
-			output: "  bundle_1: ../../.dep/mock.bundle1/foo.raml",
+			input:  "  package_1: ../.dep/mock.package1/foo.raml",
+			output: "  package_1: ../../.dep/mock.package1/foo.raml",
 		},
 	} {
 		t.Run(tc.input, func(t *testing.T) {

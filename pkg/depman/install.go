@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/acronis/go-cti/pkg/filesys"
 )
 
@@ -14,39 +14,39 @@ type CachedDependencyInfo struct {
 	Source    string
 	Version   string
 	Integrity string
-	Index     bundle.Index
+	Index     ctipackage.Index
 }
 
-func (dm *dependencyManager) installDependencies(bd *bundle.Bundle, depends map[string]string) error {
+func (dm *dependencyManager) installDependencies(pkg *ctipackage.Package, depends map[string]string) error {
 	installed, err := dm.Download(depends)
 	if err != nil {
 		return fmt.Errorf("download dependencies: %w", err)
 	}
 
-	if err := dm.installFromCache(bd, installed); err != nil {
+	if err := dm.installFromCache(pkg, installed); err != nil {
 		return fmt.Errorf("install from cache: %w", err)
 	}
 	return nil
 }
 
-func (dm *dependencyManager) installFromCache(target *bundle.Bundle, depends []CachedDependencyInfo) error {
+func (dm *dependencyManager) installFromCache(target *ctipackage.Package, depends []CachedDependencyInfo) error {
 	// put new dependencies from cache and replace links
 	for _, info := range depends {
-		// Validate integrity with installed bundle
-		if source, ok := target.IndexLock.DependentBundles[info.Index.AppCode]; ok {
+		// Validate integrity with installed package
+		if source, ok := target.IndexLock.DependentPackages[info.Index.AppCode]; ok {
 			// TODO check integrity
 			if source != info.Source {
-				slog.Error("Bundle from different source was already installed",
+				slog.Error("Package from different source was already installed",
 					slog.String("app_code", info.Index.AppCode),
 					slog.String("known", source),
 					slog.String("new", info.Source))
-				return fmt.Errorf("bundle from different source was already installed")
+				return fmt.Errorf("package from different source was already installed")
 			}
 
 			// TODO if the same source was already installed, skip
 		}
 
-		// Replace the dependency in the root bundle
+		// Replace the dependency in the root package
 		depPath := filepath.Join(target.BaseDir, DependencyDirName, info.Index.AppCode)
 		if err := filesys.ReplaceWithCopy(info.Path, depPath); err != nil {
 			return fmt.Errorf("replace with copy: %w", err)
@@ -59,16 +59,16 @@ func (dm *dependencyManager) installFromCache(target *bundle.Bundle, depends []C
 	for _, info := range depends {
 		depPath := filepath.Join(target.BaseDir, DependencyDirName, info.Index.AppCode)
 
-		bd := bundle.New(depPath)
-		if err := bd.Read(); err != nil {
-			return fmt.Errorf("read bundle: %w", err)
+		pkg := ctipackage.New(depPath)
+		if err := pkg.Read(); err != nil {
+			return fmt.Errorf("read package: %w", err)
 		}
 
-		if err := bd.Parse(); err != nil {
-			return fmt.Errorf("parse bundle: %w", err)
+		if err := pkg.Parse(); err != nil {
+			return fmt.Errorf("parse package: %w", err)
 		}
 
-		if err := bd.DumpCache(); err != nil {
+		if err := pkg.DumpCache(); err != nil {
 			return fmt.Errorf("build cache: %w", err)
 		}
 
@@ -77,8 +77,8 @@ func (dm *dependencyManager) installFromCache(target *bundle.Bundle, depends []C
 			return fmt.Errorf("compute directory hash: %w", err)
 		}
 
-		target.IndexLock.DependentBundles[info.Index.AppCode] = info.Source
-		target.IndexLock.SourceInfo[info.Source] = bundle.Info{
+		target.IndexLock.DependentPackages[info.Index.AppCode] = info.Source
+		target.IndexLock.SourceInfo[info.Source] = ctipackage.Info{
 			AppCode:   info.Index.AppCode,
 			Version:   info.Version,
 			Integrity: checksum,

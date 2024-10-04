@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/acronis/go-cti/internal/app/command"
-	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 
 	"github.com/spf13/cobra"
 )
@@ -28,17 +28,17 @@ func New(ctx context.Context) *cobra.Command {
 }
 
 func execute(_ context.Context, baseDir string) error {
-	slog.Info("Initialize bundle", slog.String("path", baseDir))
-	bd := bundle.New(baseDir)
-	if bd.Read() == nil {
-		slog.Info("Bundle already initialized")
+	slog.Info("Initialize package", slog.String("path", baseDir))
+	pkg := ctipackage.New(baseDir)
+	if pkg.Read() == nil {
+		slog.Info("Package already initialized")
 		return nil
 	}
 
-	if err := bd.Initialize(); err != nil {
-		return fmt.Errorf("initialize the bundle: %w", err)
+	if err := pkg.Initialize(); err != nil {
+		return fmt.Errorf("initialize the package: %w", err)
 	}
 
-	slog.Info("Bundle was initialized")
+	slog.Info("Package was initialized")
 	return nil
 }

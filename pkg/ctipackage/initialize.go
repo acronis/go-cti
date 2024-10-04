@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 import (
 	"fmt"
@@ -29,12 +29,12 @@ func extractRAMLxSpec(dst string) error {
 	return nil
 }
 
-func (b *Bundle) ValidateRamlxSpec() error {
+func (b *Package) ValidateRamlxSpec() error {
 
 	return nil
 }
 
-func (b *Bundle) Initialize() error {
+func (b *Package) Initialize() error {
 	if err := extractRAMLxSpec(filepath.Join(b.BaseDir, RamlxDirName)); err != nil {
 		return fmt.Errorf("extract raml files: %w", err)
 	}

@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 import (
 	"encoding/json"

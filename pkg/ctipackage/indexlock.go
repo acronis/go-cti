@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ const (
 type IndexLock struct {
 	Version string `json:"version"`
 	// Reverse map: key - application code, value - source
-	DependentBundles map[string]string `json:"depends"`
+	DependentPackages map[string]string `json:"depends"`
 	// Direct map: key - source, value - Info
 	SourceInfo map[string]Info `json:"dependsInfo"`
 }
@@ -41,9 +41,9 @@ type Info struct {
 func ReadIndexLock(pkgDir string) (*IndexLock, error) {
 	filePath := filepath.Join(pkgDir, IndexLockFileName)
 	idxLock := &IndexLock{
-		Version:          IndexLockVersion,
-		DependentBundles: make(map[string]string),
-		SourceInfo:       make(map[string]Info),
+		Version:           IndexLockVersion,
+		DependentPackages: make(map[string]string),
+		SourceInfo:        make(map[string]Info),
 	}
 
 	if err := filesys.ReadJSON(filePath, idxLock); os.IsNotExist(err) {

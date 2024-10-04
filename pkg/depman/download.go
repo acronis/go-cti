@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/acronis/go-cti/pkg/filesys"
 )
 
@@ -15,7 +15,7 @@ func (dm *dependencyManager) downloadDependency(source, version string) (CachedD
 		return CachedDependencyInfo{}, fmt.Errorf("discover source %s version %s: %w", source, version, err)
 	}
 
-	slog.Info("Discovered dependency", slog.String("bundle", source))
+	slog.Info("Discovered dependency", slog.String("package", source))
 
 	// Pre-download integrity check
 	if err := dm.validateSourceInformation(source, version, info); err != nil {
@@ -36,23 +36,23 @@ func (dm *dependencyManager) downloadDependency(source, version string) (CachedD
 
 	depDir, err := info.Download(cacheDir)
 	if err != nil {
-		return CachedDependencyInfo{}, fmt.Errorf("download bundle: %w", err)
+		return CachedDependencyInfo{}, fmt.Errorf("download package: %w", err)
 	}
 
-	depIdx, err := bundle.ReadIndex(depDir)
+	depIdx, err := ctipackage.ReadIndex(depDir)
 	if err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("read index.json: %w", err)
 	}
 
-	// Check bundle integrity and register bundle
+	// Check package integrity and register package
 	if err := dm.updateDependencyCache(source, version, info, depDir, depIdx); err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("update dependency cache: %w", err)
 	}
 
-	// Move bundle to the final destination
-	targetDir := dm.getBundleDir(depIdx.AppCode, version)
+	// Move package to the final destination
+	targetDir := dm.getPackageDir(depIdx.AppCode, version)
 	if err := filesys.ReplaceWithMove(depDir, targetDir); err != nil {
-		return CachedDependencyInfo{}, fmt.Errorf("move bundle %s from source %s: %w", depIdx.AppCode, source, err)
+		return CachedDependencyInfo{}, fmt.Errorf("move package %s from source %s: %w", depIdx.AppCode, source, err)
 	}
 
 	// Patch links
@@ -61,7 +61,7 @@ func (dm *dependencyManager) downloadDependency(source, version string) (CachedD
 	}
 
 	// TODO hmm... probably do not parse it again, just patch the index
-	movedIndex, err := bundle.ReadIndex(targetDir)
+	movedIndex, err := ctipackage.ReadIndex(targetDir)
 	if err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("read index.json: %w", err)
 	}

@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ const (
 	MetadataCacheFile = ".cache.json"
 )
 
-func (b *Bundle) Parse() error {
+func (b *Package) Parse() error {
 	baseDir := b.BaseDir
 
 	absPath, err := filepath.Abs(baseDir)
@@ -29,7 +29,7 @@ func (b *Bundle) Parse() error {
 
 	c := collector.New(r, baseDir)
 	if err := c.Collect(); err != nil {
-		return fmt.Errorf("collect from bundle: %w", err)
+		return fmt.Errorf("collect from package: %w", err)
 	}
 
 	b.Registry = c.Registry
@@ -37,7 +37,7 @@ func (b *Bundle) Parse() error {
 	return nil
 }
 
-func (b *Bundle) DumpCache() error {
+func (b *Package) DumpCache() error {
 	bytes, err := json.Marshal(b.Registry.Total)
 	if err != nil {
 		return fmt.Errorf("serialize entities: %w", err)

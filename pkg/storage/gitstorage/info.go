@@ -48,7 +48,7 @@ func (i *gitInfo) Download(cacheDir string) (string, error) {
 		return "", err
 	}
 
-	destDir := filepath.Join(cacheDir, "bundle")
+	destDir := filepath.Join(cacheDir, "package")
 	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
 		return "", err
 	}

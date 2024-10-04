@@ -13,7 +13,7 @@ import (
 func ReplaceWithCopy(src, dst string) error {
 	if _, err := os.Stat(dst); err == nil {
 		if err = os.RemoveAll(dst); err != nil {
-			return fmt.Errorf("remove existing bundle: %w", err)
+			return fmt.Errorf("remove existing package: %w", err)
 		}
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("stat %s: %w", dst, err)

@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/acronis/go-cti/internal/app/command"
-	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 
 	"github.com/spf13/cobra"
 )
@@ -14,7 +14,7 @@ import (
 func New(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
-		Short: "synchronize bundle directory content with the index",
+		Short: "synchronize package directory content with the index",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			baseDir, err := command.GetWorkingDir(cmd)
@@ -28,17 +28,17 @@ func New(ctx context.Context) *cobra.Command {
 }
 
 func execute(_ context.Context, baseDir string) error {
-	slog.Info("Synchronize bundle directory", slog.String("path", baseDir))
-	bd := bundle.New(baseDir)
-	if bd.Read() != nil {
-		slog.Info("Failed to read bundle, you can reinitialize it with 'cti init' command")
+	slog.Info("Synchronize package directory", slog.String("path", baseDir))
+	pkg := ctipackage.New(baseDir)
+	if pkg.Read() != nil {
+		slog.Info("Failed to read package, you can reinitialize it with 'cti init' command")
 		return nil
 	}
 
-	if err := bd.Sync(); err != nil {
-		return fmt.Errorf("sync bundle: %w", err)
+	if err := pkg.Sync(); err != nil {
+		return fmt.Errorf("sync package: %w", err)
 	}
 
-	slog.Info("Bundle directory was synchronized")
+	slog.Info("Package directory was synchronized")
 	return nil
 }
