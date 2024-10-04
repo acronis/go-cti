@@ -9,31 +9,31 @@ import "path/filepath"
 			<name>/ - source cache directory (could include subdirectories, e.g. github.com/acronis/cti)
 				@v/ - version cache directory
 					<version>.info - integrity info
-		bundle/
-			<app_code>/ - bundle cache directory
+		package/
+			<package id>/ - package cache directory
 				@v/ - version cache directory
 					<version>.index.json - index file
 					<version>.info - integrity info
-	<code>/
-		@<version>/ - bundle directory
+	<package id>/
+		@<version>/ - package directory
 */
 
 func (dm *dependencyManager) getSourceCacheDir() string {
-	return filepath.Join(dm.BundlesDir, ".cache", "source")
+	return filepath.Join(dm.PackagesDir, ".cache", "source")
 }
 
-func (dm *dependencyManager) getBundleCacheDir() string {
-	return filepath.Join(dm.BundlesDir, ".cache", "bundle")
+func (dm *dependencyManager) getPackageCacheDir() string {
+	return filepath.Join(dm.PackagesDir, ".cache", "package")
 }
 
-func (dm *dependencyManager) getBundleDir(appCode string, version string) string {
-	return filepath.Join(dm.BundlesDir, appCode, "@"+version)
+func (dm *dependencyManager) getPackageDir(pkgId string, version string) string {
+	return filepath.Join(dm.PackagesDir, pkgId, "@"+version)
 }
 
 func (dm *dependencyManager) getSourceInfoPath(name string, version string) string {
 	return filepath.Join(dm.getSourceCacheDir(), name, "@v", version+".info")
 }
 
-func (dm *dependencyManager) getBundleInfoPath(code string, version string) string {
-	return filepath.Join(dm.getBundleCacheDir(), code, "@v", version+".info")
+func (dm *dependencyManager) getPackageInfoPath(pkgId string, version string) string {
+	return filepath.Join(dm.getPackageCacheDir(), pkgId, "@v", version+".info")
 }

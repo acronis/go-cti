@@ -2,23 +2,18 @@ package deploycmd
 
 import (
 	"context"
+	"errors"
 
-	"github.com/acronis/go-cti/internal/app/cti"
-	"github.com/acronis/go-cti/internal/pkg/command"
+	"github.com/spf13/cobra"
 )
 
-type cmd struct {
-	opts    cti.Options
-	targets []string
-}
-
-func New(opts cti.Options, targets []string) command.Command {
-	return &cmd{
-		opts:    opts,
-		targets: targets,
+func New(_ context.Context) *cobra.Command {
+	return &cobra.Command{
+		Use:   "deploy",
+		Short: "build and deploy cti package and dependencies to testing stand or production",
+		Args:  cobra.MinimumNArgs(0),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return errors.New("not implemented")
+		},
 	}
-}
-
-func (c *cmd) Execute(_ context.Context) error {
-	return nil
 }

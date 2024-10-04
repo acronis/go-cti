@@ -24,7 +24,8 @@ func ToRootDir(t *testing.T, relPath string) {
 			}(),
 		)))
 
-	_, b, _, _ := runtime.Caller(0)
+	_, b, _, ok := runtime.Caller(0)
+	require.True(t, ok)
 	root := filepath.Join(filepath.Dir(b), relPath)
 	require.NoError(t, os.Chdir(root))
 }

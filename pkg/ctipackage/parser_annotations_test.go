@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 import (
 	"encoding/json"
@@ -83,8 +83,8 @@ func Test_ParseAnnotations(t *testing.T) {
 	testCases := []testCase{
 		{
 			parserTestCase: parserTestCase{
-				name:    "annotations",
-				appCode: "x.y",
+				name:  "annotations",
+				pkgId: "x.y",
 				entities: []string{
 					"entities/cti.raml",
 					"entities/final.raml",
@@ -320,24 +320,25 @@ types:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			bd := New(initParseTest(t, tc.parserTestCase),
+			pkg, err := New(initParseTest(t, tc.parserTestCase),
 				WithRamlxVersion("1.0"),
-				WithAppCode(tc.appCode),
+				WithID(tc.pkgId),
 				WithEntities(tc.entities))
 
-			require.NoError(t, bd.Initialize())
-			require.NoError(t, bd.Read())
+			require.NoError(t, err)
+			require.NoError(t, pkg.Initialize())
+			require.NoError(t, pkg.Read())
 
-			if err := bd.Parse(); err != nil {
+			if err := pkg.Parse(); err != nil {
 				slog.Error("Command failed", stacktrace.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
 				require.Error(t, err)
 			}
 
-			generateGoldenFiles(t, bd.BaseDir, bd.Registry.FragmentEntities)
+			generateGoldenFiles(t, pkg.BaseDir, pkg.Registry.FragmentEntities)
 
-			require.Equal(t, tc.total, len(bd.Registry.Total))
-			require.Equal(t, tc.types, len(bd.Registry.Types))
-			require.Equal(t, tc.instances, len(bd.Registry.Instances))
+			require.Equal(t, tc.total, len(pkg.Registry.Total))
+			require.Equal(t, tc.types, len(pkg.Registry.Types))
+			require.Equal(t, tc.instances, len(pkg.Registry.Instances))
 		})
 	}
 }

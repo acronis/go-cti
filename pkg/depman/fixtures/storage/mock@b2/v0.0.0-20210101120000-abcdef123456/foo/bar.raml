@@ -5,12 +5,12 @@
 
 uses:
   cti: ../.ramlx/cti.raml
-  bundle_1: ../.dep/mock.bundle1/foo.raml
+  package_1: ../.dep/mock.package1/foo.raml
 
 types:
   BarType:
-    type: bundle_1.FooType
-    (cti.cti): cti.mock.bundle1.foo.v1.0~mock.bundle2.bar.v1.0
+    type: package_1.FooType
+    (cti.cti): cti.mock.package1.foo.v1.0~mock.package2.bar.v1.0
 
     additionalProperties: false
     properties:

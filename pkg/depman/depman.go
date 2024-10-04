@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/acronis/go-cti/pkg/filesys"
 	"github.com/acronis/go-cti/pkg/storage"
 	"github.com/acronis/go-cti/pkg/storage/gitstorage"
@@ -16,9 +16,9 @@ const (
 
 type DependencyManager interface {
 	// Add new dependencies to index.lock
-	Add(bd *bundle.Bundle, depends map[string]string) error
+	Add(pkg *ctipackage.Package, depends map[string]string) error
 	// Install dependencies from index.lock
-	Install(bd *bundle.Bundle) error
+	Install(pkg *ctipackage.Package) error
 	// Download dependencies and their sub-dependencies
 	Download(depends map[string]string) ([]CachedDependencyInfo, error)
 }
@@ -26,8 +26,8 @@ type DependencyManager interface {
 type Option func(*dependencyManager)
 
 type dependencyManager struct {
-	BundlesDir string
-	Storage    storage.Storage
+	PackagesDir string
+	Storage     storage.Storage
 }
 
 func New(options ...Option) (DependencyManager, error) {
@@ -40,12 +40,12 @@ func New(options ...Option) (DependencyManager, error) {
 	if depman.Storage == nil {
 		depman.Storage = gitstorage.New()
 	}
-	if depman.BundlesDir == "" {
-		cacheDir, err := filesys.GetCtiBundlesCacheDir()
+	if depman.PackagesDir == "" {
+		cacheDir, err := filesys.GetCtiPackagesCacheDir()
 		if err != nil {
 			return nil, fmt.Errorf("get cache dir: %w", err)
 		}
-		depman.BundlesDir = cacheDir
+		depman.PackagesDir = cacheDir
 	}
 
 	return depman, nil
@@ -57,43 +57,43 @@ func WithDownloader(st storage.Storage) Option {
 	}
 }
 
-func WithBundlesCache(cacheDir string) Option {
+func WithPackagesCache(cacheDir string) Option {
 	return func(dm *dependencyManager) {
-		dm.BundlesDir = cacheDir
+		dm.PackagesDir = cacheDir
 	}
 }
 
-func (dm *dependencyManager) Add(bd *bundle.Bundle, depends map[string]string) error {
+func (dm *dependencyManager) Add(pkg *ctipackage.Package, depends map[string]string) error {
 	// Validate dependencies
-	if err := dm.installDependencies(bd, depends); err != nil {
+	if err := dm.installDependencies(pkg, depends); err != nil {
 		return fmt.Errorf("install dependencies: %w", err)
 	}
 
 	for source, version := range depends {
-		if _, ok := bd.Index.Depends[source]; ok {
-			slog.Info("Added direct dependency", slog.String("bundle", source), slog.String("version", version))
-			bd.Index.Depends[source] = version
+		if _, ok := pkg.Index.Depends[source]; ok {
+			slog.Info("Added direct dependency", slog.String("package", source), slog.String("version", version))
+			pkg.Index.Depends[source] = version
 		}
 		// TODO check if depends version were updated
 		// is possible?
 	}
 
-	if err := bd.SaveIndex(); err != nil {
+	if err := pkg.SaveIndex(); err != nil {
 		return fmt.Errorf("save index: %w", err)
 	}
 
-	if err := bd.SaveIndexLock(); err != nil {
+	if err := pkg.SaveIndexLock(); err != nil {
 		return fmt.Errorf("save index lock: %w", err)
 	}
 
 	return nil
 }
 
-func (dm *dependencyManager) Install(bd *bundle.Bundle) error {
-	if err := dm.installDependencies(bd, bd.Index.Depends); err != nil {
+func (dm *dependencyManager) Install(pkg *ctipackage.Package) error {
+	if err := dm.installDependencies(pkg, pkg.Index.Depends); err != nil {
 		return fmt.Errorf("install index dependencies: %w", err)
 	}
-	if err := bd.SaveIndexLock(); err != nil {
+	if err := pkg.SaveIndexLock(); err != nil {
 		return fmt.Errorf("save index lock: %w", err)
 	}
 	return nil

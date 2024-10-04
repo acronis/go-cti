@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ const (
 )
 
 type Index struct {
-	AppCode              string            `json:"app_code"`
+	PackageID            string            `json:"package_id"`
 	RamlxVersion         string            `json:"ramlx_version"`
 	Apis                 []string          `json:"apis,omitempty"`
 	Entities             []string          `json:"entities,omitempty"`
@@ -87,8 +87,8 @@ func (idx *Index) Check() error {
 			return fmt.Errorf("$.examples[%d]: invalid example extension: %s", i, ext)
 		}
 	}
-	if idx.AppCode == "" {
-		return fmt.Errorf("missing app code")
+	if idx.PackageID == "" {
+		return fmt.Errorf("package id is missing")
 	}
 	return nil
 }

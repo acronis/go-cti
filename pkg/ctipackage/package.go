@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 	"github.com/acronis/go-cti/pkg/filesys"
 )
 
-type Bundle struct {
+type Package struct {
 	Index     *Index
 	IndexLock *IndexLock
 
@@ -20,49 +20,57 @@ type Bundle struct {
 	BaseDir string
 }
 
-// New creates a new bundle from the specified path.
+// New creates a new package from the specified path.
 // If the path is empty, the current working directory is used.
-func New(path string, options ...InitializeOption) *Bundle {
-	b := &Bundle{
+func New(path string, options ...InitializeOption) (*Package, error) {
+	b := &Package{
 		BaseDir: path,
 		Index:   &Index{},
 		IndexLock: &IndexLock{
-			Version:          IndexLockVersion,
-			DependentBundles: make(map[string]string),
-			SourceInfo:       make(map[string]Info),
+			Version:           IndexLockVersion,
+			DependentPackages: make(map[string]string),
+			SourceInfo:        make(map[string]Info),
 		},
 	}
 
 	for _, opt := range options {
-		opt(b)
+		if err := opt(b); err != nil {
+			return nil, err
+		}
 	}
 
-	return b
+	return b, nil
 }
 
-type InitializeOption func(*Bundle)
+type InitializeOption func(*Package) error
 
-func WithAppCode(appCode string) InitializeOption {
-	return func(b *Bundle) {
-		// TODO: Validate appCode
-		b.Index.AppCode = appCode
+func WithID(id string) InitializeOption {
+	return func(b *Package) error {
+		if ValidateID(id) != nil {
+			return fmt.Errorf("validate id: %w", ValidateID(id))
+		}
+		b.Index.PackageID = id
+		return nil
 	}
 }
 
 func WithRamlxVersion(version string) InitializeOption {
-	return func(b *Bundle) {
+	return func(b *Package) error {
+		// TODO validate that version is a valid ramlx version and supported by the current version of tool
 		b.Index.RamlxVersion = version
+		return nil
 	}
 }
 func WithEntities(entities []string) InitializeOption {
-	return func(b *Bundle) {
+	return func(b *Package) error {
 		if entities != nil {
 			b.Index.Entities = entities
 		}
+		return nil
 	}
 }
 
-func (b *Bundle) Read() error {
+func (b *Package) Read() error {
 	idx, err := ReadIndex(b.BaseDir)
 	if err != nil {
 		return fmt.Errorf("read index file: %w", err)
@@ -77,21 +85,21 @@ func (b *Bundle) Read() error {
 	return nil
 }
 
-func (b *Bundle) SaveIndexLock() error {
+func (b *Package) SaveIndexLock() error {
 	if err := b.IndexLock.Save(b.BaseDir); err != nil {
 		return fmt.Errorf("save index lock: %w", err)
 	}
 	return nil
 }
 
-func (b *Bundle) SaveIndex() error {
+func (b *Package) SaveIndex() error {
 	if err := b.Index.Save(b.BaseDir); err != nil {
 		return fmt.Errorf("save index: %w", err)
 	}
 	return nil
 }
 
-func (b *Bundle) GetDictionaries() (Dictionaries, error) {
+func (b *Package) GetDictionaries() (Dictionaries, error) {
 	dictionaries := Dictionaries{
 		Dictionaries: make(map[LangCode]Entry),
 	}

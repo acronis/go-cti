@@ -42,7 +42,7 @@ func GetRootDir() (string, error) {
 	return rootDir, nil
 }
 
-func GetCtiBundlesCacheDir() (string, error) {
+func GetCtiPackagesCacheDir() (string, error) {
 	rootDir, err := GetRootDir()
 	if err != nil {
 		return "", fmt.Errorf("get root dir: %w", err)

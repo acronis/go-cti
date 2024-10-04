@@ -1,4 +1,4 @@
-package bunman
+package pacman
 
 import (
 	"encoding/json"
@@ -6,26 +6,26 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/cti"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/acronis/go-cti/pkg/depman"
 )
 
-func ParseWithCache(bd *bundle.Bundle) (*collector.CtiRegistry, error) {
-	if err := bd.Parse(); err != nil {
-		return nil, fmt.Errorf("parse bundle: %w", err)
+func ParseWithCache(pkg *ctipackage.Package) (*collector.CtiRegistry, error) {
+	if err := pkg.Parse(); err != nil {
+		return nil, fmt.Errorf("parse package: %w", err)
 	}
 
-	if err := bd.DumpCache(); err != nil {
+	if err := pkg.DumpCache(); err != nil {
 		return nil, fmt.Errorf("dump cache: %w", err)
 	}
 
 	// Make a shallow clone of the resulting registry to make an enriched registry
-	r := bd.Registry.Clone()
+	r := pkg.Registry.Clone()
 
-	for _, dep := range bd.IndexLock.SourceInfo {
-		cacheFile := filepath.Join(bd.BaseDir, depman.DependencyDirName, dep.AppCode, bundle.MetadataCacheFile)
+	for _, dep := range pkg.IndexLock.SourceInfo {
+		cacheFile := filepath.Join(pkg.BaseDir, depman.DependencyDirName, dep.PackageID, ctipackage.MetadataCacheFile)
 		// TODO: Automatically rebuild cache if missing?
 		entities, err := loadEntitiesFromCache(cacheFile)
 		if err != nil {

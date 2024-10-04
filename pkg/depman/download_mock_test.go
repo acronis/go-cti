@@ -35,12 +35,12 @@ func (i *mockInfo) Download(dst string) (string, error) {
 	src := filepath.Join("fixtures", "storage", i.Name, i.Version)
 	if _, err := os.Stat(src); err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("bundle name %s with version %s not found", i.Name, i.Version)
+			return "", fmt.Errorf("package name %s with version %s not found", i.Name, i.Version)
 		}
 		return "", fmt.Errorf("stat %s: %w", src, err)
 	}
 
-	target := filepath.Join(dst, "bundle")
+	target := filepath.Join(dst, "package")
 	if err := copy.Copy(src, target); err != nil {
 		return "", fmt.Errorf("copy %s to %s: %w", i.Name, target, err)
 	}

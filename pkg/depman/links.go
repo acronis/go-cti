@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 )
 
 var patchDepsRe = regexp.MustCompile(fmt.Sprintf(`(?:..\/)*(%s)\/`, strings.ReplaceAll(DependencyDirName, ".", `\.`)))
-var patchRamlxRe = regexp.MustCompile(fmt.Sprintf(`(?:..\/)*(%s)\/`, strings.ReplaceAll(bundle.RamlxDirName, ".", `\.`)))
+var patchRamlxRe = regexp.MustCompile(fmt.Sprintf(`(?:..\/)*(%s)\/`, strings.ReplaceAll(ctipackage.RamlxDirName, ".", `\.`)))
 
 func replaceCaptureGroup(reg *regexp.Regexp, input, replacement string, groupIndex int) string {
 	matches := reg.FindAllStringSubmatchIndex(input, -1)
@@ -51,7 +51,7 @@ func patchRelativeLinks(dir string) error {
 		}
 		// implies that dependencies are correct in the first place
 		content := replaceCaptureGroup(patchDepsRe, string(raw), "../../"+DependencyDirName, 1)
-		content = replaceCaptureGroup(patchRamlxRe, content, "../../"+bundle.RamlxDirName, 1)
+		content = replaceCaptureGroup(patchRamlxRe, content, "../../"+ctipackage.RamlxDirName, 1)
 
 		if err = os.WriteFile(file, []byte(content), 0600); err != nil {
 			return fmt.Errorf("patch .raml file: %w", err)

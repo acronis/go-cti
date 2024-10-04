@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/acronis/go-cti/pkg/bundle"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/acronis/go-cti/pkg/filesys"
 	"github.com/acronis/go-cti/pkg/storage"
 )
@@ -49,7 +49,7 @@ func (inf *SourceIntegrityInfo) Write(dm *dependencyManager, source string, vers
 	infoPath := dm.getSourceInfoPath(source, version)
 
 	if err := os.MkdirAll(filepath.Dir(infoPath), os.ModePerm); err != nil {
-		return fmt.Errorf("create bundle info directory: %w", err)
+		return fmt.Errorf("create package info directory: %w", err)
 	}
 
 	if err := filesys.WriteJSON(infoPath, inf); err != nil {
@@ -59,14 +59,14 @@ func (inf *SourceIntegrityInfo) Write(dm *dependencyManager, source string, vers
 	return nil
 }
 
-type BundleIntegrityInfo struct {
+type PackageIntegrityInfo struct {
 	Source  string `json:"Source"`
 	Version string `json:"Version"`
 	Hash    string `json:"Hash"`
 }
 
-func (inf *BundleIntegrityInfo) Read(dm *dependencyManager, appCode string, version string) error {
-	infoPath := dm.getBundleInfoPath(appCode, version)
+func (inf *PackageIntegrityInfo) Read(dm *dependencyManager, pkgId string, version string) error {
+	infoPath := dm.getPackageInfoPath(pkgId, version)
 	if _, err := os.Stat(infoPath); err != nil {
 		if os.IsNotExist(err) {
 			return err
@@ -81,11 +81,11 @@ func (inf *BundleIntegrityInfo) Read(dm *dependencyManager, appCode string, vers
 	return nil
 }
 
-func (inf *BundleIntegrityInfo) Write(dm *dependencyManager, appCode string, version string) error {
-	infoPath := dm.getBundleInfoPath(appCode, version)
+func (inf *PackageIntegrityInfo) Write(dm *dependencyManager, pkgId string, version string) error {
+	infoPath := dm.getPackageInfoPath(pkgId, version)
 
 	if err := os.MkdirAll(filepath.Dir(infoPath), os.ModePerm); err != nil {
-		return fmt.Errorf("create bundle info directory: %w", err)
+		return fmt.Errorf("create package info directory: %w", err)
 	}
 
 	if err := filesys.WriteJSON(infoPath, inf); err != nil {
@@ -113,8 +113,8 @@ func (dm *dependencyManager) validateSourceInformation(source string, version st
 	return nil
 }
 
-// Check source and bundle integrity cache and update both
-func (dm *dependencyManager) updateDependencyCache(source string, version string, info storage.Origin, depDir string, depIdx *bundle.Index) error {
+// Check source and package integrity cache and update both
+func (dm *dependencyManager) updateDependencyCache(source string, version string, info storage.Origin, depDir string, depIdx *ctipackage.Index) error {
 	sourceInfo := SourceIntegrityInfo{
 		Origin: dm.Storage.Origin(), // required for proper parsing
 	}
@@ -141,10 +141,10 @@ func (dm *dependencyManager) updateDependencyCache(source string, version string
 	// move dependency from cache to the dependencies directory, calculate directory integrity information
 	// TODO save additional storage specific information
 
-	bundleInfo := BundleIntegrityInfo{}
-	if err := bundleInfo.Read(dm, depIdx.AppCode, version); err != nil {
+	packageInfo := PackageIntegrityInfo{}
+	if err := packageInfo.Read(dm, depIdx.PackageID, version); err != nil {
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("read bundle info: %w", err)
+			return fmt.Errorf("read package info: %w", err)
 		}
 
 		hash, err := filesys.ComputeDirectoryHash(depDir)
@@ -152,14 +152,14 @@ func (dm *dependencyManager) updateDependencyCache(source string, version string
 			return fmt.Errorf("compute directory hash: %w", err)
 		}
 
-		bundleInfo = BundleIntegrityInfo{
+		packageInfo = PackageIntegrityInfo{
 			Source:  source,
 			Version: version,
 			Hash:    hash,
 		}
 
-		if err := bundleInfo.Write(dm, depIdx.AppCode, version); err != nil {
-			return fmt.Errorf("write bundle integrity info: %w", err)
+		if err := packageInfo.Write(dm, depIdx.PackageID, version); err != nil {
+			return fmt.Errorf("write package integrity info: %w", err)
 		}
 	} else {
 		hash, err := filesys.ComputeDirectoryHash(depDir)
@@ -167,8 +167,8 @@ func (dm *dependencyManager) updateDependencyCache(source string, version string
 			return fmt.Errorf("compute directory hash: %w", err)
 		}
 
-		if hash != bundleInfo.Hash {
-			return fmt.Errorf("bundle integrity check failed")
+		if hash != packageInfo.Hash {
+			return fmt.Errorf("package integrity check failed")
 		}
 	}
 

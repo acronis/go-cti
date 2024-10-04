@@ -1,4 +1,4 @@
-package validatecmd
+package synccmd
 
 import (
 	"context"
@@ -6,17 +6,15 @@ import (
 	"log/slog"
 
 	"github.com/acronis/go-cti/internal/app/command"
-
 	"github.com/acronis/go-cti/pkg/ctipackage"
-	"github.com/acronis/go-cti/pkg/pacman"
 
 	"github.com/spf13/cobra"
 )
 
 func New(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
-		Use:   "validate",
-		Short: "validate cti",
+		Use:   "sync",
+		Short: "synchronize package directory content with the index",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			baseDir, err := command.GetWorkingDir(cmd)
@@ -29,22 +27,23 @@ func New(ctx context.Context) *cobra.Command {
 	}
 }
 
-func execute(ctx context.Context, baseDir string) error {
-	slog.Info("Validating package", slog.String("path", baseDir))
+func execute(_ context.Context, baseDir string) error {
+	slog.Info("Synchronize package directory", slog.String("path", baseDir))
 
 	pkg, err := ctipackage.New(baseDir)
 	if err != nil {
 		return fmt.Errorf("new package: %w", err)
 	}
 
-	if err := pkg.Read(); err != nil {
-		return fmt.Errorf("read package: %w", err)
+	if pkg.Read() != nil {
+		slog.Info("Failed to read package, you can reinitialize it with 'cti init' command")
+		return nil
 	}
 
-	// TODO: Validation for usage of indirect dependencies
-	if err := pacman.Validate(pkg); err != nil {
-		return fmt.Errorf("validate package: %w", err)
+	if err := pkg.Sync(); err != nil {
+		return fmt.Errorf("sync package: %w", err)
 	}
-	slog.Info("No errors found")
+
+	slog.Info("Package directory was synchronized")
 	return nil
 }

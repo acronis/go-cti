@@ -1,4 +1,4 @@
-package bundle
+package ctipackage
 
 type LangCode string
 

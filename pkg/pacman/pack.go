@@ -1,4 +1,4 @@
-package bunman
+package pacman
 
 import (
 	"archive/zip"
@@ -9,17 +9,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/acronis/go-cti/pkg/bundle"
 	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/cti"
+	"github.com/acronis/go-cti/pkg/ctipackage"
 )
 
 const (
-	BundleName = "bundle.zip"
+	PackageName = "package.zip"
 )
 
-func writeMetadata(bd *bundle.Bundle, metadata string, zipWriter *zip.Writer) error {
-	f, err := os.OpenFile(filepath.Join(bd.BaseDir, metadata), os.O_RDONLY, 0o644)
+func writeMetadata(pkg *ctipackage.Package, metadata string, zipWriter *zip.Writer) error {
+	f, err := os.OpenFile(filepath.Join(pkg.BaseDir, metadata), os.O_RDONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("open serialized metadata %s: %w", metadata, err)
 	}
@@ -27,29 +27,29 @@ func writeMetadata(bd *bundle.Bundle, metadata string, zipWriter *zip.Writer) er
 
 	w, err := zipWriter.Create(metadata)
 	if err != nil {
-		return fmt.Errorf("create serialized metadata %s in bundle: %w", metadata, err)
+		return fmt.Errorf("create serialized metadata %s in package: %w", metadata, err)
 	}
 	if _, err = io.Copy(w, f); err != nil {
-		return fmt.Errorf("write serialized metadata %s to bundle: %w", metadata, err)
+		return fmt.Errorf("write serialized metadata %s to package: %w", metadata, err)
 	}
 	return nil
 }
 
-func writeIndex(bd *bundle.Bundle, zipWriter *zip.Writer) error {
-	w, err := zipWriter.Create(bundle.IndexFileName)
+func writeIndex(pkg *ctipackage.Package, zipWriter *zip.Writer) error {
+	w, err := zipWriter.Create(ctipackage.IndexFileName)
 	if err != nil {
-		return fmt.Errorf("create index in bundle: %w", err)
+		return fmt.Errorf("create index in package: %w", err)
 	}
 
-	idx := bd.Index.Clone()
-	idx.PutSerialized(bundle.MetadataCacheFile)
+	idx := pkg.Index.Clone()
+	idx.PutSerialized(ctipackage.MetadataCacheFile)
 
 	if _, err = w.Write(idx.ToBytes()); err != nil {
-		return fmt.Errorf("write index to bundle: %w", err)
+		return fmt.Errorf("write index to package: %w", err)
 	}
 
 	for _, metadata := range idx.Serialized {
-		if err := writeMetadata(bd, metadata, zipWriter); err != nil {
+		if err := writeMetadata(pkg, metadata, zipWriter); err != nil {
 			return fmt.Errorf("write metadata %s: %w", metadata, err)
 		}
 	}
@@ -67,7 +67,7 @@ func writeSources(baseDir string, zipWriter *zip.Writer) error {
 		if err != nil {
 			return fmt.Errorf("walk directory: %w", err)
 		}
-		if rel[0] == '.' || rel == BundleName || rel == bundle.IndexFileName {
+		if rel[0] == '.' || rel == PackageName || rel == ctipackage.IndexFileName {
 			return nil
 		}
 		f, err := os.OpenFile(path, os.O_RDONLY, 0o644)
@@ -76,10 +76,10 @@ func writeSources(baseDir string, zipWriter *zip.Writer) error {
 		}
 		w, err := zipWriter.Create(rel)
 		if err != nil {
-			return fmt.Errorf("create file in bundle: %w", err)
+			return fmt.Errorf("create file in package: %w", err)
 		}
 		if _, err = io.Copy(w, f); err != nil {
-			return fmt.Errorf("copy file in bundle: %w", err)
+			return fmt.Errorf("copy file in package: %w", err)
 		}
 		return nil
 	}); err != nil {
@@ -97,10 +97,10 @@ func writeAsset(assetPath string, zipWriter *zip.Writer) error {
 
 	w, err := zipWriter.Create(assetPath)
 	if err != nil {
-		return fmt.Errorf("create asset %s in bundle: %w", assetPath, err)
+		return fmt.Errorf("create asset %s in package: %w", assetPath, err)
 	}
 	if _, err = io.Copy(w, asset); err != nil {
-		return fmt.Errorf("write asset %s to bundle: %w", assetPath, err)
+		return fmt.Errorf("write asset %s to package: %w", assetPath, err)
 	}
 	return nil
 }
@@ -130,8 +130,8 @@ func writeEntity(r *collector.CtiRegistry, entity *cti.Entity, baseDir string, z
 	return nil
 }
 
-func Pack(bd *bundle.Bundle, includeSource bool) (string, error) {
-	fileName := filepath.Join(bd.BaseDir, BundleName)
+func Pack(pkg *ctipackage.Package, includeSource bool) (string, error) {
+	fileName := filepath.Join(pkg.BaseDir, PackageName)
 	archive, err := os.Create(fileName)
 	if err != nil {
 		return "", fmt.Errorf("create archive: %w", err)
@@ -142,22 +142,22 @@ func Pack(bd *bundle.Bundle, includeSource bool) (string, error) {
 	defer zipWriter.Close()
 
 	// write index
-	if err := writeIndex(bd, zipWriter); err != nil {
+	if err := writeIndex(pkg, zipWriter); err != nil {
 		return "", fmt.Errorf("write index: %w", err)
 	}
 
 	if includeSource {
-		if err := writeSources(bd.BaseDir, zipWriter); err != nil {
+		if err := writeSources(pkg.BaseDir, zipWriter); err != nil {
 			return "", fmt.Errorf("write sources: %w", err)
 		}
 	}
 
-	r, err := ParseWithCache(bd)
+	r, err := ParseWithCache(pkg)
 	if err != nil {
 		return "", fmt.Errorf("parse with cache: %w", err)
 	}
 	for _, entity := range r.Instances {
-		if err := writeEntity(r, entity, bd.BaseDir, zipWriter); err != nil {
+		if err := writeEntity(r, entity, pkg.BaseDir, zipWriter); err != nil {
 			return "", fmt.Errorf("write entity: %w", err)
 		}
 	}
