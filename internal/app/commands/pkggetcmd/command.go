@@ -1,4 +1,4 @@
-package getcmd
+package pkggetcmd
 
 import (
 	"context"
@@ -9,13 +9,14 @@ import (
 	"github.com/acronis/go-cti/internal/app/command"
 	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/acronis/go-cti/pkg/depman"
+
 	"github.com/spf13/cobra"
 )
 
 func New(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get",
-		Short: "tool to download cti packages from a remote repository",
+		Use:   "pkg",
+		Short: "command to add new or install cti package from cache",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			baseDir, err := command.GetWorkingDir(cmd)

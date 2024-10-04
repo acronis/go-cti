@@ -10,15 +10,15 @@ import (
 	"strings"
 
 	"github.com/acronis/go-cti/internal/app/command"
-	"github.com/acronis/go-cti/internal/app/commands/depcmd"
 	"github.com/acronis/go-cti/internal/app/commands/deploycmd"
+	"github.com/acronis/go-cti/internal/app/commands/downloadcmd"
 	"github.com/acronis/go-cti/internal/app/commands/envcmd"
 	"github.com/acronis/go-cti/internal/app/commands/fmtcmd"
-	"github.com/acronis/go-cti/internal/app/commands/getcmd"
 	"github.com/acronis/go-cti/internal/app/commands/infocmd"
 	"github.com/acronis/go-cti/internal/app/commands/initcmd"
 	"github.com/acronis/go-cti/internal/app/commands/lintcmd"
 	"github.com/acronis/go-cti/internal/app/commands/packcmd"
+	"github.com/acronis/go-cti/internal/app/commands/pkgcmd"
 	"github.com/acronis/go-cti/internal/app/commands/restcmd"
 	"github.com/acronis/go-cti/internal/app/commands/synccmd"
 	"github.com/acronis/go-cti/internal/app/commands/testcmd"
@@ -102,19 +102,20 @@ func mainFn() int {
 		cmd.Flags().BoolVarP(&ensureDuplicates, "ensure-duplicates", "d", false, "ensure that there are no duplicates in tracebacks")
 
 		cmd.AddCommand(
-			depcmd.New(ctx),
+			downloadcmd.New(ctx),
+			initcmd.New(ctx),
+			packcmd.New(ctx),
+			pkgcmd.New(ctx),
+			synccmd.New(ctx),
+			validatecmd.New(ctx),
+			// TODO implement
 			deploycmd.New(ctx),
 			envcmd.New(ctx),
 			fmtcmd.New(ctx),
-			getcmd.New(ctx),
 			infocmd.New(ctx),
-			initcmd.New(ctx),
 			lintcmd.New(ctx),
-			packcmd.New(ctx),
 			restcmd.New(ctx),
-			synccmd.New(ctx),
 			testcmd.New(ctx),
-			validatecmd.New(ctx),
 			&cobra.Command{
 				Use:   "version",
 				Short: "print a version of tool",
