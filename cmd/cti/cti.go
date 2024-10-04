@@ -20,6 +20,7 @@ import (
 	"github.com/acronis/go-cti/internal/app/commands/lintcmd"
 	"github.com/acronis/go-cti/internal/app/commands/packcmd"
 	"github.com/acronis/go-cti/internal/app/commands/restcmd"
+	"github.com/acronis/go-cti/internal/app/commands/synccmd"
 	"github.com/acronis/go-cti/internal/app/commands/testcmd"
 	"github.com/acronis/go-cti/internal/app/commands/validatecmd"
 	"github.com/acronis/go-cti/internal/pkg/execx"
@@ -97,11 +98,10 @@ func mainFn() int {
 
 		command.AddWorkDirFlag(cmd)
 
-		cmd.Flags().BoolP(verboseFlag, "v", false, "verbose output")
+		cmd.PersistentFlags().BoolP(verboseFlag, "v", false, "verbose output")
 		cmd.Flags().BoolVarP(&ensureDuplicates, "ensure-duplicates", "d", false, "ensure that there are no duplicates in tracebacks")
 
 		cmd.AddCommand(
-			packcmd.New(ctx),
 			depcmd.New(ctx),
 			deploycmd.New(ctx),
 			envcmd.New(ctx),
@@ -110,7 +110,9 @@ func mainFn() int {
 			infocmd.New(ctx),
 			initcmd.New(ctx),
 			lintcmd.New(ctx),
+			packcmd.New(ctx),
 			restcmd.New(ctx),
+			synccmd.New(ctx),
 			testcmd.New(ctx),
 			validatecmd.New(ctx),
 			&cobra.Command{

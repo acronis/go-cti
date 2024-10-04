@@ -14,7 +14,7 @@ const (
 func AddWorkDirFlag(cmd *cobra.Command) {
 	cwd, _ := os.Getwd()
 
-	cmd.PersistentFlags().StringP(workingDirFlag, "wd", cwd, "define working directory")
+	cmd.PersistentFlags().StringP(workingDirFlag, "w", cwd, "define working directory")
 }
 
 func GetWorkingDir(cmd *cobra.Command) (string, error) {
