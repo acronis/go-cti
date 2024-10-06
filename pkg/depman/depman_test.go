@@ -44,7 +44,7 @@ func Test_Add(t *testing.T) {
 			require.NoError(t, os.MkdirAll(packagePath, os.ModePerm))
 
 			dm, err := New(
-				WithDownloader(&mockDownloader{}),
+				WithStorage(&mockStorage{}),
 				WithPackagesCache(cacheDir))
 			require.NoError(t, err)
 

@@ -51,7 +51,7 @@ func New(options ...Option) (DependencyManager, error) {
 	return depman, nil
 }
 
-func WithDownloader(st storage.Storage) Option {
+func WithStorage(st storage.Storage) Option {
 	return func(dm *dependencyManager) {
 		dm.Storage = st
 	}

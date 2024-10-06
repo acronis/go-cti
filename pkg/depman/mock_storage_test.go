@@ -10,7 +10,7 @@ import (
 	"github.com/otiai10/copy"
 )
 
-type mockDownloader struct {
+type mockStorage struct {
 }
 
 type mockInfo struct {
@@ -48,11 +48,11 @@ func (i *mockInfo) Download(dst string) (string, error) {
 	return target, nil
 }
 
-func (m *mockDownloader) Origin() storage.Origin {
+func (m *mockStorage) Origin() storage.Origin {
 	return &mockInfo{}
 }
 
-func (m *mockDownloader) Discover(name string, version string) (storage.Origin, error) {
+func (m *mockStorage) Discover(name string, version string) (storage.Origin, error) {
 	return &mockInfo{
 		Name:    name,
 		Version: version,
