@@ -46,7 +46,8 @@ go install github.com/acronis/go-cti/cmd/cti@latest
 #### Example usage
 
 > [!NOTE]
-> All the commands are executed in the current working directory.
+> By default, all commands are executed in the current working directory.
+> You can use the global `--working-dir` argument to specify the working directory if necessary.
 
 ##### cti init
 
@@ -58,14 +59,14 @@ Example:
 cti init
 ```
 
-##### cti get \<git_remote\>
+##### cti pkg get \<git_remote\>
 
 Fetches the package from the specified git remote.
 
 Example:
 
 ```
-cti get github.com/acronis/sample-package
+cti pkg get github.com/acronis/sample-package
 ```
 
 ##### cti validate
