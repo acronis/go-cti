@@ -15,7 +15,7 @@ import (
 
 func New(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
-		Use:   "pkg",
+		Use:   "get",
 		Short: "command to add new or install cti package from cache",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {

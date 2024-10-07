@@ -9,7 +9,7 @@ import (
 
 func New(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get",
+		Use:   "pkg",
 		Short: "command to manage cti packages",
 	}
 	cmd.AddCommand(
