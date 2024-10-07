@@ -213,7 +213,7 @@ func (c *Collector) traverseShape(shape *raml.Shape, history []raml.Shape, fns [
 	}
 	s := *shape
 	for _, h := range history {
-		if s.Base().Id == h.Base().Id {
+		if s.Base().ID == h.Base().ID {
 			return nil
 		}
 	}
@@ -270,7 +270,7 @@ func (c *Collector) preProcessCtiType(shape *raml.Shape) error {
 				return fmt.Errorf("cti type %s not found", v)
 			}
 			for _, h := range history {
-				if (*ss).Base().Id == h.Base().Id {
+				if (*ss).Base().ID == h.Base().ID {
 					b := (*s).Base()
 					*s = &raml.RecursiveShape{
 						BaseShape: *b,
@@ -298,7 +298,7 @@ func (c *Collector) preProcessCtiType(shape *raml.Shape) error {
 				}
 				// History is required to prevent infinite recursion in further processing.
 				for _, h := range history {
-					if (*ss).Base().Id == h.Base().Id {
+					if (*ss).Base().ID == h.Base().ID {
 						b := (*s).Base()
 						*s = &raml.RecursiveShape{
 							BaseShape: *b,

@@ -15,7 +15,7 @@ func (c *Collector) unwrapCtiType(s *raml.ObjectShape, history []raml.Shape) (ra
 
 	base := s.Base()
 	for _, item := range history {
-		if item.Base().Id == base.Id {
+		if item.Base().ID == base.ID {
 			return nil, fmt.Errorf("CTI type cannot be recursive")
 		}
 	}
