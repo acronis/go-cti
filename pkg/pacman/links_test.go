@@ -1,4 +1,4 @@
-package depman
+package pacman
 
 import (
 	"testing"

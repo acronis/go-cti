@@ -8,7 +8,6 @@ import (
 	"github.com/acronis/go-cti/internal/app/command"
 
 	"github.com/acronis/go-cti/pkg/ctipackage"
-	"github.com/acronis/go-cti/pkg/pacman"
 
 	"github.com/spf13/cobra"
 )
@@ -42,7 +41,7 @@ func execute(ctx context.Context, baseDir string) error {
 	}
 
 	// TODO: Validation for usage of indirect dependencies
-	if err := pacman.Validate(pkg); err != nil {
+	if err := pkg.Validate(); err != nil {
 		return fmt.Errorf("validate package: %w", err)
 	}
 	slog.Info("No errors found")

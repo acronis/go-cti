@@ -1,4 +1,4 @@
-package depman
+package pacman
 
 import (
 	"fmt"
@@ -9,8 +9,8 @@ import (
 	"github.com/acronis/go-cti/pkg/filesys"
 )
 
-func (dm *dependencyManager) downloadDependency(source, version string) (CachedDependencyInfo, error) {
-	info, err := dm.Storage.Discover(source, version)
+func (pm *packageManager) downloadDependency(source, version string) (CachedDependencyInfo, error) {
+	info, err := pm.Storage.Discover(source, version)
 	if err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("discover source %s version %s: %w", source, version, err)
 	}
@@ -18,12 +18,12 @@ func (dm *dependencyManager) downloadDependency(source, version string) (CachedD
 	slog.Info("Discovered dependency", slog.String("package", source))
 
 	// Pre-download integrity check
-	if err := dm.validateSourceInformation(source, version, info); err != nil {
+	if err := pm.validateSourceInformation(source, version, info); err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("check integrity: %w", err)
 	}
 
 	// Download into temporary directory
-	sourceCacheDir := dm.getSourceCacheDir()
+	sourceCacheDir := pm.getSourceCacheDir()
 	if err := os.MkdirAll(sourceCacheDir, os.ModePerm); err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("create source cache dir: %w", err)
 	}
@@ -45,12 +45,12 @@ func (dm *dependencyManager) downloadDependency(source, version string) (CachedD
 	}
 
 	// Check package integrity and register package
-	if err := dm.updateDependencyCache(source, version, info, depDir, depIdx); err != nil {
+	if err := pm.updateDependencyCache(source, version, info, depDir, depIdx); err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("update dependency cache: %w", err)
 	}
 
 	// Move package to the final destination
-	targetDir := dm.getPackageDir(depIdx.PackageID, version)
+	targetDir := pm.getPackageDir(depIdx.PackageID, version)
 	if err := filesys.ReplaceWithMove(depDir, targetDir); err != nil {
 		return CachedDependencyInfo{}, fmt.Errorf("move package %s from source %s: %w", depIdx.PackageID, source, err)
 	}

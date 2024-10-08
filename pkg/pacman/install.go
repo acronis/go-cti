@@ -1,4 +1,4 @@
-package depman
+package pacman
 
 import (
 	"fmt"
@@ -17,19 +17,19 @@ type CachedDependencyInfo struct {
 	Index     ctipackage.Index
 }
 
-func (dm *dependencyManager) installDependencies(pkg *ctipackage.Package, depends map[string]string) error {
-	installed, err := dm.Download(depends)
+func (pm *packageManager) installDependencies(pkg *ctipackage.Package, depends map[string]string) error {
+	installed, err := pm.Download(depends)
 	if err != nil {
 		return fmt.Errorf("download dependencies: %w", err)
 	}
 
-	if err := dm.installFromCache(pkg, installed); err != nil {
+	if err := pm.installFromCache(pkg, installed); err != nil {
 		return fmt.Errorf("install from cache: %w", err)
 	}
 	return nil
 }
 
-func (dm *dependencyManager) installFromCache(target *ctipackage.Package, depends []CachedDependencyInfo) error {
+func (pm *packageManager) installFromCache(target *ctipackage.Package, depends []CachedDependencyInfo) error {
 	// put new dependencies from cache and replace links
 	for _, info := range depends {
 		// Validate integrity with installed package
@@ -47,7 +47,7 @@ func (dm *dependencyManager) installFromCache(target *ctipackage.Package, depend
 		}
 
 		// Replace the dependency in the root package
-		depPath := filepath.Join(target.BaseDir, DependencyDirName, info.Index.PackageID)
+		depPath := filepath.Join(target.BaseDir, ctipackage.DependencyDirName, info.Index.PackageID)
 		if err := filesys.ReplaceWithCopy(info.Path, depPath); err != nil {
 			return fmt.Errorf("replace with copy: %w", err)
 		}
@@ -57,7 +57,7 @@ func (dm *dependencyManager) installFromCache(target *ctipackage.Package, depend
 
 	// Pre-build dependencies and update target's index lock
 	for _, info := range depends {
-		depPath := filepath.Join(target.BaseDir, DependencyDirName, info.Index.PackageID)
+		depPath := filepath.Join(target.BaseDir, ctipackage.DependencyDirName, info.Index.PackageID)
 
 		pkg, err := ctipackage.New(depPath)
 		if err != nil {

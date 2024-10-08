@@ -29,20 +29,20 @@ func extractRAMLxSpec(dst string) error {
 	return nil
 }
 
-func (b *Package) ValidateRamlxSpec() error {
+func (pkg *Package) ValidateRamlxSpec() error {
 
 	return nil
 }
 
-func (b *Package) Initialize() error {
-	if err := extractRAMLxSpec(filepath.Join(b.BaseDir, RamlxDirName)); err != nil {
+func (pkg *Package) Initialize() error {
+	if err := extractRAMLxSpec(filepath.Join(pkg.BaseDir, RamlxDirName)); err != nil {
 		return fmt.Errorf("extract raml files: %w", err)
 	}
 
-	if err := b.SaveIndex(); err != nil {
+	if err := pkg.SaveIndex(); err != nil {
 		return fmt.Errorf("save index: %w", err)
 	}
-	if err := b.SaveIndexLock(); err != nil {
+	if err := pkg.SaveIndexLock(); err != nil {
 		return fmt.Errorf("save index lock: %w", err)
 	}
 

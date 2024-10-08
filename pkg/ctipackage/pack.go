@@ -1,4 +1,4 @@
-package pacman
+package ctipackage
 
 import (
 	"archive/zip"
@@ -11,14 +11,13 @@ import (
 
 	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/cti"
-	"github.com/acronis/go-cti/pkg/ctipackage"
 )
 
 const (
 	PackageName = "package.zip"
 )
 
-func writeMetadata(pkg *ctipackage.Package, metadata string, zipWriter *zip.Writer) error {
+func writeMetadata(pkg *Package, metadata string, zipWriter *zip.Writer) error {
 	f, err := os.OpenFile(filepath.Join(pkg.BaseDir, metadata), os.O_RDONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("open serialized metadata %s: %w", metadata, err)
@@ -35,14 +34,14 @@ func writeMetadata(pkg *ctipackage.Package, metadata string, zipWriter *zip.Writ
 	return nil
 }
 
-func writeIndex(pkg *ctipackage.Package, zipWriter *zip.Writer) error {
-	w, err := zipWriter.Create(ctipackage.IndexFileName)
+func writeIndex(pkg *Package, zipWriter *zip.Writer) error {
+	w, err := zipWriter.Create(IndexFileName)
 	if err != nil {
 		return fmt.Errorf("create index in package: %w", err)
 	}
 
 	idx := pkg.Index.Clone()
-	idx.PutSerialized(ctipackage.MetadataCacheFile)
+	idx.PutSerialized(MetadataCacheFile)
 
 	if _, err = w.Write(idx.ToBytes()); err != nil {
 		return fmt.Errorf("write index to package: %w", err)
@@ -67,7 +66,7 @@ func writeSources(baseDir string, zipWriter *zip.Writer) error {
 		if err != nil {
 			return fmt.Errorf("walk directory: %w", err)
 		}
-		if rel[0] == '.' || rel == PackageName || rel == ctipackage.IndexFileName {
+		if rel[0] == '.' || rel == PackageName || rel == IndexFileName {
 			return nil
 		}
 		f, err := os.OpenFile(path, os.O_RDONLY, 0o644)
@@ -130,7 +129,7 @@ func writeEntity(r *collector.CtiRegistry, entity *cti.Entity, baseDir string, z
 	return nil
 }
 
-func Pack(pkg *ctipackage.Package, includeSource bool) (string, error) {
+func (pkg *Package) Pack(includeSource bool) (string, error) {
 	fileName := filepath.Join(pkg.BaseDir, PackageName)
 	archive, err := os.Create(fileName)
 	if err != nil {
@@ -152,7 +151,7 @@ func Pack(pkg *ctipackage.Package, includeSource bool) (string, error) {
 		}
 	}
 
-	r, err := ParseWithCache(pkg)
+	r, err := pkg.ParseWithCache()
 	if err != nil {
 		return "", fmt.Errorf("parse with cache: %w", err)
 	}

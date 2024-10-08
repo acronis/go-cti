@@ -7,7 +7,6 @@ import (
 
 	"github.com/acronis/go-cti/internal/app/command"
 	"github.com/acronis/go-cti/pkg/ctipackage"
-	"github.com/acronis/go-cti/pkg/pacman"
 	"github.com/spf13/cobra"
 )
 
@@ -46,12 +45,11 @@ func execute(_ context.Context, baseDir string, opts PackOptions) error {
 		return fmt.Errorf("read package: %w", err)
 	}
 
-	filename, err := pacman.Pack(pkg, opts.IncludeSource)
+	filename, err := pkg.Pack(opts.IncludeSource)
 	if err != nil {
 		return fmt.Errorf("pack the package: %w", err)
 	}
 
 	slog.Info("Packing has been completed", "filename", filename)
-
 	return nil
 }

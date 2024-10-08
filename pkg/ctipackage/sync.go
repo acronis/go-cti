@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 )
 
-func (b *Package) Sync() error {
-	if err := extractRAMLxSpec(filepath.Join(b.BaseDir, RamlxDirName)); err != nil {
+func (pkg *Package) Sync() error {
+	if err := extractRAMLxSpec(filepath.Join(pkg.BaseDir, RamlxDirName)); err != nil {
 		return fmt.Errorf("extract raml files: %w", err)
 	}
 

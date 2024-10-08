@@ -78,6 +78,13 @@ annotationTypes:
     default: false
     allowedTargets: TypeDeclaration
 
+  l10n:
+    type: boolean
+    description: |
+      Indicates field with this annotation may be localized, dictionary key would be the value in english language of this field.
+      It will be used in conjunction with type `L10NType`. Types with fields supporting localization needs to support `L10NType`'s interface.
+    allowedTargets: TypeDeclaration
+
 types:
   CTI:
     type: scalar.string1024

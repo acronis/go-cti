@@ -11,6 +11,10 @@ import (
 	"github.com/acronis/go-cti/pkg/filesys"
 )
 
+const (
+	DependencyDirName = ".dep"
+)
+
 type Package struct {
 	Index     *Index
 	IndexLock *IndexLock
@@ -45,67 +49,67 @@ func New(path string, options ...InitializeOption) (*Package, error) {
 type InitializeOption func(*Package) error
 
 func WithID(id string) InitializeOption {
-	return func(b *Package) error {
+	return func(pkg *Package) error {
 		if ValidateID(id) != nil {
 			return fmt.Errorf("validate id: %w", ValidateID(id))
 		}
-		b.Index.PackageID = id
+		pkg.Index.PackageID = id
 		return nil
 	}
 }
 
 func WithRamlxVersion(version string) InitializeOption {
-	return func(b *Package) error {
+	return func(pkg *Package) error {
 		// TODO validate that version is a valid ramlx version and supported by the current version of tool
-		b.Index.RamlxVersion = version
+		pkg.Index.RamlxVersion = version
 		return nil
 	}
 }
 func WithEntities(entities []string) InitializeOption {
-	return func(b *Package) error {
+	return func(pkg *Package) error {
 		if entities != nil {
-			b.Index.Entities = entities
+			pkg.Index.Entities = entities
 		}
 		return nil
 	}
 }
 
-func (b *Package) Read() error {
-	idx, err := ReadIndex(b.BaseDir)
+func (pkg *Package) Read() error {
+	idx, err := ReadIndex(pkg.BaseDir)
 	if err != nil {
 		return fmt.Errorf("read index file: %w", err)
 	}
-	idxLock, err := ReadIndexLock(b.BaseDir)
+	idxLock, err := ReadIndexLock(pkg.BaseDir)
 	if err != nil {
 		return fmt.Errorf("read index lock: %w", err)
 	}
 
-	b.Index = idx
-	b.IndexLock = idxLock
+	pkg.Index = idx
+	pkg.IndexLock = idxLock
 	return nil
 }
 
-func (b *Package) SaveIndexLock() error {
-	if err := b.IndexLock.Save(b.BaseDir); err != nil {
+func (pkg *Package) SaveIndexLock() error {
+	if err := pkg.IndexLock.Save(pkg.BaseDir); err != nil {
 		return fmt.Errorf("save index lock: %w", err)
 	}
 	return nil
 }
 
-func (b *Package) SaveIndex() error {
-	if err := b.Index.Save(b.BaseDir); err != nil {
+func (pkg *Package) SaveIndex() error {
+	if err := pkg.Index.Save(pkg.BaseDir); err != nil {
 		return fmt.Errorf("save index: %w", err)
 	}
 	return nil
 }
 
-func (b *Package) GetDictionaries() (Dictionaries, error) {
+func (pkg *Package) GetDictionaries() (Dictionaries, error) {
 	dictionaries := Dictionaries{
 		Dictionaries: make(map[LangCode]Entry),
 	}
 
-	for _, dict := range b.Index.Dictionaries {
-		file, err := os.Open(path.Join(b.BaseDir, dict))
+	for _, dict := range pkg.Index.Dictionaries {
+		file, err := os.Open(path.Join(pkg.BaseDir, dict))
 		if err != nil {
 			return Dictionaries{}, fmt.Errorf("open dictionary file: %w", err)
 		}
