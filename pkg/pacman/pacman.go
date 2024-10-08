@@ -1,4 +1,4 @@
-package depman
+package pacman
 
 import (
 	"fmt"
@@ -10,11 +10,7 @@ import (
 	"github.com/acronis/go-cti/pkg/storage/gitstorage"
 )
 
-const (
-	DependencyDirName = ".dep"
-)
-
-type DependencyManager interface {
+type PackageManager interface {
 	// Add new dependencies to index.lock
 	Add(pkg *ctipackage.Package, depends map[string]string) error
 	// Install dependencies from index.lock
@@ -23,49 +19,49 @@ type DependencyManager interface {
 	Download(depends map[string]string) ([]CachedDependencyInfo, error)
 }
 
-type Option func(*dependencyManager)
+type Option func(*packageManager)
 
-type dependencyManager struct {
+type packageManager struct {
 	PackagesDir string
 	Storage     storage.Storage
 }
 
-func New(options ...Option) (DependencyManager, error) {
-	depman := &dependencyManager{}
+func New(options ...Option) (PackageManager, error) {
+	pm := &packageManager{}
 
 	for _, o := range options {
-		o(depman)
+		o(pm)
 	}
 
-	if depman.Storage == nil {
-		depman.Storage = gitstorage.New()
+	if pm.Storage == nil {
+		pm.Storage = gitstorage.New()
 	}
-	if depman.PackagesDir == "" {
+	if pm.PackagesDir == "" {
 		cacheDir, err := filesys.GetCtiPackagesCacheDir()
 		if err != nil {
 			return nil, fmt.Errorf("get cache dir: %w", err)
 		}
-		depman.PackagesDir = cacheDir
+		pm.PackagesDir = cacheDir
 	}
 
-	return depman, nil
+	return pm, nil
 }
 
 func WithStorage(st storage.Storage) Option {
-	return func(dm *dependencyManager) {
-		dm.Storage = st
+	return func(pm *packageManager) {
+		pm.Storage = st
 	}
 }
 
 func WithPackagesCache(cacheDir string) Option {
-	return func(dm *dependencyManager) {
-		dm.PackagesDir = cacheDir
+	return func(pm *packageManager) {
+		pm.PackagesDir = cacheDir
 	}
 }
 
-func (dm *dependencyManager) Add(pkg *ctipackage.Package, depends map[string]string) error {
+func (pm *packageManager) Add(pkg *ctipackage.Package, depends map[string]string) error {
 	// Validate dependencies
-	if err := dm.installDependencies(pkg, depends); err != nil {
+	if err := pm.installDependencies(pkg, depends); err != nil {
 		return fmt.Errorf("install dependencies: %w", err)
 	}
 
@@ -89,8 +85,8 @@ func (dm *dependencyManager) Add(pkg *ctipackage.Package, depends map[string]str
 	return nil
 }
 
-func (dm *dependencyManager) Install(pkg *ctipackage.Package) error {
-	if err := dm.installDependencies(pkg, pkg.Index.Depends); err != nil {
+func (pm *packageManager) Install(pkg *ctipackage.Package) error {
+	if err := pm.installDependencies(pkg, pkg.Index.Depends); err != nil {
 		return fmt.Errorf("install index dependencies: %w", err)
 	}
 	if err := pkg.SaveIndexLock(); err != nil {
@@ -99,11 +95,11 @@ func (dm *dependencyManager) Install(pkg *ctipackage.Package) error {
 	return nil
 }
 
-func (dm *dependencyManager) Download(depends map[string]string) ([]CachedDependencyInfo, error) {
+func (pm *packageManager) Download(depends map[string]string) ([]CachedDependencyInfo, error) {
 	installed := []CachedDependencyInfo{}
 	subDepends := map[string]string{}
 	for source, version := range depends {
-		info, err := dm.downloadDependency(source, version)
+		info, err := pm.downloadDependency(source, version)
 		if err != nil {
 			return nil, fmt.Errorf("download dependency %s %s: %w", source, version, err)
 		}
@@ -117,7 +113,7 @@ func (dm *dependencyManager) Download(depends map[string]string) ([]CachedDepend
 
 	// Recursively download sub-dependencies
 	if len(subDepends) != 0 {
-		inst, err := dm.Download(subDepends)
+		inst, err := pm.Download(subDepends)
 		if err != nil {
 			return nil, fmt.Errorf("download sub-dependencies: %w", err)
 		}

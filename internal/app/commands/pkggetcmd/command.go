@@ -8,7 +8,7 @@ import (
 
 	"github.com/acronis/go-cti/internal/app/command"
 	"github.com/acronis/go-cti/pkg/ctipackage"
-	"github.com/acronis/go-cti/pkg/depman"
+	"github.com/acronis/go-cti/pkg/pacman"
 
 	"github.com/spf13/cobra"
 )
@@ -43,7 +43,7 @@ func execute(_ context.Context, baseDir string, targets []string) error {
 		return fmt.Errorf("read package: %w", err)
 	}
 
-	dm, err := depman.New()
+	pm, err := pacman.New()
 	if err != nil {
 		return fmt.Errorf("create package manager: %w", err)
 	}
@@ -61,11 +61,11 @@ func execute(_ context.Context, baseDir string, targets []string) error {
 			depends[chunks[0]] = chunks[1]
 		}
 
-		if err := dm.Add(pkg, depends); err != nil {
+		if err := pm.Add(pkg, depends); err != nil {
 			return fmt.Errorf("install dependencies: %w", err)
 		}
 	} else {
-		if err := dm.Install(pkg); err != nil {
+		if err := pm.Install(pkg); err != nil {
 			return fmt.Errorf("install dependencies: %w", err)
 		}
 	}

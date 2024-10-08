@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/acronis/go-cti/internal/app/command"
-	"github.com/acronis/go-cti/pkg/depman"
+	"github.com/acronis/go-cti/pkg/pacman"
 
 	"github.com/spf13/cobra"
 )
@@ -40,12 +40,12 @@ func execute(_ context.Context, packages []string) error {
 		pkgs[chunks[0]] = chunks[1]
 	}
 
-	dm, err := depman.New()
+	pm, err := pacman.New()
 	if err != nil {
 		return fmt.Errorf("create package manager: %w", err)
 	}
 
-	if _, err := dm.Download(pkgs); err != nil {
+	if _, err := pm.Download(pkgs); err != nil {
 		return fmt.Errorf("download packages: %w", err)
 	}
 

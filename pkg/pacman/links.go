@@ -1,4 +1,4 @@
-package depman
+package pacman
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ const (
 	RAMLExt = ".raml"
 )
 
-var patchDepsRe = regexp.MustCompile(fmt.Sprintf(`(?:..\/)*(%s)\/`, strings.ReplaceAll(DependencyDirName, ".", `\.`)))
+var patchDepsRe = regexp.MustCompile(fmt.Sprintf(`(?:..\/)*(%s)\/`, strings.ReplaceAll(ctipackage.DependencyDirName, ".", `\.`)))
 var patchRamlxRe = regexp.MustCompile(fmt.Sprintf(`(?:..\/)*(%s)\/`, strings.ReplaceAll(ctipackage.RamlxDirName, ".", `\.`)))
 
 func replaceCaptureGroup(reg *regexp.Regexp, input, replacement string, groupIndex int) string {
@@ -50,7 +50,7 @@ func patchRelativeLinks(dir string) error {
 			return fmt.Errorf("read file: %w", err)
 		}
 		// implies that dependencies are correct in the first place
-		content := replaceCaptureGroup(patchDepsRe, string(raw), "../../"+DependencyDirName, 1)
+		content := replaceCaptureGroup(patchDepsRe, string(raw), "../../"+ctipackage.DependencyDirName, 1)
 		content = replaceCaptureGroup(patchRamlxRe, content, "../../"+ctipackage.RamlxDirName, 1)
 
 		if err = os.WriteFile(file, []byte(content), 0600); err != nil {

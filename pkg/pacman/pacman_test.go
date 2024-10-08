@@ -1,4 +1,4 @@
-package depman
+package pacman
 
 import (
 	"os"
@@ -43,7 +43,7 @@ func Test_Add(t *testing.T) {
 			packagePath := filepath.Join(test_dir, "local")
 			require.NoError(t, os.MkdirAll(packagePath, os.ModePerm))
 
-			dm, err := New(
+			pm, err := New(
 				WithStorage(&mockStorage{}),
 				WithPackagesCache(cacheDir))
 			require.NoError(t, err)
@@ -53,7 +53,7 @@ func Test_Add(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pkg.Initialize())
 
-			require.NoError(t, dm.Add(pkg, tc.depends))
+			require.NoError(t, pm.Add(pkg, tc.depends))
 		})
 	}
 }

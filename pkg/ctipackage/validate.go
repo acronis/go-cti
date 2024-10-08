@@ -1,14 +1,13 @@
-package pacman
+package ctipackage
 
 import (
 	"fmt"
 
-	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/acronis/go-cti/pkg/validator"
 )
 
-func Validate(pkg *ctipackage.Package) error {
-	r, err := ParseWithCache(pkg)
+func (pkg *Package) Validate() error {
+	r, err := pkg.ParseWithCache()
 	if err != nil {
 		return fmt.Errorf("parse with cache: %w", err)
 	}
