@@ -3,5 +3,5 @@ go 1.22.6
 use (
 	./pkg/identifier
 	./pkg/ramlx
-	/
+	.
 )

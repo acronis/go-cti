@@ -4,14 +4,22 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
+	"strings"
 
 	"github.com/acronis/go-cti/internal/app/command"
 	"github.com/acronis/go-cti/pkg/ctipackage"
+	"github.com/acronis/go-cti/pkg/packer"
+	"github.com/acronis/go-cti/pkg/packer/tgzwriter"
+	"github.com/acronis/go-cti/pkg/packer/zippacker"
 	"github.com/spf13/cobra"
 )
 
 type PackOptions struct {
+	FileName      string
+	Prefix        string
 	IncludeSource bool
+	Format        PackFormat
 }
 
 func New(ctx context.Context) *cobra.Command {
@@ -30,26 +38,47 @@ func New(ctx context.Context) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVarP(&packOpts.FileName, "output", "o", "package."+packer.ArchiveExtension, "Output file name with path.")
+	cmd.Flags().StringVarP(&packOpts.Prefix, "prefix", "p", "", "Output prefix.")
 	cmd.Flags().BoolVarP(&packOpts.IncludeSource, "include-source", "s", false, "Include source files in the resulting package.")
+	cmd.Flags().Var(&packOpts.Format, "format", `Archive format. allowed: `+strings.Join(ListPackFormats, ","))
+
 	return cmd
 }
 
 func execute(_ context.Context, baseDir string, opts PackOptions) error {
 	slog.Info("Packing package", slog.String("path", baseDir))
 
+	prkOpts := []packer.Option{}
+
+	switch opts.Format {
+	case PackFormatZip:
+		prkOpts = append(prkOpts, packer.WithWriter(zippacker.New()))
+	case PackFormatTgz:
+		fallthrough
+	default:
+		prkOpts = append(prkOpts, packer.WithWriter(tgzwriter.New()))
+	}
+
+	if opts.IncludeSource {
+		prkOpts = append(prkOpts, packer.WithSources())
+	}
+	p, err := packer.New(prkOpts...)
+	if err != nil {
+		return fmt.Errorf("new packer: %w", err)
+	}
+
 	pkg, err := ctipackage.New(baseDir)
 	if err != nil {
 		return fmt.Errorf("new package: %w", err)
 	}
-	if err := pkg.Read(); err != nil {
-		return fmt.Errorf("read package: %w", err)
-	}
 
-	filename, err := pkg.Pack(opts.IncludeSource)
-	if err != nil {
+	fullPath := filepath.Join(opts.Prefix, opts.FileName)
+
+	if err := p.Pack(pkg, fullPath); err != nil {
 		return fmt.Errorf("pack the package: %w", err)
 	}
 
-	slog.Info("Packing has been completed", "filename", filename)
+	slog.Info("Packing has been completed", "path", fullPath)
 	return nil
 }
