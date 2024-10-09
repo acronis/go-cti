@@ -11,7 +11,6 @@ import (
 
 	"github.com/acronis/go-cti/internal/app/command"
 	"github.com/acronis/go-cti/internal/app/commands/deploycmd"
-	"github.com/acronis/go-cti/internal/app/commands/downloadcmd"
 	"github.com/acronis/go-cti/internal/app/commands/envcmd"
 	"github.com/acronis/go-cti/internal/app/commands/fmtcmd"
 	"github.com/acronis/go-cti/internal/app/commands/infocmd"
@@ -101,7 +100,6 @@ func mainFn() int {
 		cmd.Flags().BoolVarP(&ensureDuplicates, "ensure-duplicates", "d", false, "ensure that there are no duplicates in tracebacks")
 
 		cmd.AddCommand(
-			downloadcmd.New(ctx),
 			initcmd.New(ctx),
 			packcmd.New(ctx),
 			pkgcmd.New(ctx),
