@@ -37,19 +37,19 @@ To describe types and instances that are associated with the CTI identifiers, RA
 go get -u github.com/acronis/go-cti
 ```
 
-### CLI
+## CLI
 
 ```
 go install github.com/acronis/go-cti/cmd/cti@latest
 ```
 
-#### Example usage
+## Example usage
 
 > [!NOTE]
 > By default, all commands are executed in the current working directory.
 > You can use the global `--working-dir` argument to specify the working directory if necessary.
 
-##### cti init
+### cti init
 
 Initializes a CTI package. Writes `index.json` and `.ramlx` folder with CTI specification files for RAMLx.
 
@@ -59,17 +59,17 @@ Example:
 cti init
 ```
 
-##### cti pkg get \<git_remote\>
+### cti pkg get \<git_remote\>@\<git_ref\>
 
 Fetches the package from the specified git remote.
 
 Example:
 
 ```
-cti pkg get github.com/acronis/sample-package
+cti pkg get github.com/acronis/sample-package@v1
 ```
 
-##### cti validate
+### cti validate
 
 Parses and validates the package against RAMLx.
 
@@ -79,12 +79,33 @@ Example:
 cti validate
 ```
 
-##### cti pack
+### cti pack
 
-Packs the package into a bundle.
+Packs the package into a bundle. Valid package should be in current working directory (or directory specified by `--working-dir`).
 
 Example:
 
+
+```shell
+> cti pack --include-source --format zip --prefix output --output=sample-package.cti
+
+> ls output
+sample-package.cti
 ```
-cti pack
-```
+
+#### --include-source
+
+Includes the source files into the bundle. By default, the source files are not included.
+Hidden files (starting with a dot) are not included in the bundle.
+
+#### --format
+
+The format of the output bundle. Supported formats are `zip` and `tgz`. Default is `tgz`.
+
+#### --prefix
+
+The directory where the output bundle will be saved. Default is `.`.
+
+#### --output
+
+The name of the output bundle. Default is `bundle.cti`. Please note that the extension is not added automatically.
