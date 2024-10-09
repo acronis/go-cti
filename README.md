@@ -1,5 +1,22 @@
 # CTI Types & Instances management tool and library
 
+- [What is CTI Types \& Instances?](#what-is-cti-types--instances)
+- [What does this project provide?](#what-does-this-project-provide)
+- [How the technology is used](#how-the-technology-is-used)
+- [Installation](#installation)
+  - [Library](#library)
+  - [CLI](#cli)
+- [CLI Reference](#cli-reference)
+  - [cti init](#cti-init)
+  - [cti pkg get](#cti-pkg-get)
+  - [cti validate](#cti-validate)
+  - [cti pack](#cti-pack)
+    - [--include-source](#--include-source)
+    - [--format](#--format)
+    - [--prefix](#--prefix)
+    - [--output](#--output)
+
+
 ## What is CTI Types & Instances?
 
 **CTI Types and Instances (CTI)** is a technology that provides a unified, vendor-agnostic way to define and uniquely identify types and instances, extend and package them. With CTI, types and instances are identified by CTI Typed Identifier that is associated with a particular entity.
@@ -43,13 +60,13 @@ go get -u github.com/acronis/go-cti
 go install github.com/acronis/go-cti/cmd/cti@latest
 ```
 
-#### Example usage
+## CLI Reference
 
 > [!NOTE]
 > By default, all commands are executed in the current working directory.
 > You can use the global `--working-dir` argument to specify the working directory if necessary.
 
-##### cti init
+### cti init
 
 Initializes a CTI package. Writes `index.json` and `.ramlx` folder with CTI specification files for RAMLx.
 
@@ -59,17 +76,21 @@ Example:
 cti init
 ```
 
-##### cti pkg get \<git_remote\>
+### cti pkg get
 
-Fetches the package from the specified git remote.
+```
+cti pkg get <git_remote>@<git_ref>
+```
+
+Fetches the package from the specified git remote and append package in the dependencies list of current component.
 
 Example:
 
 ```
-cti pkg get github.com/acronis/sample-package
+cti pkg get github.com/acronis/sample-package@v1
 ```
 
-##### cti validate
+### cti validate
 
 Parses and validates the package against RAMLx.
 
@@ -79,12 +100,33 @@ Example:
 cti validate
 ```
 
-##### cti pack
+### cti pack
 
-Packs the package into a bundle.
+Packs the package into a bundle. Valid package should be in current working directory (or directory specified by `--working-dir`).
 
 Example:
 
+
+```shell
+> cti pack --include-source --format zip --prefix output --output=sample-package.cti
+
+> ls output
+sample-package.cti
 ```
-cti pack
-```
+
+#### --include-source
+
+Includes the source files into the bundle. By default, the source files are not included.
+Hidden files (starting with a dot) are not included in the bundle.
+
+#### --format
+
+The format of the output bundle. Supported formats are `zip` and `tgz`. Default is `tgz`.
+
+#### --prefix
+
+The directory where the output bundle will be saved. Default is `.`.
+
+#### --output
+
+The name of the output bundle. Default is `bundle.cti`. Please note that the extension is not added automatically.
