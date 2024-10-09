@@ -19,7 +19,7 @@ func New(ctx context.Context) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			baseDir, err := command.GetWorkingDir(cmd)
 			if err != nil {
-				return fmt.Errorf("get base directory: %w", err)
+				return fmt.Errorf("get working directory: %w", err)
 			}
 
 			return command.WrapError(execute(ctx, baseDir))
