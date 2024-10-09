@@ -11,7 +11,6 @@ import (
 
 	"github.com/acronis/go-cti/internal/app/command"
 	"github.com/acronis/go-cti/internal/app/commands/deploycmd"
-	"github.com/acronis/go-cti/internal/app/commands/downloadcmd"
 	"github.com/acronis/go-cti/internal/app/commands/envcmd"
 	"github.com/acronis/go-cti/internal/app/commands/fmtcmd"
 	"github.com/acronis/go-cti/internal/app/commands/infocmd"
@@ -23,7 +22,6 @@ import (
 	"github.com/acronis/go-cti/internal/app/commands/synccmd"
 	"github.com/acronis/go-cti/internal/app/commands/testcmd"
 	"github.com/acronis/go-cti/internal/app/commands/validatecmd"
-	"github.com/acronis/go-cti/internal/pkg/execx"
 	"github.com/acronis/go-stacktrace"
 
 	"github.com/dusted-go/logging/prettylog"
@@ -102,7 +100,6 @@ func mainFn() int {
 		cmd.Flags().BoolVarP(&ensureDuplicates, "ensure-duplicates", "d", false, "ensure that there are no duplicates in tracebacks")
 
 		cmd.AddCommand(
-			downloadcmd.New(ctx),
 			initcmd.New(ctx),
 			packcmd.New(ctx),
 			pkgcmd.New(ctx),
@@ -131,21 +128,6 @@ func mainFn() int {
 
 	if err := rootCmd.Execute(); err != nil {
 		var cmdErr *command.Error
-		var execError *execx.ExecutionError
-		if errors.As(err, &execError) {
-			slog.Error(`                ^                   `)
-			slog.Error(`              / | \                 `)
-			slog.Error(`                |                   `)
-			slog.Error(`                |                   `)
-			slog.Error(` _____  ____   ____    ___   ____   `)
-			slog.Error(`| ____||  _ \ |  _ \  / _ \ |  _ \  `)
-			slog.Error(`|  _|  | |_) || |_) || | | || |_) | `)
-			slog.Error(`| |___ |  _ < |  _ < | |_| ||  _ <  `)
-			slog.Error(`|_____||_| \_\|_| \_\ \___/ |_| \_\ `)
-			slog.Error(`                |                   `)
-			slog.Error(`                |                   `)
-			slog.Error(`                |                   `)
-		}
 		if errors.As(err, &cmdErr) && cmdErr.Inner != nil {
 			stOpts := func() []stacktrace.TracesOpt {
 				if ensureDuplicates {
