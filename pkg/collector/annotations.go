@@ -18,7 +18,7 @@ func NewAnnotationsCollector() *AnnotationsCollector {
 
 func (c *AnnotationsCollector) Collect(s raml.Shape) map[cti.GJsonPath]cti.Annotations {
 	c.annotations = make(map[cti.GJsonPath]cti.Annotations)
-	c.Visit("", s)
+	c.Visit(".", s)
 	return c.annotations
 }
 
@@ -36,41 +36,41 @@ func (c *AnnotationsCollector) Visit(ctx string, s raml.Shape) {
 }
 
 func (c *AnnotationsCollector) VisitObjectShape(ctx string, s *raml.ObjectShape) any {
-	if ctx != "" {
+	if ctx != "." {
 		ctx += "."
 	}
 
 	if s.Properties != nil {
 		for pair := s.Properties.Oldest(); pair != nil; pair = pair.Next() {
 			v := pair.Value
-			c.Visit(ctx+v.Name, *v.Shape)
+			c.Visit(ctx+v.Name, v.Shape.Shape)
 		}
 	}
 	if s.PatternProperties != nil {
 		for pair := s.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
 			k, v := pair.Key, pair.Value
-			c.Visit(ctx+k, *v.Shape)
+			c.Visit(ctx+k, v.Shape.Shape)
 		}
 	}
 	return nil
 }
 
 func (c *AnnotationsCollector) VisitArrayShape(ctx string, s *raml.ArrayShape) any {
-	if ctx == "" {
+	if ctx == "." {
 		ctx += "#"
 	} else {
 		ctx += ".#"
 	}
 
 	if s.Items != nil {
-		c.Visit(ctx, *s.Items)
+		c.Visit(ctx, s.Items.Shape)
 	}
 	return nil
 }
 
 func (c *AnnotationsCollector) VisitUnionShape(ctx string, s *raml.UnionShape) any {
 	for _, item := range s.AnyOf {
-		c.Visit(ctx, *item)
+		c.Visit(ctx, item.Shape)
 	}
 	return nil
 }
