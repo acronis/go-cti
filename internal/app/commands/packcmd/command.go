@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/acronis/go-cti/internal/app/command"
+	"github.com/acronis/go-cti/pkg/archiver/tgzwriter"
+	"github.com/acronis/go-cti/pkg/archiver/zippacker"
 	"github.com/acronis/go-cti/pkg/ctipackage"
 	"github.com/acronis/go-cti/pkg/packer"
-	"github.com/acronis/go-cti/pkg/packer/tgzwriter"
-	"github.com/acronis/go-cti/pkg/packer/zippacker"
 	"github.com/spf13/cobra"
 )
 
@@ -53,11 +53,11 @@ func execute(_ context.Context, baseDir string, opts PackOptions) error {
 
 	switch opts.Format {
 	case PackFormatZip:
-		prkOpts = append(prkOpts, packer.WithWriter(zippacker.New()))
+		prkOpts = append(prkOpts, packer.WithArchiver(zippacker.New()))
 	case PackFormatTgz:
 		fallthrough
 	default:
-		prkOpts = append(prkOpts, packer.WithWriter(tgzwriter.New()))
+		prkOpts = append(prkOpts, packer.WithArchiver(tgzwriter.New()))
 	}
 
 	if opts.IncludeSource {

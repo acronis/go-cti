@@ -3,6 +3,7 @@ package filesys
 import (
 	"archive/tar"
 	"archive/zip"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -141,7 +142,14 @@ func SecureUntar(src string, dest string) error {
 	}
 	defer f.Close()
 
-	tr := tar.NewReader(f)
+	gzr, err := gzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("create gzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -151,7 +159,6 @@ func SecureUntar(src string, dest string) error {
 			return fmt.Errorf("read tar header: %w", err)
 		}
 
-		// Sanitize the file name and remove any dangerous characters
 		fPath, err := sanitizeAndValidatePath(dest, header.Name)
 		if err != nil {
 			return fmt.Errorf("sanitize file path: %w", err)
@@ -163,13 +170,11 @@ func SecureUntar(src string, dest string) error {
 				return fmt.Errorf("create directory: %w", err)
 			}
 		case tar.TypeReg:
-			// Limit file size to prevent DoS attacks
 			const maxFileSize = 100 << 20 // 100 MB
 			if header.Size > maxFileSize {
 				return fmt.Errorf("file too large: %s", header.Name)
 			}
 
-			// Create destination file securely
 			if err := os.MkdirAll(filepath.Dir(fPath), os.ModePerm); err != nil {
 				return fmt.Errorf("create directory: %w", err)
 			}
@@ -180,7 +185,7 @@ func SecureUntar(src string, dest string) error {
 			}
 			defer destFile.Close()
 
-			if _, err := io.CopyN(destFile, tr, maxFileSize); err != nil {
+			if _, err := io.CopyN(destFile, tr, maxFileSize); err != nil && err != io.EOF {
 				return fmt.Errorf("copy file: %w", err)
 			}
 		}

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
+	"strings"
+
+	"github.com/acronis/go-cti/pkg/archiver"
 )
 
 type zipWriter struct {
@@ -69,7 +71,12 @@ func (zipWriter *zipWriter) WriteBytes(fName string, buf []byte) error {
 	return nil
 }
 
-func (zipWriter *zipWriter) WriteDirectory(baseDir string, excludeFn func(dirName string, fName string) bool) error {
+func (zipWriter *zipWriter) WriteDirectory(baseDir string, excludeFn func(fsPath string, d os.DirEntry) error) error {
+	baseDir = filepath.ToSlash(baseDir)
+	if !strings.HasSuffix(baseDir, "/") {
+		baseDir += "/"
+	}
+
 	if err := filepath.WalkDir(baseDir, func(fsPath string, d os.DirEntry, err error) error {
 		rel, err := filepath.Rel(baseDir, fsPath)
 		if err != nil {
@@ -80,8 +87,13 @@ func (zipWriter *zipWriter) WriteDirectory(baseDir string, excludeFn func(dirNam
 			return nil
 		}
 
-		if excludeFn != nil && excludeFn(path.Dir(rel), path.Base(rel)) {
-			return nil
+		if excludeFn != nil {
+			switch excludeFn(fsPath, d) {
+			case archiver.SkipDir:
+				return filepath.SkipDir
+			case archiver.SkipFile:
+				return nil
+			}
 		}
 
 		f, err := os.OpenFile(fsPath, os.O_RDONLY, 0o644)

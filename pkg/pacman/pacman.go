@@ -5,7 +5,6 @@ import (
 	"log/slog"
 
 	"github.com/acronis/go-cti/pkg/ctipackage"
-	"github.com/acronis/go-cti/pkg/filesys"
 	"github.com/acronis/go-cti/pkg/storage"
 	"github.com/acronis/go-cti/pkg/storage/gitstorage"
 )
@@ -37,7 +36,7 @@ func New(options ...Option) (PackageManager, error) {
 		pm.Storage = gitstorage.New()
 	}
 	if pm.PackagesDir == "" {
-		cacheDir, err := filesys.GetCtiPackagesCacheDir()
+		cacheDir, err := GetCtiPackagesCacheDir()
 		if err != nil {
 			return nil, fmt.Errorf("get cache dir: %w", err)
 		}
@@ -60,6 +59,7 @@ func WithPackagesCache(cacheDir string) Option {
 }
 
 func (pm *packageManager) Add(pkg *ctipackage.Package, depends map[string]string) error {
+
 	// Validate dependencies
 	if err := pm.installDependencies(pkg, depends); err != nil {
 		return fmt.Errorf("install dependencies: %w", err)

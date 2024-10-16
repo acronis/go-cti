@@ -18,6 +18,11 @@ type CachedDependencyInfo struct {
 }
 
 func (pm *packageManager) installDependencies(pkg *ctipackage.Package, depends map[string]string) error {
+	// Make sure that package is valid i.e. ramlx spec is in place
+	if err := pkg.Sync(); err != nil {
+		return fmt.Errorf("sync package: %w", err)
+	}
+
 	installed, err := pm.Download(depends)
 	if err != nil {
 		return fmt.Errorf("download dependencies: %w", err)
