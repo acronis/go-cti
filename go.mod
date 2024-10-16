@@ -7,7 +7,7 @@ toolchain go1.23.0
 require (
 	github.com/acronis/go-cti/pkg/identifier v1.0.0
 	github.com/acronis/go-cti/pkg/ramlx v0.0.0-20240930161533-2ce9cb06b81e
-	github.com/acronis/go-raml v0.11.1
+	github.com/acronis/go-raml v0.13.0
 	github.com/acronis/go-stacktrace v0.2.0
 	github.com/dusted-go/logging v1.3.0
 	github.com/mattn/go-isatty v0.0.20
@@ -34,8 +34,8 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/samber/lo v1.44.0 // indirect
-	github.com/samber/slog-multi v1.1.0 // indirect
+	github.com/samber/lo v1.47.0 // indirect
+	github.com/samber/slog-multi v1.2.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

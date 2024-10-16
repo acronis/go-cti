@@ -8,31 +8,33 @@ import (
 	"github.com/acronis/go-cti/pkg/cti"
 )
 
-func (c *Collector) unwrapCtiType(s *raml.ObjectShape, history []raml.Shape) (raml.Shape, error) {
+func (c *Collector) unwrapCtiType(base *raml.BaseShape) (*raml.BaseShape, error) {
+	s := base.Shape
 	if s == nil {
 		return nil, fmt.Errorf("shape is nil")
 	}
-
-	base := s.Base()
-	for _, item := range history {
-		if item.Base().ID == base.ID {
-			return nil, fmt.Errorf("CTI type cannot be recursive")
-		}
+	objShape, ok := s.(*raml.ObjectShape)
+	if !ok {
+		return nil, fmt.Errorf("CTI type must be object shape")
 	}
-	history = append(history, s)
 
-	var source raml.Shape
+	if base.ShapeVisited {
+		base.SetUnwrapped()
+		return base, nil
+	}
+	base.ShapeVisited = true
+
+	var source *raml.BaseShape
 	if base.Alias != nil {
-		us, err := c.unwrapCtiType((*base.Alias).(*raml.ObjectShape), history)
+		us, err := c.unwrapCtiType(base.Alias)
 		if err != nil {
 			return nil, fmt.Errorf("alias unwrap: %w", err)
 		}
-		// Alias simply points to another shape, so we just change the name and return it as is.
-		us.Base().Name = base.Name
-		return us, nil
+		return base.AliasTo(us), nil
 	}
+
 	if base.Link != nil {
-		us, err := c.unwrapCtiType((*base.Link.Shape).(*raml.ObjectShape), history)
+		us, err := c.unwrapCtiType(base.Link.Shape)
 		if err != nil {
 			return nil, fmt.Errorf("link unwrap: %w", err)
 		}
@@ -44,9 +46,9 @@ func (c *Collector) unwrapCtiType(s *raml.ObjectShape, history []raml.Shape) (ra
 		if len(inherits) > 1 {
 			return nil, fmt.Errorf("multiple inheritance is not supported")
 		}
-		parent := (*inherits[0]).Clone().(*raml.ObjectShape)
-		if _, ok := parent.Base().CustomDomainProperties.Get(cti.Cti); !ok {
-			ss, err := c.unwrapCtiType(parent, history)
+		parent := inherits[0]
+		if _, ok := parent.CustomDomainProperties.Get(cti.Cti); !ok {
+			ss, err := c.unwrapCtiType(parent)
 			if err != nil {
 				return nil, fmt.Errorf("parent unwrap: %w", err)
 			}
@@ -54,32 +56,38 @@ func (c *Collector) unwrapCtiType(s *raml.ObjectShape, history []raml.Shape) (ra
 		}
 	}
 
-	if s.Properties != nil {
-		for pair := s.Properties.Oldest(); pair != nil; pair = pair.Next() {
+	if objShape.Properties != nil {
+		for pair := objShape.Properties.Oldest(); pair != nil; pair = pair.Next() {
 			prop := pair.Value
-			us, err := c.raml.UnwrapShape(prop.Shape, history)
+			us, err := c.raml.UnwrapShape(prop.Shape)
 			if err != nil {
 				return nil, fmt.Errorf("object property unwrap: %w", err)
 			}
-			*prop.Shape = us
+			prop.Shape = us
+			objShape.Properties.Set(pair.Key, prop)
 		}
 	}
 
 	for pair := base.CustomShapeFacetDefinitions.Oldest(); pair != nil; pair = pair.Next() {
 		prop := pair.Value
-		us, err := c.raml.UnwrapShape(prop.Shape, history)
+		us, err := c.raml.UnwrapShape(prop.Shape)
 		if err != nil {
 			return nil, fmt.Errorf("custom shape facet definition unwrap: %w", err)
 		}
-		*prop.Shape = us
+		prop.Shape = us
+		base.CustomShapeFacetDefinitions.Set(pair.Key, prop)
 	}
 
 	if source != nil {
-		ms, err := c.raml.Inherit(source, s)
-		if err != nil {
-			return nil, fmt.Errorf("merge shapes: %w", err)
+		is, errInherit := base.Inherit(source)
+		if errInherit != nil {
+			return nil, fmt.Errorf("merge shapes: %w", errInherit)
 		}
-		return ms, nil
+		base.ShapeVisited = false
+		base.SetUnwrapped()
+		return is, nil
 	}
-	return s, nil
+	base.ShapeVisited = false
+	base.SetUnwrapped()
+	return base, nil
 }

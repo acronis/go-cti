@@ -2,8 +2,8 @@ github.com/acronis/go-cti/pkg/identifier v1.0.0 h1:iGRP+UV4FbobDTM+cH9feihUl17KB
 github.com/acronis/go-cti/pkg/identifier v1.0.0/go.mod h1:ZsdPnq7a72g5d+kRQg2fCpdfmhhCd8moQzuNhY23YxM=
 github.com/acronis/go-cti/pkg/ramlx v0.0.0-20240930161533-2ce9cb06b81e h1:2ikd7TGg0nFonfxm7sbiRJXsAM0ilaKpy1HYdBKdRok=
 github.com/acronis/go-cti/pkg/ramlx v0.0.0-20240930161533-2ce9cb06b81e/go.mod h1:wBLKHy1GFu5E4hRXHjNcUA7IC4+p//qClQq5DkEnML0=
-github.com/acronis/go-raml v0.11.1 h1:gcGOxps5dEetg3h51m+q968e2o0BbaDUumxtt01TdcQ=
-github.com/acronis/go-raml v0.11.1/go.mod h1:sZQ+e5lepkFm9pta+FAzNIxjFgdg6kS2tq0ClCRC5jM=
+github.com/acronis/go-raml v0.13.0 h1:+9SQ8vvoHNewvFTRJZ4Oy/11P5uPJbvIyu9BguK1lIk=
+github.com/acronis/go-raml v0.13.0/go.mod h1:2Qr3wOt5LCxEJE6V8EqcHuC3oimY7y5KoWqMXQ1FoiE=
 github.com/acronis/go-stacktrace v0.2.0 h1:aUME2BnO2WwBpmidhSq+C2cCm6T0i7u1mwraetKPyjQ=
 github.com/acronis/go-stacktrace v0.2.0/go.mod h1:FOvjPOpMOpJhNgt2adD+FEnOpzcOzUBeiRkPaAd2aLQ=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=
@@ -48,12 +48,12 @@ github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/f
 github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=
 github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
-github.com/samber/lo v1.44.0 h1:5il56KxRE+GHsm1IR+sZ/6J42NODigFiqCWpSc2dybA=
-github.com/samber/lo v1.44.0/go.mod h1:RmDH9Ct32Qy3gduHQuKJ3gW1fMHAnE/fAzQuf6He5cU=
+github.com/samber/lo v1.47.0 h1:z7RynLwP5nbyRscyvcD043DWYoOcYRv3mV8lBeqOCLc=
+github.com/samber/lo v1.47.0/go.mod h1:RmDH9Ct32Qy3gduHQuKJ3gW1fMHAnE/fAzQuf6He5cU=
 github.com/samber/slog-formatter v1.1.0 h1:9waVLjNnUWUac6OVv1cj9Y1RQAwo/LhAD3jMzXuaVzY=
 github.com/samber/slog-formatter v1.1.0/go.mod h1:CEPmgdYDd+4lK0hbsxCkOVsLAJ4WXMhdUPypdwyNpLk=
-github.com/samber/slog-multi v1.1.0 h1:m5wfpXE8Qu2gCiR/JnhFGsLcWDOmTxnso32EMffVAY0=
-github.com/samber/slog-multi v1.1.0/go.mod h1:uLAvHpGqbYgX4FSL0p1ZwoLuveIAJvBECtE07XmYvFo=
+github.com/samber/slog-multi v1.2.3 h1:np8YoAZbGP699xA92SYZxs7zzKpL1/yBYk6q8/caXpc=
+github.com/samber/slog-multi v1.2.3/go.mod h1:ACuZ5B6heK57TfMVkVknN2UZHoFfjCwRxR0Q2OXKHlo=
 github.com/spf13/cobra v1.8.1 h1:e5/vxKd/rZsfSJMUX1agtjeTDf+qv1/JdBF8gg5k9ZM=
 github.com/spf13/cobra v1.8.1/go.mod h1:wHxEcudfqmLYa8iTfL+OuZPbBZkmvliBWKIezN3kD9Y=
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=

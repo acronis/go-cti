@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/acronis/go-cti/pkg/identifier"
 	"github.com/acronis/go-raml"
@@ -30,7 +31,8 @@ func (r *CtiRegistry) Clone() *CtiRegistry {
 type Collector struct {
 	Registry             *CtiRegistry
 	baseDir              string
-	ramlCtiTypes         map[string]*raml.Shape
+	ramlCtiTypes         map[string]*raml.BaseShape
+	unwrappedCtiTypes    map[string]*raml.BaseShape
 	raml                 *raml.RAML
 	ctiParser            *identifier.Parser
 	jsonSchemaConverter  *raml.JSONSchemaConverter
@@ -50,7 +52,8 @@ func New(r *raml.RAML, baseDir string) *Collector {
 			TotalIndex:       make(cti.EntitiesMap),
 			FragmentEntities: make(map[string]cti.Entities),
 		},
-		ramlCtiTypes: make(map[string]*raml.Shape),
+		ramlCtiTypes:      make(map[string]*raml.BaseShape),
+		unwrappedCtiTypes: make(map[string]*raml.BaseShape),
 	}
 }
 
@@ -64,25 +67,44 @@ func (c *Collector) Collect() error {
 		for pair := ref.Link.Types.Oldest(); pair != nil; pair = pair.Next() {
 			shape := pair.Value
 			if err := c.readCtiType(shape); err != nil {
-				return err
+				return fmt.Errorf("read cti type: %w", err)
 			}
 		}
 		for pair := ref.Link.CustomDomainProperties.Oldest(); pair != nil; pair = pair.Next() {
 			annotation := pair.Value
 			if err := c.readAndMakeCtiInstances(annotation); err != nil {
-				return err
+				return fmt.Errorf("read and make cti instances: %w", err)
 			}
 		}
 	}
 
+	// NOTE: This is a custom pipeline for RAML-CTI types processing.
+	// Unwrap implemented in go-raml cannot be used since CTI types require special handling.
 	for k, shape := range c.ramlCtiTypes {
-		err := c.preProcessCtiType(shape)
+		// Create a copy of CTI type and unwrap it using special rules.
+		//
+		// NOTE: Copy is required since CTI types may share some RAML types.
+		// RAML types get modified further (i.e., annotations are moved to some common types)
+		// and we don't want to affect other CTI types.
+		shape, err := c.unwrapCtiType(shape.CloneDetached())
+		if err != nil {
+			return fmt.Errorf("unwrap cti type: %w", err)
+		}
+		_, err = c.raml.FindAndMarkRecursion(shape)
+		if err != nil {
+			return fmt.Errorf("find and mark recursion: %w", err)
+		}
+		shape, err = c.preProcessCtiType(shape)
 		if err != nil {
 			return fmt.Errorf("preprocess cti type: %w", err)
 		}
-		entity, err := c.MakeCtiTypeFromShape(k, (*shape).(*raml.ObjectShape))
+		shape, err = c.findAndInsertCtiSchema(shape, make([]string, 0))
 		if err != nil {
-			return err
+			return fmt.Errorf("find and insert cti schema: %w", err)
+		}
+		entity, err := c.MakeCtiTypeFromShape(k, shape)
+		if err != nil {
+			return fmt.Errorf("make cti type: %w", err)
 		}
 		if _, ok := c.Registry.TotalIndex[k]; ok {
 			return fmt.Errorf("duplicate cti entity %s", k)
@@ -96,7 +118,7 @@ func (c *Collector) Collect() error {
 	return nil
 }
 
-func (c *Collector) MakeCtiTypeFromShape(id string, shape *raml.ObjectShape) (*cti.Entity, error) {
+func (c *Collector) MakeCtiTypeFromShape(id string, shape *raml.BaseShape) (*cti.Entity, error) {
 	displayName := shape.Name
 	if shape.DisplayName != nil {
 		displayName = *shape.DisplayName
@@ -118,24 +140,26 @@ func (c *Collector) MakeCtiTypeFromShape(id string, shape *raml.ObjectShape) (*c
 	var traitsSchemaBytes []byte
 	var traitsAnnotations map[cti.GJsonPath]cti.Annotations
 	if t, ok := shape.CustomShapeFacetDefinitions.Get(cti.Traits); ok {
-		traitsSchema := c.jsonSchemaConverter.Convert(*t.Shape)
+		traitsSchema, err := c.jsonSchemaConverter.Convert(t.Shape.Shape)
+		if err != nil {
+			return nil, fmt.Errorf("convert traits schema: %w", err)
+		}
 		traitsSchemaBytes, _ = json.Marshal(traitsSchema)
-		traitsAnnotations = c.annotationsCollector.Collect(*t.Shape)
+		traitsAnnotations = c.annotationsCollector.Collect(t.Shape.Shape)
 	}
-	s, err := c.unwrapCtiType(shape, make([]raml.Shape, 0))
+	schema, err := c.jsonSchemaConverter.Convert(shape.Shape)
 	if err != nil {
-		return nil, fmt.Errorf("unwrap cti type: %w", err)
+		return nil, fmt.Errorf("convert schema: %w", err)
 	}
-	schema := c.jsonSchemaConverter.Convert(s)
 	schemaBytes, _ := json.Marshal(schema)
-	annotations := c.annotationsCollector.Collect(s)
+	annotations := c.annotationsCollector.Collect(shape.Shape)
 
 	originalPath, _ := filepath.Rel(c.baseDir, shape.Location)
 	// FIXME: sourcePath points to itself or to next parent, if present.
 	// However, this looks like a workaround rather than a proper solution.
 	sourcePath, _ := filepath.Rel(c.baseDir, shape.Location)
 	if shape.Inherits != nil {
-		sourcePath, _ = filepath.Rel(c.baseDir, (*shape.Inherits[0]).Base().Location)
+		sourcePath, _ = filepath.Rel(c.baseDir, shape.Inherits[0].Location)
 	}
 
 	entity := &cti.Entity{
@@ -161,7 +185,7 @@ func (c *Collector) MakeCtiTypeFromShape(id string, shape *raml.ObjectShape) (*c
 }
 
 func (c *Collector) MakeCtiInstanceFromExtension(id string, definedBy *raml.ArrayShape, values map[string]interface{}, valuesLocation string) *cti.Entity {
-	ctiType := (*definedBy.Items).(*raml.ObjectShape)
+	ctiType := definedBy.Items.Shape.(*raml.ObjectShape)
 
 	valuesBytes, _ := json.Marshal(values)
 	displayName := ""
@@ -204,199 +228,253 @@ func (c *Collector) MakeCtiInstanceFromExtension(id string, definedBy *raml.Arra
 	}
 }
 
-// TODO: Probably move to go-raml
-func (c *Collector) traverseShape(shape *raml.Shape, history []raml.Shape, fns []func(*raml.Shape, []raml.Shape) error) error {
-	for _, fn := range fns {
-		if err := fn(shape, history); err != nil {
-			return err
-		}
+func (c *Collector) findAndInsertCtiSchema(shape *raml.BaseShape, history []string) (*raml.BaseShape, error) {
+	ctis, err := c.readCtiCti(shape)
+	if err != nil {
+		return nil, fmt.Errorf("read cti.cti: %w", err)
 	}
-	s := *shape
-	for _, h := range history {
-		if s.Base().ID == h.Base().ID {
-			return nil
+	// Using CTI history to prevent infinite recursion over CTI types.
+	// This also takes CTI type aliases into account.
+	for _, val := range ctis {
+		for _, item := range history {
+			if strings.HasPrefix(val, item) {
+				rs := c.raml.MakeRecursiveShape(shape)
+				return rs, nil
+			}
 		}
+		// Make sure we always have a new backing array for history slice.
+		historyLen := len(history)
+		newHistory := make([]string, historyLen+1)
+		copy(newHistory, history)
+		newHistory[historyLen] = val
+		history = newHistory
 	}
-	history = append(history, s)
 
-	switch s := s.(type) {
+	// FIXME: This will keep cti.cti instead of cti.schema. Need to either apply post-processing
+	// or change the logic.
+	if ctiSchema, ok := shape.CustomDomainProperties.Get(cti.Schema); ok {
+		rs, err := c.getCtiSchema(shape, ctiSchema)
+		if err != nil {
+			return nil, fmt.Errorf("unwrap cti schema: %w", err)
+		}
+		rs, err = c.findAndInsertCtiSchema(rs, history)
+		if err != nil {
+			return nil, fmt.Errorf("find and insert cti schema: %w", err)
+		}
+		return rs, nil
+	}
+
+	switch s := shape.Shape.(type) {
 	case *raml.ObjectShape:
 		if s.Properties != nil {
 			for pair := s.Properties.Oldest(); pair != nil; pair = pair.Next() {
 				prop := pair.Value
-				if err := c.traverseShape(prop.Shape, history, fns); err != nil {
-					return err
+				rs, err := c.findAndInsertCtiSchema(prop.Shape, history)
+				if err != nil {
+					return nil, fmt.Errorf("find and insert cti schema property: %w", err)
 				}
+				prop.Shape = rs
+				s.Properties.Set(pair.Key, prop)
 			}
 		}
 		if s.PatternProperties != nil {
 			for pair := s.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
 				prop := pair.Value
-				if err := c.traverseShape(prop.Shape, history, fns); err != nil {
-					return err
+				rs, err := c.findAndInsertCtiSchema(prop.Shape, history)
+				if err != nil {
+					return nil, fmt.Errorf("find and insert cti schema pattern property: %w", err)
 				}
+				prop.Shape = rs
+				s.PatternProperties.Set(pair.Key, prop)
 			}
 		}
 	case *raml.ArrayShape:
 		if s.Items != nil {
-			if err := c.traverseShape(s.Items, history, fns); err != nil {
-				return err
+			rs, err := c.findAndInsertCtiSchema(s.Items, history)
+			if err != nil {
+				return nil, fmt.Errorf("find and insert cti schema array item: %w", err)
 			}
+			s.Items = rs
 		}
 	case *raml.UnionShape:
-		for _, item := range s.AnyOf {
-			if err := c.traverseShape(item, history, fns); err != nil {
-				return err
+		for i, member := range s.AnyOf {
+			rs, err := c.findAndInsertCtiSchema(member, history)
+			if err != nil {
+				return nil, fmt.Errorf("find and insert cti schema union member %d: %w", i, err)
 			}
+			s.AnyOf[i] = rs
 		}
 	}
-	return nil
+	return shape, nil
 }
 
-func (c *Collector) preProcessCtiType(shape *raml.Shape) error {
-	unwrapCtiSchema := func(s *raml.Shape, history []raml.Shape) error {
-		base := (*s).Base()
-		ctiSchema, ok := base.CustomDomainProperties.Get(cti.Schema)
-		if !ok {
-			return nil
-		}
-		switch v := ctiSchema.Extension.Value.(type) {
-		case string:
-			if _, err := c.ctiParser.Parse(v); err != nil {
-				return fmt.Errorf("parse cti.schema: %w", err)
-			}
-			ss, ok := c.ramlCtiTypes[v]
-			if !ok {
-				return fmt.Errorf("cti type %s not found", v)
-			}
-			for _, h := range history {
-				if (*ss).Base().ID == h.Base().ID {
-					b := (*s).Base()
-					*s = &raml.RecursiveShape{
-						BaseShape: *b,
-						Head:      ss,
-					}
-					return nil
-				}
-			}
-			us, err := c.raml.UnwrapShape(ss, make([]raml.Shape, 0))
-			if err != nil {
-				return fmt.Errorf("unwrap cti schema: %w", err)
-			}
-			us.Base().CustomDomainProperties = base.CustomDomainProperties
-			*s = us
-		case []interface{}:
-			anyOf := make([]*raml.Shape, len(v))
-			for i, vv := range v {
-				id := vv.(string)
-				if _, err := c.ctiParser.Parse(id); err != nil {
-					return fmt.Errorf("parse cti.schema[%d]: %w", i, err)
-				}
-				ss, ok := c.ramlCtiTypes[id]
-				if !ok {
-					return fmt.Errorf("cti type %s not found", id)
-				}
-				// History is required to prevent infinite recursion in further processing.
-				for _, h := range history {
-					if (*ss).Base().ID == h.Base().ID {
-						b := (*s).Base()
-						*s = &raml.RecursiveShape{
-							BaseShape: *b,
-							Head:      ss,
-						}
-						return nil
-					}
-				}
-				us, err := c.raml.UnwrapShape(ss, make([]raml.Shape, 0))
-				if err != nil {
-					return fmt.Errorf("unwrap cti schema[%d]: %w", i, err)
-				}
-				us.Base().CustomDomainProperties = orderedmap.New[string, *raml.DomainExtension]()
-				anyOf[i] = &us
-			}
-			us, err := c.raml.MakeConcreteShape(base, raml.TypeUnion, nil)
-			if err != nil {
-				return fmt.Errorf("make union shape: %w", err)
-			}
-			us.(*raml.UnionShape).AnyOf = anyOf
-			// In-place replacement is fine since all shapes are copied during the unwrap process.
-			*s = us
-		}
-		return nil
+// getOrUnwrapCtiType returns cached unwrapped CTI type. If cache was found, returns it.
+// Otherwise, it unwraps the type, puts into cache and returns it.
+func (c *Collector) getOrUnwrapCtiType(id string) (*raml.BaseShape, error) {
+	if schema, ok := c.unwrappedCtiTypes[id]; ok {
+		return schema, nil
 	}
-	moveAnnotationsToArrayItem := func(s *raml.Shape, _ []raml.Shape) error {
-		array, ok := (*s).(*raml.ArrayShape)
-		if !ok {
-			return nil
-		}
-		if array.Items == nil {
-			return nil
-		}
-		arrayBase := array.Base()
-		itemsBase := (*array.Items).Base()
-		// Moving is fine since all shapes are copied during the unwrap process.
-		// This does not affect other types.
-		for _, annotationName := range annotationsToMove {
-			if a, ok := arrayBase.CustomDomainProperties.Get(annotationName); ok {
-				itemsBase.CustomDomainProperties.Set(annotationName, a)
-				arrayBase.CustomDomainProperties.Delete(annotationName)
-			}
-		}
-		return nil
-	}
-
-	return c.traverseShape(shape, make([]raml.Shape, 0), []func(*raml.Shape, []raml.Shape) error{
-		moveAnnotationsToArrayItem,
-		unwrapCtiSchema,
-	})
-}
-
-func (c *Collector) readCtiType(shape *raml.Shape) error {
-	ctiAnnotation, ok := (*shape).Base().CustomDomainProperties.Get(cti.Cti)
+	shape, ok := c.ramlCtiTypes[id]
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("cti type %s not found", id)
 	}
-	if _, ok := (*shape).(*raml.ObjectShape); !ok {
-		return fmt.Errorf("cti %v must be object", ctiAnnotation.Extension.Value)
+	us, err := c.raml.UnwrapShape(shape.CloneDetached())
+	if err != nil {
+		return nil, fmt.Errorf("unwrap cti type: %w", err)
 	}
+	c.unwrappedCtiTypes[id] = us
+	return us, nil
+}
 
-	ext := ctiAnnotation.Extension
-	switch v := ext.Value.(type) {
+func (c *Collector) preProcessCtiType(shape *raml.BaseShape) (*raml.BaseShape, error) {
+	switch s := shape.Shape.(type) {
+	case *raml.ObjectShape:
+		if s.Properties != nil {
+			for pair := s.Properties.Oldest(); pair != nil; pair = pair.Next() {
+				prop := pair.Value
+				rs, err := c.preProcessCtiType(prop.Shape)
+				if err != nil {
+					return nil, fmt.Errorf("preprocess property: %w", err)
+				}
+				prop.Shape = rs
+				s.Properties.Set(pair.Key, prop)
+			}
+		}
+		if s.PatternProperties != nil {
+			for pair := s.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
+				prop := pair.Value
+				rs, err := c.preProcessCtiType(prop.Shape)
+				if err != nil {
+					return nil, fmt.Errorf("preprocess pattern property: %w", err)
+				}
+				prop.Shape = rs
+				s.PatternProperties.Set(pair.Key, prop)
+			}
+		}
+	case *raml.ArrayShape:
+		if s.Items != nil {
+			c.moveAnnotationsToArrayItem(s)
+
+			rs, err := c.preProcessCtiType(s.Items)
+			if err != nil {
+				return nil, fmt.Errorf("preprocess array item: %w", err)
+			}
+			s.Items = rs
+		}
+	case *raml.UnionShape:
+		for i, member := range s.AnyOf {
+			rs, err := c.preProcessCtiType(member)
+			if err != nil {
+				return nil, fmt.Errorf("preprocess union member %d: %w", i, err)
+			}
+			s.AnyOf[i] = rs
+		}
+	}
+	return shape, nil
+}
+
+func (c *Collector) moveAnnotationsToArrayItem(array *raml.ArrayShape) {
+	// Moving is fine since all shapes are copied during the unwrap process.
+	for _, annotationName := range annotationsToMove {
+		if a, ok := array.CustomDomainProperties.Get(annotationName); ok {
+			array.Items.CustomDomainProperties.Set(annotationName, a)
+			array.CustomDomainProperties.Delete(annotationName)
+		}
+	}
+}
+
+func (c *Collector) getCtiSchema(base *raml.BaseShape, ctiSchema *raml.DomainExtension) (*raml.BaseShape, error) {
+	var shape *raml.BaseShape
+	switch v := ctiSchema.Extension.Value.(type) {
 	case string:
-		id := v
-		if _, ok := c.ramlCtiTypes[id]; ok {
-			return fmt.Errorf("duplicate cti.cti: %s", id)
+		if _, err := c.ctiParser.Parse(v); err != nil {
+			return nil, fmt.Errorf("parse cti.schema: %w", err)
 		}
-		if _, err := c.ctiParser.Parse(id); err != nil {
-			return fmt.Errorf("parse cti.cti: %w", err)
+		us, err := c.getOrUnwrapCtiType(v)
+		if err != nil {
+			return nil, fmt.Errorf("get or unwrap cti schema: %w", err)
 		}
-		c.ramlCtiTypes[id] = shape
+		// us.CustomDomainProperties = base.CustomDomainProperties
+		shape = us
 	case []interface{}:
+		anyOf := make([]*raml.BaseShape, len(v))
 		for i, vv := range v {
 			id := vv.(string)
-			if _, ok := c.ramlCtiTypes[id]; ok {
-				return fmt.Errorf("duplicate cti.cti[%d]: %s", i, id)
-			}
 			if _, err := c.ctiParser.Parse(id); err != nil {
-				return fmt.Errorf("parse cti.cti[%d]: %w", i, err)
+				return nil, fmt.Errorf("parse cti.schema[%d]: %w", i, err)
 			}
-			c.ramlCtiTypes[id] = shape
+			us, err := c.getOrUnwrapCtiType(id)
+			if err != nil {
+				return nil, fmt.Errorf("get or unwrap cti schema: %w", err)
+			}
+			anyOf[i] = us
 		}
+		us, err := c.raml.MakeConcreteShapeYAML(base, raml.TypeUnion, nil)
+		if err != nil {
+			return nil, fmt.Errorf("make union shape: %w", err)
+		}
+		us.(*raml.UnionShape).AnyOf = anyOf
+		base.SetShape(us)
+		base.CustomDomainProperties = orderedmap.New[string, *raml.DomainExtension]()
+		shape = base
+	}
+	return shape, nil
+}
+
+func (c *Collector) readCtiCti(base *raml.BaseShape) ([]string, error) {
+	ctiAnnotation, ok := base.CustomDomainProperties.Get(cti.Cti)
+	if !ok {
+		return nil, nil
+	}
+	switch v := ctiAnnotation.Extension.Value.(type) {
+	case string:
+		return []string{v}, nil
+	case []interface{}:
+		res := make([]string, len(v))
+		for i, vv := range v {
+			res[i] = vv.(string)
+		}
+		return res, nil
+	}
+	return nil, fmt.Errorf("cti.cti must be string or array of strings")
+}
+
+func (c *Collector) readCtiType(base *raml.BaseShape) error {
+	ctis, err := c.readCtiCti(base)
+	if err != nil {
+		return fmt.Errorf("read cti.cti: %w", err)
+	}
+	if ctis == nil {
+		return nil
+	}
+	if _, ok := base.Shape.(*raml.ObjectShape); !ok {
+		return fmt.Errorf("cti type %v must be object", base.Name)
+	}
+
+	for _, cti := range ctis {
+		if _, ok := c.ramlCtiTypes[cti]; ok {
+			return fmt.Errorf("duplicate cti.cti: %s", cti)
+		}
+		if _, err := c.ctiParser.Parse(cti); err != nil {
+			return fmt.Errorf("parse cti.cti: %w", err)
+		}
+		c.ramlCtiTypes[cti] = base
 	}
 	return nil
 }
 
 func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension) error {
-	definedBy, err := c.raml.UnwrapShape(annotation.DefinedBy, make([]raml.Shape, 0))
-	if err != nil {
-		return fmt.Errorf("unwrap annotation type: %w", err)
-	}
-	s, ok := definedBy.(*raml.ArrayShape)
+	definedBy := annotation.DefinedBy
+	s, ok := definedBy.Shape.(*raml.ArrayShape)
 	if !ok {
 		return fmt.Errorf("annotation is not an array shape")
 	}
-	items := *s.Items
-	ctiAnnotation, ok := items.Base().CustomDomainProperties.Get(cti.Cti)
+	// NOTE: CTI annotation types are usually aliased.
+	items := s.Items.Alias
+	if items == nil {
+		return fmt.Errorf("items alias is nil")
+	}
+	ctiAnnotation, ok := items.CustomDomainProperties.Get(cti.Cti)
 	if !ok {
 		return fmt.Errorf("cti annotation not found")
 	}
@@ -407,7 +485,19 @@ func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension) er
 		return fmt.Errorf("parse parent cti: %w", err)
 	}
 
-	ctiType := items.(*raml.ObjectShape)
+	// NOTE: Cannot use getOrUnwrapCtiType because CTI type may not be discovered yet.
+	// Use cached CTI type if found, otherwise unwrap it and put into cache.
+	if base, ok := c.unwrappedCtiTypes[parentCti]; !ok {
+		items, err = c.raml.UnwrapShape(items.CloneDetached())
+		if err != nil {
+			return fmt.Errorf("unwrap annotation type: %w", err)
+		}
+		c.unwrappedCtiTypes[parentCti] = items
+	} else {
+		items = base
+	}
+
+	ctiType := items.Shape.(*raml.ObjectShape)
 	// CTI types are checked before collecting CTI instances.
 	// We can be sure that if annotation includes cti.cti, it uses array of objects schema.
 	idProp := c.findPropertyWithAnnotation(ctiType, cti.ID)
@@ -444,7 +534,7 @@ func (c *Collector) findPropertyWithAnnotation(shape *raml.ObjectShape, annotati
 	// TODO: Suboptimal since we iterate over all annotations every time we look up an annotation.
 	for pair := shape.Properties.Oldest(); pair != nil; pair = pair.Next() {
 		prop := pair.Value
-		if s, ok := (*prop.Shape).(*raml.StringShape); ok {
+		if s, ok := prop.Shape.Shape.(*raml.StringShape); ok {
 			if _, ok := s.CustomDomainProperties.Get(annotationName); ok {
 				return &prop
 			}
