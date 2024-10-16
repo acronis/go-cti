@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/acronis/go-cti/pkg/archiver"
 	"github.com/acronis/go-cti/pkg/cti"
 )
 
-func defaultAnnotationHandler(baseDir string, writer Writer, key cti.GJsonPath, entity *cti.Entity, a cti.Annotations) error {
+func defaultAnnotationHandler(baseDir string, archiver archiver.Archiver, key cti.GJsonPath, entity *cti.Entity, a cti.Annotations) error {
 	// process asset annotation
 	if a.Asset != nil {
 		value := key.GetValue(entity.Values)
@@ -16,7 +17,7 @@ func defaultAnnotationHandler(baseDir string, writer Writer, key cti.GJsonPath, 
 			slog.Warn("Empty asset path", slog.String("entity", entity.Cti), slog.String("key", value.Str))
 			return nil
 		}
-		if err := writer.WriteFile(baseDir, assetPath); err != nil {
+		if err := archiver.WriteFile(baseDir, assetPath); err != nil {
 			return fmt.Errorf("write asset %s: %w", assetPath, err)
 		}
 	}

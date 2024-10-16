@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/acronis/go-cti/pkg/collector"
 	"github.com/acronis/go-cti/pkg/filesys"
@@ -26,9 +27,9 @@ type Package struct {
 
 // New creates a new package from the specified path.
 // If the path is empty, the current working directory is used.
-func New(path string, options ...InitializeOption) (*Package, error) {
+func New(baseDir string, options ...InitializeOption) (*Package, error) {
 	b := &Package{
-		BaseDir: path,
+		BaseDir: filepath.ToSlash(path.Clean(baseDir)),
 		Index:   &Index{},
 		IndexLock: &IndexLock{
 			Version:           IndexLockVersion,

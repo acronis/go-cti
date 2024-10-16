@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
+	"strings"
+
+	"github.com/acronis/go-cti/pkg/archiver"
 )
 
 type tarWriter struct {
@@ -21,10 +23,13 @@ func New() *tarWriter {
 }
 
 func (wr *tarWriter) Close() error {
-	wr.gw.Close()
-	wr.tw.Close()
-	wr.archive.Close()
-	return nil
+	if err := wr.tw.Close(); err != nil {
+		return err
+	}
+	if err := wr.gw.Close(); err != nil {
+		return err
+	}
+	return wr.archive.Close()
 }
 
 func (wr *tarWriter) Init(destination string) (io.Closer, error) {
@@ -36,25 +41,21 @@ func (wr *tarWriter) Init(destination string) (io.Closer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create archive: %w", err)
 	}
-	wr.gw = gzip.NewWriter(archive)
+	wr.archive = archive
+	wr.gw = gzip.NewWriter(wr.archive)
 	wr.tw = tar.NewWriter(wr.gw)
 
 	return wr, nil
 }
 
 func (wr *tarWriter) WriteFile(baseDir string, fName string) error {
-	f, err := os.OpenFile(filepath.Join(baseDir, fName), os.O_RDONLY, 0o644)
-	if err != nil {
-		return fmt.Errorf("open serialized metadata %s: %w", fName, err)
-	}
-	defer f.Close()
-
-	info, err := f.Stat()
+	filePath := filepath.Join(baseDir, fName)
+	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return fmt.Errorf("get file info: %w", err)
 	}
 
-	header, err := tar.FileInfoHeader(info, info.Name())
+	header, err := tar.FileInfoHeader(fileInfo, "")
 	if err != nil {
 		return fmt.Errorf("create file info header: %w", err)
 	}
@@ -62,12 +63,18 @@ func (wr *tarWriter) WriteFile(baseDir string, fName string) error {
 	// Use full path as name (FileInfoHeader only takes the basename)
 	// If we don't do this the directory structure would not be preserved
 	// https://golang.org/src/archive/tar/common.go?#L626
-	header.Name = fName
+	header.Name = filepath.ToSlash(fName)
 
 	// Write file header to the tar archive
 	if err := wr.tw.WriteHeader(header); err != nil {
 		return fmt.Errorf("write file header: %w", err)
 	}
+
+	f, err := os.OpenFile(filePath, os.O_RDONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("open serialized metadata %s: %w", fName, err)
+	}
+	defer f.Close()
 
 	// Copy file content to tar archive
 	_, err = io.Copy(wr.tw, f)
@@ -81,9 +88,9 @@ func (wr *tarWriter) WriteFile(baseDir string, fName string) error {
 func (wr *tarWriter) WriteBytes(fName string, buf []byte) error {
 	// Create a new file header
 	tarHeader := &tar.Header{
-		Name:     fName,
+		Name:     filepath.ToSlash(fName),
 		Size:     int64(len(buf)),
-		Mode:     0o644,
+		Mode:     0600,
 		Typeflag: tar.TypeReg,
 	}
 
@@ -99,22 +106,40 @@ func (wr *tarWriter) WriteBytes(fName string, buf []byte) error {
 	return nil
 }
 
-func (wr *tarWriter) WriteDirectory(baseDir string, excludeFn func(dirName string, fName string) bool) error {
+func (wr *tarWriter) WriteDirectory(baseDir string, excludeFn func(fsPath string, d os.DirEntry) error) error {
+	baseDir = filepath.ToSlash(baseDir)
+	if !strings.HasSuffix(baseDir, "/") {
+		baseDir += "/"
+	}
 	if err := filepath.WalkDir(baseDir, func(fsPath string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
 		rel, err := filepath.Rel(baseDir, fsPath)
 		if err != nil {
 			return fmt.Errorf("walk directory: %w", err)
 		}
 
-		if rel == "." || rel == "" || d.IsDir() {
+		// skip the base directory itself
+		if rel == "." {
 			return nil
 		}
 
-		if excludeFn != nil && excludeFn(path.Dir(rel), path.Base(rel)) {
-			return nil
+		if excludeFn != nil {
+			switch excludeFn(fsPath, d) {
+			case archiver.SkipDir:
+				return filepath.SkipDir
+			case archiver.SkipFile:
+				return nil
+			}
 		}
 
-		return wr.WriteFile(baseDir, rel)
+		if !d.IsDir() {
+			return wr.WriteFile(baseDir, rel)
+		}
+
+		return nil
 	}); err != nil {
 		return fmt.Errorf("walk directory: %w", err)
 	}
