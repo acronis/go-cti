@@ -140,12 +140,12 @@ func (c *Collector) MakeCtiTypeFromShape(id string, shape *raml.BaseShape) (*cti
 	var traitsSchemaBytes []byte
 	var traitsAnnotations map[cti.GJsonPath]cti.Annotations
 	if t, ok := shape.CustomShapeFacetDefinitions.Get(cti.Traits); ok {
-		traitsSchema, err := c.jsonSchemaConverter.Convert(t.Shape.Shape)
+		traitsSchema, err := c.jsonSchemaConverter.Convert(t.Base.Shape)
 		if err != nil {
 			return nil, fmt.Errorf("convert traits schema: %w", err)
 		}
 		traitsSchemaBytes, _ = json.Marshal(traitsSchema)
-		traitsAnnotations = c.annotationsCollector.Collect(t.Shape.Shape)
+		traitsAnnotations = c.annotationsCollector.Collect(t.Base.Shape)
 	}
 	schema, err := c.jsonSchemaConverter.Convert(shape.Shape)
 	if err != nil {
@@ -269,22 +269,22 @@ func (c *Collector) findAndInsertCtiSchema(shape *raml.BaseShape, history []stri
 		if s.Properties != nil {
 			for pair := s.Properties.Oldest(); pair != nil; pair = pair.Next() {
 				prop := pair.Value
-				rs, err := c.findAndInsertCtiSchema(prop.Shape, history)
+				rs, err := c.findAndInsertCtiSchema(prop.Base, history)
 				if err != nil {
 					return nil, fmt.Errorf("find and insert cti schema property: %w", err)
 				}
-				prop.Shape = rs
+				prop.Base = rs
 				s.Properties.Set(pair.Key, prop)
 			}
 		}
 		if s.PatternProperties != nil {
 			for pair := s.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
 				prop := pair.Value
-				rs, err := c.findAndInsertCtiSchema(prop.Shape, history)
+				rs, err := c.findAndInsertCtiSchema(prop.Base, history)
 				if err != nil {
 					return nil, fmt.Errorf("find and insert cti schema pattern property: %w", err)
 				}
-				prop.Shape = rs
+				prop.Base = rs
 				s.PatternProperties.Set(pair.Key, prop)
 			}
 		}
@@ -332,22 +332,22 @@ func (c *Collector) preProcessCtiType(shape *raml.BaseShape) (*raml.BaseShape, e
 		if s.Properties != nil {
 			for pair := s.Properties.Oldest(); pair != nil; pair = pair.Next() {
 				prop := pair.Value
-				rs, err := c.preProcessCtiType(prop.Shape)
+				rs, err := c.preProcessCtiType(prop.Base)
 				if err != nil {
 					return nil, fmt.Errorf("preprocess property: %w", err)
 				}
-				prop.Shape = rs
+				prop.Base = rs
 				s.Properties.Set(pair.Key, prop)
 			}
 		}
 		if s.PatternProperties != nil {
 			for pair := s.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
 				prop := pair.Value
-				rs, err := c.preProcessCtiType(prop.Shape)
+				rs, err := c.preProcessCtiType(prop.Base)
 				if err != nil {
 					return nil, fmt.Errorf("preprocess pattern property: %w", err)
 				}
-				prop.Shape = rs
+				prop.Base = rs
 				s.PatternProperties.Set(pair.Key, prop)
 			}
 		}
@@ -534,7 +534,7 @@ func (c *Collector) findPropertyWithAnnotation(shape *raml.ObjectShape, annotati
 	// TODO: Suboptimal since we iterate over all annotations every time we look up an annotation.
 	for pair := shape.Properties.Oldest(); pair != nil; pair = pair.Next() {
 		prop := pair.Value
-		if s, ok := prop.Shape.Shape.(*raml.StringShape); ok {
+		if s, ok := prop.Base.Shape.(*raml.StringShape); ok {
 			if _, ok := s.CustomDomainProperties.Get(annotationName); ok {
 				return &prop
 			}

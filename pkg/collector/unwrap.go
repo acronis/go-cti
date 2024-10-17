@@ -59,22 +59,22 @@ func (c *Collector) unwrapCtiType(base *raml.BaseShape) (*raml.BaseShape, error)
 	if objShape.Properties != nil {
 		for pair := objShape.Properties.Oldest(); pair != nil; pair = pair.Next() {
 			prop := pair.Value
-			us, err := c.raml.UnwrapShape(prop.Shape)
+			us, err := c.raml.UnwrapShape(prop.Base)
 			if err != nil {
 				return nil, fmt.Errorf("object property unwrap: %w", err)
 			}
-			prop.Shape = us
+			prop.Base = us
 			objShape.Properties.Set(pair.Key, prop)
 		}
 	}
 
 	for pair := base.CustomShapeFacetDefinitions.Oldest(); pair != nil; pair = pair.Next() {
 		prop := pair.Value
-		us, err := c.raml.UnwrapShape(prop.Shape)
+		us, err := c.raml.UnwrapShape(prop.Base)
 		if err != nil {
 			return nil, fmt.Errorf("custom shape facet definition unwrap: %w", err)
 		}
-		prop.Shape = us
+		prop.Base = us
 		base.CustomShapeFacetDefinitions.Set(pair.Key, prop)
 	}
 

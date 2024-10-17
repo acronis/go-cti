@@ -23,6 +23,7 @@ import (
 	"github.com/acronis/go-cti/internal/app/commands/testcmd"
 	"github.com/acronis/go-cti/internal/app/commands/validatecmd"
 	"github.com/acronis/go-stacktrace"
+	slogex "github.com/acronis/go-stacktrace/slogex"
 
 	"github.com/dusted-go/logging/prettylog"
 	"github.com/mattn/go-isatty"
@@ -136,7 +137,7 @@ func mainFn() int {
 				return []stacktrace.TracesOpt{}
 			}()
 
-			slog.Error("Command failed", stacktrace.ErrToSlogAttr(cmdErr.Inner, stOpts...))
+			slog.Error("Command failed", slogex.ErrToSlogAttr(cmdErr.Inner, stOpts...))
 		} else {
 			_ = rootCmd.Usage()
 		}

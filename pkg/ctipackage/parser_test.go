@@ -11,6 +11,7 @@ import (
 
 	"github.com/acronis/go-cti/pkg/testsupp"
 	"github.com/acronis/go-stacktrace"
+	slogex "github.com/acronis/go-stacktrace/slogex"
 )
 
 type parserTestCase struct {
@@ -177,7 +178,7 @@ types:
 				require.Error(t, err)
 				require.ErrorContains(t, err, tc.expectedError)
 
-				slog.Error("Command failed", stacktrace.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
+				slog.Error("Command failed", slogex.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
 			}
 		})
 	}

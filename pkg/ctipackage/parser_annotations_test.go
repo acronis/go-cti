@@ -13,6 +13,7 @@ import (
 	"github.com/acronis/go-cti/pkg/cti"
 	"github.com/acronis/go-cti/pkg/testsupp"
 	"github.com/acronis/go-stacktrace"
+	slogex "github.com/acronis/go-stacktrace/slogex"
 )
 
 func generateGoldenFiles(t *testing.T, baseDir string, collections map[string]cti.Entities) {
@@ -330,7 +331,7 @@ types:
 			require.NoError(t, pkg.Read())
 
 			if err := pkg.Parse(); err != nil {
-				slog.Error("Command failed", stacktrace.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
+				slog.Error("Command failed", slogex.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
 				require.Error(t, err)
 			}
 

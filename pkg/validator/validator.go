@@ -60,7 +60,7 @@ func (v *CtiValidator) ValidateAll() error {
 	for i := range v.entities {
 		entity := v.entities[i]
 		if err := v.Validate(entity); err != nil {
-			_ = st.Append(stacktrace.NewWrapped("validation failed", err, entity.Cti, stacktrace.WithType("validation")))
+			_ = st.Append(stacktrace.NewWrapped("validation failed", err, stacktrace.WithInfo("cti", entity.Cti), stacktrace.WithType("validation")))
 		}
 	}
 	if len(st.List) > 0 {
