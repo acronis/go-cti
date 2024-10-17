@@ -8,7 +8,6 @@ import (
 
 	"github.com/acronis/go-cti/pkg/identifier"
 	"github.com/acronis/go-raml"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
 
 	"github.com/acronis/go-cti/pkg/cti"
 )
@@ -250,16 +249,10 @@ func (c *Collector) findAndInsertCtiSchema(shape *raml.BaseShape, history []stri
 		history = newHistory
 	}
 
-	// FIXME: This will keep cti.cti instead of cti.schema. Need to either apply post-processing
-	// or change the logic.
 	if ctiSchema, ok := shape.CustomDomainProperties.Get(cti.Schema); ok {
-		rs, err := c.getCtiSchema(shape, ctiSchema)
+		rs, err := c.getCtiSchema(shape, ctiSchema, history)
 		if err != nil {
 			return nil, fmt.Errorf("unwrap cti schema: %w", err)
-		}
-		rs, err = c.findAndInsertCtiSchema(rs, history)
-		if err != nil {
-			return nil, fmt.Errorf("find and insert cti schema: %w", err)
 		}
 		return rs, nil
 	}
@@ -383,7 +376,7 @@ func (c *Collector) moveAnnotationsToArrayItem(array *raml.ArrayShape) {
 	}
 }
 
-func (c *Collector) getCtiSchema(base *raml.BaseShape, ctiSchema *raml.DomainExtension) (*raml.BaseShape, error) {
+func (c *Collector) getCtiSchema(base *raml.BaseShape, ctiSchema *raml.DomainExtension, history []string) (*raml.BaseShape, error) {
 	var shape *raml.BaseShape
 	switch v := ctiSchema.Extension.Value.(type) {
 	case string:
@@ -394,8 +387,14 @@ func (c *Collector) getCtiSchema(base *raml.BaseShape, ctiSchema *raml.DomainExt
 		if err != nil {
 			return nil, fmt.Errorf("get or unwrap cti schema: %w", err)
 		}
-		// us.CustomDomainProperties = base.CustomDomainProperties
-		shape = us
+		us, err = c.findAndInsertCtiSchema(us, history)
+		if err != nil {
+			return nil, fmt.Errorf("find and insert cti schema: %w", err)
+		}
+		// This allows keeping the original base unmodified, while branching out to a new shape.
+		cus := us.CloneShallow()
+		cus.CustomDomainProperties = base.CustomDomainProperties
+		shape = cus
 	case []interface{}:
 		anyOf := make([]*raml.BaseShape, len(v))
 		for i, vv := range v {
@@ -407,6 +406,10 @@ func (c *Collector) getCtiSchema(base *raml.BaseShape, ctiSchema *raml.DomainExt
 			if err != nil {
 				return nil, fmt.Errorf("get or unwrap cti schema: %w", err)
 			}
+			us, err = c.findAndInsertCtiSchema(us, history)
+			if err != nil {
+				return nil, fmt.Errorf("find and insert cti schema: %w", err)
+			}
 			anyOf[i] = us
 		}
 		us, err := c.raml.MakeConcreteShapeYAML(base, raml.TypeUnion, nil)
@@ -415,7 +418,6 @@ func (c *Collector) getCtiSchema(base *raml.BaseShape, ctiSchema *raml.DomainExt
 		}
 		us.(*raml.UnionShape).AnyOf = anyOf
 		base.SetShape(us)
-		base.CustomDomainProperties = orderedmap.New[string, *raml.DomainExtension]()
 		shape = base
 	}
 	return shape, nil
