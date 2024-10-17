@@ -43,13 +43,13 @@ func (c *AnnotationsCollector) VisitObjectShape(ctx string, s *raml.ObjectShape)
 	if s.Properties != nil {
 		for pair := s.Properties.Oldest(); pair != nil; pair = pair.Next() {
 			v := pair.Value
-			c.Visit(ctx+v.Name, v.Shape.Shape)
+			c.Visit(ctx+v.Name, v.Base.Shape)
 		}
 	}
 	if s.PatternProperties != nil {
 		for pair := s.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
 			k, v := pair.Key, pair.Value
-			c.Visit(ctx+k, v.Shape.Shape)
+			c.Visit(ctx+k, v.Base.Shape)
 		}
 	}
 	return nil
