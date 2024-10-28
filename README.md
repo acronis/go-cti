@@ -21,6 +21,9 @@
 
 **CTI Types and Instances (CTI)** is a technology that provides a unified, vendor-agnostic way to define and uniquely identify types and instances, extend and package them. With CTI, types and instances are identified by CTI Typed Identifier that is associated with a particular entity.
 
+> [!NOTE]
+> For more details on CTI specification, see [CTI Types and Instances (CTI) version 1.0 Specification](./cti-spec/SPEC.md)
+
 ## What does this project provide?
 
 The project provides the following:
