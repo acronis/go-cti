@@ -19,7 +19,7 @@
 
 ## What is CTI Types & Instances?
 
-**CTI Types and Instances (CTI)** is a technology that provides a unified, vendor-agnostic way to define and uniquely identify types and instances, extend and package them. With CTI, types and instances are identified by CTI Typed Identifier that is associated with a particular entity.
+**Cross-domain Typed Identifiers (CTI)** provide a structured, standardized approach for uniquely identifying data types, instances, and their relationships across multi-service, multi-vendor, multi-platform, and multi-application environments. This system enables the unique definition of resources (both data types and instances) throughout the ecosystem, embedding vendor, package, and extension information within each identifier. Using CTI, each type and instance is represented by a **CTI Typed Identifier** associated with a specific entity, ensuring clear, consistent identification across diverse systems.
 
 > [!NOTE]
 > For more details on CTI specification, see [CTI Types and Instances (CTI) version 1.0 Specification](./cti-spec/SPEC.md)
