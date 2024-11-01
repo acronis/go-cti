@@ -8,7 +8,6 @@ This document provides a specification for **CTI Types and Instances (CTI) versi
 
 - [Problem Statement](#problem-statement)
 - [Introduction](#introduction)
-- [About CTI Typed Identifier](#about-cti-typed-identifier)
   - [The CTI Typed Identifier syntax](#the-cti-typed-identifier-syntax)
   - [Versioning](#versioning)
   - [Query language](#query-language)
