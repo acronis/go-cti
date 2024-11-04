@@ -1,6 +1,6 @@
-# CTI Types & Instances management tool and library
+# Cross-domain Typed Identifiers (CTI) management tool and library
 
-- [What is CTI Types \& Instances?](#what-is-cti-types--instances)
+- [Cross-domain Typed Identifiers (CTI)?](#what-is-cross-domain-typed-identifiers-cti)
 - [What does this project provide?](#what-does-this-project-provide)
 - [How the technology is used](#how-the-technology-is-used)
 - [Installation](#installation)
@@ -17,12 +17,12 @@
     - [--output](#--output)
 
 
-## What is CTI Types & Instances?
+## What is Cross-domain Typed Identifiers (CTI)?
 
-**CTI Types and Instances (CTI)** is a technology that provides a unified, vendor-agnostic way to define and uniquely identify types and instances, extend and package them. With CTI, types and instances are identified by CTI Typed Identifier that is associated with a particular entity.
+**Cross-domain Typed Identifiers (CTI)** provide a structured, standardized approach for uniquely identifying data types, instances, and their relationships across multi-service, multi-vendor, multi-platform, and multi-application environments. This system enables the unique definition of resources (both data types and instances) throughout the ecosystem, embedding vendor, package, and extension information within each identifier. Using CTI, each type and instance is represented by a **CTI Typed Identifier** associated with a specific entity, ensuring clear, consistent identification across diverse systems.
 
 > [!NOTE]
-> For more details on CTI specification, see [CTI Types and Instances (CTI) version 1.0 Specification](./cti-spec/SPEC.md)
+> For more details on CTI specification, see [Cross-domain Typed Identifiers (CTI) version 1.0 Specification](./cti-spec/SPEC.md)
 
 ## What does this project provide?
 
@@ -36,13 +36,13 @@ The project provides the following:
 
 ## How the technology is used
 
-CTI Types and Instances (CTI) technology is utilized by Acronis Cyber Application technology that allows third-party ISVs (application vendors) to extend Acronis Cyber Protect Cloud platform (the platform) by:
+Cross-domain Typed Identifiers (CTI) technology is utilized by Acronis Cyber Application technology that allows third-party ISVs (application vendors) to extend Acronis Cyber Protect Cloud platform (the platform) by:
 
 * Bringing new object types and APIs to the system.
 * Extending the platform base domain model types (like types of tenants, alerts, events, protection plans) by new inherited types.
 * Enforce granular access to the objects of different types for the API clients.
 
-With CTI Typed Identifier, the following entities become explicitly defined and linked to corresponding entities:
+With CTI identifiers, the following entities become explicitly defined and linked to corresponding entities:
 
 * Domain object types, i.e. object schemas like tenants, alerts, protection plans, etc.
 * Well-known object instances, like event topics, namespaces, groups.

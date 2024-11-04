@@ -6,8 +6,8 @@ This document provides a specification for **CTI Types and Instances (CTI) versi
 
 ## Table of Content
 
+- [Problem Statement](#problem-statement)
 - [Introduction](#introduction)
-- [About CTI Typed Identifier](#about-cti-typed-identifier)
   - [The CTI Typed Identifier syntax](#the-cti-typed-identifier-syntax)
   - [Versioning](#versioning)
   - [Query language](#query-language)
@@ -47,19 +47,36 @@ This document provides a specification for **CTI Types and Instances (CTI) versi
     - [Dependency directory](#dependency-directory)
     - [Dependencies resolution](#dependencies-resolution)
 
+
+## Problem Statement
+
+In systems with contributions from multiple independent parties or vendors, unique identification is essential for interoperability, data integrity, and effective management. Outside of software, this need is addressed by common identification patterns across various fields. **[Peripheral Component Interconnect Code (Vendor ID (VID), Device ID (DID), Class Codes) and ID Assignment](https://pcisig.com/sites/default/files/files/PCI_Code-ID_r_1_11__v24_Jan_2019.pdf)** associated to Peripheral Component Interconnect (PCI) devices, **[ISBN-13 codes](https://www.isbn-international.org/content/isbn-bar-coding)** for books, **[GTIN (Global Trade Item Number)](https://www.gtin.info/what-is-a-gtin/)** for products, **[MAC addresses](https://en.wikipedia.org/wiki/MAC_address)** for network devices, and **[Payment Card Numbers](https://www.iso.org/obp/ui/#iso:std:iso-iec:7812:-1:ed-5:v1:en)** for credit cards are examples of conventions that encode essential details about the vendor, category, and instance into an identification code.
+
+In software, this challenge becomes even more complex due to the dynamic, multi-vendor nature of environments like operating systems, cloud platforms, IoT ecosystems, and distributed microservices architectures. Here, unique identifiers must account for multiple vendors contributing different applications, services, data types, or specific identifiable data instances. To prevent conflicts and collisions and to ensure scalability and security, it is critical to have a standardized identification system that distinguishes each data type and instance while encoding vendor, application, and version information.
+
+Programming languages typically define types for basic scalar data, like integers, strings, and booleans. Enums are often used to identify fixed sets of values, such as instance IDs or limited categories. More complex data structures, however, are represented by classes or structures whose names are unique only within the context of a compiled program or shared libraries. This approach limits the reliability of class-based identifiers in systems that exchange data through APIs or shared data storage, especially in multi-vendor environments where global uniqueness and cross-vendor, cross-service consistency are required.
+
+There are several established identification systems and conventions for specific distributed applications or systems, including **[UUID](https://datatracker.ietf.org/doc/html/rfc4122)** for Universally Unique IDentifier, **[MIME types](https://datatracker.ietf.org/doc/html/rfc2045)** for mime formats, **[Java Package Naming Convention](https://docs.oracle.com/javase/tutorial/java/package/namingpkgs.html)** for namespace uniqueness in Java, **[Amazon ARN](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html)** for AWS resources, **[Apple UTI](https://developer.apple.com/documentation/uniformtypeidentifiers)** for data types on Apple platforms, and **[URL](https://url.spec.whatwg.org)** for web resource locations. While effective within their intended contexts, these systems are generally not suited for broader, generic identification of diverse data types or data objects.
+
+To address these issues, **CTI** (a recursive acronym for Cross-domain Typed Identifiers) notation provides a robust convention for identifying data entities across multi-service, multi-vendor, multi-platform and multi-application environments.
+
 ## Introduction
 
-**CTI Types and Instances (CTI)** is a technology that provides a unified, vendor-agnostic way to define and uniquely identify types and instances, extend and package them.
-With this technology, vendors may not just define domain objects and build relationships between them, but also enforce strict typing and allow other vendors
-to extend and naturally integrate into the domains.
+**Cross-domain Typed Identifiers (CTI)** is a conventional system that provides a structured, standardized approach for uniquely identifying data types, instances and their relationships across multi-service, multi-vendor, multi-platform and multi-application environments. By encoding essential information about vendor, package, and version, CTI ensures consistent, scalable identification of data types and instances in shared data storage, API objects, and documentation. Designed to support interoperability, CTI enables cross-platform compatibility and prevents conflicts by assigning each data type and instance a globally unique identifier that retains meaning and structure across contexts.
 
-## About CTI Typed Identifier
+CTI identifiers are not limited to identifying data structures and instances alone; they also enable several advanced capabilities:
 
-CTI provides Typed Identifier (an identifier) is a notation for unique, versioned identifier. Similar to other notation systems (like [Apple UTI](https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/understanding_utis/understand_utis_conc/understand_utis_conc.html#//apple_ref/doc/uid/TP40001319-CH202-CHDHIJDE) or [Amazon ARN](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html)) CTI Typed Identifier is represented by a string that uniquely identifies the resource (type or instance) and origin (i.e., vendor and package). However, compared to other notation systems, CTI Typed Identifiers also express a relationship (what type of object was instantiated or which type it extends), and their [major and minor semantic version](https://semver.org/) (i.e., v1.0).
+- **Cross-references**: Allow fields in one data object (e.g., type A) to reference objects of a different type (e.g., type B), enabling data linkages and associations across types.
+- **Data class inheritance**: Supports type hierarchies, allowing type B to inherit from type A, promoting reusability and consistency in data models.
+- **Data structure grouping**: Facilitates grouping by vendor or package, simplifying the organization and management of data structures within multi-vendor environments.
+
+These capabilities enable CTI to support the construction of comprehensive, distributed, multi-vendor, and multi-service data type graphs and domain models. With CTI-based identification, organizations and cross-vendor platforms can manage data structures throughout their lifecycle, including aspects like data object relationships, access control, dependency, and compatibility management—creating a robust framework for scalable and secure data type systems management.
+
+Similar to other notation systems (like [Apple Uniform Type Identifiers (UTIs)](https://developer.apple.com/documentation/uniformtypeidentifiers) or [Amazon Resource Names (ARNs)](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html)), CTI Typed Identifier is represented by a string that uniquely identifies the resource (type or instance) and its origin (i.e., vendor and package). However, compared to other notation systems, CTI Typed Identifiers also express a relationship—specifying what type of object was instantiated or which type it extends—and include a [major and minor semantic version](https://semver.org/) (e.g., v1.0). This makes CTI Typed Identifiers a **powerful tool for precise versioning and compatibility tracking**, enabling developers to manage dependencies, relationships, and evolution of resource types within the CTI framework.
 
 The following comparison table summarizes the comparison between the mentioned types:
 
-|                             | Apple UTI                                  | Amazon ARN                                               | CTI Typed Identifier                                      | Universally Unique Identifier |
+|                             | Apple UTI                                  | Amazon ARN                                               | CTI Typed Identifier                                      | Universally Unique Identifier (UUID) |
 |-----------------------------|--------------------------------------------|----------------------------------------------------------|-----------------------------------------------------------|-------------------------------|
 | Unique identifier           | Yes                                        | Yes                                                      | Yes                                                       | Yes                           |
 | Provides access isolation   | Yes, UTI is scoped to an entity            | Yes, ARN is scoped to specific resource                  | Yes, CTI is scoped to specific vendor, package, entity    | No                            |
