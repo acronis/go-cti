@@ -2,6 +2,8 @@ github.com/acronis/go-cti/pkg/identifier v1.0.0 h1:iGRP+UV4FbobDTM+cH9feihUl17KB
 github.com/acronis/go-cti/pkg/identifier v1.0.0/go.mod h1:ZsdPnq7a72g5d+kRQg2fCpdfmhhCd8moQzuNhY23YxM=
 github.com/acronis/go-cti/pkg/ramlx v0.0.0-20240930161533-2ce9cb06b81e h1:2ikd7TGg0nFonfxm7sbiRJXsAM0ilaKpy1HYdBKdRok=
 github.com/acronis/go-cti/pkg/ramlx v0.0.0-20240930161533-2ce9cb06b81e/go.mod h1:wBLKHy1GFu5E4hRXHjNcUA7IC4+p//qClQq5DkEnML0=
+github.com/acronis/go-raml v0.15.0 h1:ugL4NRjungGd2mgHUSvVhFaGZbHufqODAy9t4B7+7/o=
+github.com/acronis/go-raml v0.15.0/go.mod h1:b7A+r3k7Mk07ei/Oa2PFmrKEbh6AqZ7OI8baFYUQMjc=
 github.com/acronis/go-stacktrace v0.4.0 h1:rL+6LxDnQ1/KcaCvF6ftC1Hjg91rjuPjPxS7+xH81xk=
 github.com/acronis/go-stacktrace v0.4.0/go.mod h1:7Yf4nTbD//u5yR21BhiLzitxh8lU8Vb8SakHhoRAyqQ=
 github.com/acronis/go-stacktrace/slogex v0.3.0 h1:PdHLMwPql8V7ZnmzzfCuZsrP7xCDpqfyNSfGDu8+OgI=
