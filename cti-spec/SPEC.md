@@ -1,14 +1,14 @@
-# CTI Types and Instances (CTI) version 1.0 Specification
+# Cross-domain Typed Identifiers (CTI) version 1.0 Specification
 
 ## Abstract
 
-This document provides a specification for **CTI Types and Instances (CTI) version 1.0**.
+This document provides a specification for **Cross-domain Typed Identifiers (CTI) version 1.0**.
 
 ## Table of Content
 
 - [Problem Statement](#problem-statement)
 - [Introduction](#introduction)
-  - [The CTI Typed Identifier syntax](#the-cti-typed-identifier-syntax)
+  - [The CTI identifier syntax](#the-cti-typed-identifier-syntax)
   - [Versioning](#versioning)
   - [Query language](#query-language)
   - [Attribute query](#attribute-query)
@@ -58,7 +58,7 @@ Programming languages typically define types for basic scalar data, like integer
 
 There are several established identification systems and conventions for specific distributed applications or systems, including **[UUID](https://datatracker.ietf.org/doc/html/rfc4122)** for Universally Unique IDentifier, **[MIME types](https://datatracker.ietf.org/doc/html/rfc2045)** for mime formats, **[Java Package Naming Convention](https://docs.oracle.com/javase/tutorial/java/package/namingpkgs.html)** for namespace uniqueness in Java, **[Amazon ARN](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html)** for AWS resources, **[Apple UTI](https://developer.apple.com/documentation/uniformtypeidentifiers)** for data types on Apple platforms, and **[URL](https://url.spec.whatwg.org)** for web resource locations. While effective within their intended contexts, these systems are generally not suited for broader, generic identification of diverse data types or data objects.
 
-To address these issues, **CTI** (a recursive acronym for Cross-domain Typed Identifiers) notation provides a robust convention for identifying data entities across multi-service, multi-vendor, multi-platform and multi-application environments.
+To address these issues, **Cross-domain Typed Identifiers** provides an identifier notation that serves as a robust convention for identifying data entities across multi-service, multi-vendor, multi-platform and multi-application environments.
 
 ## Introduction
 
@@ -72,11 +72,11 @@ CTI identifiers are not limited to identifying data structures and instances alo
 
 These capabilities enable CTI to support the construction of comprehensive, distributed, multi-vendor, and multi-service data type graphs and domain models. With CTI-based identification, organizations and cross-vendor platforms can manage data structures throughout their lifecycle, including aspects like data object relationships, access control, dependency, and compatibility management—creating a robust framework for scalable and secure data type systems management.
 
-Similar to other notation systems (like [Apple Uniform Type Identifiers (UTIs)](https://developer.apple.com/documentation/uniformtypeidentifiers) or [Amazon Resource Names (ARNs)](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html)), CTI Typed Identifier is represented by a string that uniquely identifies the resource (type or instance) and its origin (i.e., vendor and package). However, compared to other notation systems, CTI Typed Identifiers also express a relationship—specifying what type of object was instantiated or which type it extends—and include a [major and minor semantic version](https://semver.org/) (e.g., v1.0). This makes CTI Typed Identifiers a **powerful tool for precise versioning and compatibility tracking**, enabling developers to manage dependencies, relationships, and evolution of resource types within the CTI framework.
+Similar to other notation systems (like [Apple Uniform Type Identifiers (UTIs)](https://developer.apple.com/documentation/uniformtypeidentifiers) or [Amazon Resource Names (ARNs)](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html)), CTI identifier is represented by a string that uniquely identifies the resource (type or instance) and its origin (i.e., vendor and package). However, compared to other notation systems, CTI identifiers also express a relationship—specifying what type of object was instantiated or which type it extends—and include a [major and minor semantic version](https://semver.org/) (e.g., v1.0). This makes CTI identifiers a **powerful tool for precise versioning and compatibility tracking**, enabling developers to manage dependencies, relationships, and evolution of resource types within the CTI framework.
 
 The following comparison table summarizes the comparison between the mentioned types:
 
-|                             | Apple UTI                                  | Amazon ARN                                               | CTI Typed Identifier                                      | Universally Unique Identifier (UUID) |
+|                             | Apple UTI                                  | Amazon ARN                                               | CTI identifier                                      | Universally Unique Identifier (UUID) |
 |-----------------------------|--------------------------------------------|----------------------------------------------------------|-----------------------------------------------------------|-------------------------------|
 | Unique identifier           | Yes                                        | Yes                                                      | Yes                                                       | Yes                           |
 | Provides access isolation   | Yes, UTI is scoped to an entity            | Yes, ARN is scoped to specific resource                  | Yes, CTI is scoped to specific vendor, package, entity    | No                            |
@@ -85,11 +85,11 @@ The following comparison table summarizes the comparison between the mentioned t
 | Versioned                   | No                                         | No                                                       | Yes, using semantic versioning                            | No                            |
 | Security                    | No, only handles file types                | Yes, can be used for IAM roles and permission management | Yes, can be used for IAM roles and permission management  | No                            |
 
-### The CTI Typed Identifier syntax
+### The CTI identifier syntax
 
-CTI Typed Identifier consists of two parts:
+CTI identifier consists of two parts:
 
-1. Base part (CTI) that begins with `cti.` and helps to identify the string as a CTI Typed Identifier. For example, a fully qualified name of a CTI will be `cti.<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>`.
+1. Base part that begins with `cti.` and helps to identify the string as a CTI identifier. For example, a fully qualified name of a CTI will be `cti.<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>`.
 1. Extension part (CTX) that is appended to CTI using the `~` character and extends (through inheritance or instantiation) the preceding identifier. For example, a fully qualified name of a CTI with CTX will be `cti.<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>~<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>`.
 
 Each segment in these parts is dot-separated, where:
@@ -108,7 +108,7 @@ Few examples of identifiers:
 
 ### Versioning
 
-CTI Typed Identifiers follow [semantic versioning](https://semver.org/) where entity version is identified by `v<major>.<minor>`, where `<major>` is a major version and `<minor>` is a minor version.
+CTI identifiers follow [semantic versioning](https://semver.org/) where entity version is identified by `v<major>.<minor>`, where `<major>` is a major version and `<minor>` is a minor version.
 
 The entity version does not impose any restrictions on the identifier itself. However, it imposes a restriction on type schema compatibility
 associated with this identifier. See **Types and instances definition** for more details.
@@ -118,7 +118,7 @@ associated with this identifier. See **Types and instances definition** for more
 > [!IMPORTANT]
 > Attribute query may not serve as an identifier of a type or instance.
 
-Query language, similar to XPath language, allows the developers to narrow scope by specific attributes. Query syntax can be applied to a CTI Typed Identifier by appending a list of attribute name and attribute value parameters in square brackets. For example: `cti.<ctx>[ <attribute name>="<attribute value>", <attribute name2>="<attribute value>", ... ]`.
+Query language, similar to XPath language, allows the developers to narrow scope by specific attributes. Query syntax can be applied to a CTI identifier by appending a list of attribute name and attribute value parameters in square brackets. For example: `cti.<ctx>[ <attribute name>="<attribute value>", <attribute name2>="<attribute value>", ... ]`.
 
 Both common values and values in CTI format could be referenced with CTI queries, e.g.
 
@@ -134,7 +134,7 @@ It's possible to filter by multiple query parameters:
 > [!IMPORTANT]
 > Attribute query may not serve as an identifier of a type or instance.
 
-Similar to JSONPath dot notation, CTI provides the attribute selector that allows the developers to get an attribute value of the CTI instance. Attribute selector can be applied to a CTI Typed Identifier that is bound to an instance by appending the `@` to the identifier and specifying a property path. For example: `cti.<ctx>@<root_attr_name>.<nested_attr_name>`.
+Similar to JSONPath dot notation, CTI provides the attribute selector that allows the developers to get an attribute value of the CTI instance. Attribute selector can be applied to a CTI identifier that is bound to an instance by appending the `@` to the identifier and specifying a property path. For example: `cti.<ctx>@<root_attr_name>.<nested_attr_name>`.
 
 The attribute selector always starts from the instance's root and allows for getting only one attribute at a time. For example:
 
@@ -253,7 +253,7 @@ cti.a.p.message.v
 
 ### Extended Backus-Naur form
 
-A complete syntax of CTI Typed Identifier is represented using the following Extended Backus-Naur form:
+A complete syntax of CTI identifier is represented using the following Extended Backus-Naur form:
 
 ```
   CTI = "cti.", ctx, {"~", ctx}, ["~", uuid], [query | attribute_query];
@@ -318,7 +318,7 @@ A complete syntax of CTI Typed Identifier is represented using the following Ext
 > [!NOTE]
 > All examples of type schemas use a simple type definition syntax similar to JSON Schema and RAML.
 
-With the extension mechanism provided by CTI Typed Identifier, each type can be extended through inheritance or an instance of that type can be created.
+With the extension mechanism provided by CTI identifier, each type can be extended through inheritance or an instance of that type can be created.
 Additionally, using an extensible type system, such as RAML, additional semantics may be applied. For example:
 
 1. Allow or disallow inheritance or instantiation (sealed type).
@@ -334,13 +334,13 @@ Let us consider the following simple entity-relationship diagram that demonstrat
 
 ![](./assets/simple_event_topic.drawio.png)
 
-Instead of using UUID, we can replace it with a CTI Typed Identifier and extend the diagram as follows:
+Instead of using UUID, we can replace it with a CTI identifier and extend the diagram as follows:
 
 ![](./assets/simple_event_topic_cti.drawio.png)
 
 By introducing CTI, a vendor may easily introduce a new event topic object without the need to generate an identifier. Additionally, it becomes possible implement static configuration that is dynamically extensible since the identifier also provides a type schema that can be used to create objects of that type.
 
-For example, let us assume that the **CTI** table contains the following CTI Typed Identifier with the base event type schema:
+For example, let us assume that the **CTI** table contains the following CTI identifier with the base event type schema:
 
 ```yaml
 cti: cti.a.p.topic.v1.0
@@ -370,11 +370,11 @@ Let us consider the following simple entity-relationship diagram that demonstrat
 
 ![](./assets/simple_event.drawio.png)
 
-In an extensible system, this structure is impossible to validate since `data` provided with the event can contain an arbitrary JSON value which schema may be unknown. To address this issue, a `type` field can be introduced that points to a specific CTI Typed Identifier.
+In an extensible system, this structure is impossible to validate since `data` provided with the event can contain an arbitrary JSON value which schema may be unknown. To address this issue, a `type` field can be introduced that points to a specific CTI identifier.
 
 ![](./assets/simple_event_cti.drawio.png)
 
-By introducing CTI, a vendor may define a base data type for the event that can be extended further by anyone. For example, let us assume that the **CTI** table contains the following CTI Typed Identifier with the base event schema:
+By introducing CTI, a vendor may define a base data type for the event that can be extended further by anyone. For example, let us assume that the **CTI** table contains the following CTI identifier with the base event schema:
 
 ```yaml
 cti: cti.a.p.event.v1.0
@@ -390,7 +390,7 @@ schema:
       description: A unique identifier of the event topic.
     type:
       type: string 
-      description: A CTI Typed Identifier that was used to create the event.
+      description: A CTI identifier that was used to create the event.
     data:
       type: object
       description: An event payload.
@@ -453,7 +453,7 @@ Instead of UUID, we can use CTI to express the association of an event with spec
 
 By introducing CTI, we can express this association via type traits. A base type may define specific traits that a derived type can specify.
 
-For example, let us assume that the **CTI** table contains the following CTI Typed Identifier with the base event schema:
+For example, let us assume that the **CTI** table contains the following CTI identifier with the base event schema:
 
 ```yaml
 cti: cti.a.p.event.v1.0
@@ -471,7 +471,7 @@ schema:
       description: A unique identifier of the event topic.
     type:
       type: string 
-      description: A CTI Typed Identifier that was used to create the event.
+      description: A CTI identifier that was used to create the event.
     data:
       type: object
       description: An event payload.
@@ -510,7 +510,7 @@ To express types, traits, and instances as well as additional semantics defined 
 
 ### Typed annotations
 
-RAML 1.0 annotations are used to define additional semantics of types or individual object properties. For example, the `cti.cti` annotation is used to create and bind a CTI Typed Identifier to this type.
+RAML 1.0 annotations are used to define additional semantics of types or individual object properties. For example, the `cti.cti` annotation is used to create and bind a CTI identifier to this type.
 
 The `cti.id` annotation defines that the object property contains an identifier derived from the base type and the object follows the base type schema. This allows registering static object instances that can be used to specify any pre-defined values (i.e., service configuration, static properties, etc.) and refer to them later.
 
