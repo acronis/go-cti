@@ -19,7 +19,7 @@
 
 ## What is Cross-domain Typed Identifiers (CTI)?
 
-**Cross-domain Typed Identifiers (CTI)** provide a structured, standardized approach for uniquely identifying data types, instances, and their relationships across multi-service, multi-vendor, multi-platform, and multi-application environments. This system enables the unique definition of resources (both data types and instances) throughout the ecosystem, embedding vendor, package, and extension information within each identifier. Using CTI, each type and instance is represented by a **CTI Typed Identifier** associated with a specific entity, ensuring clear, consistent identification across diverse systems.
+**CTI**s provide a structured, standardized approach for uniquely identifying data types, instances, and their relationships across multi-service, multi-vendor, multi-platform, and multi-application environments. This system enables the unique definition of resources (both data types and instances) throughout the ecosystem, embedding vendor, package, and extension information within each identifier. Using CTI, each type and instance is represented by a **CTI** associated with a specific entity, ensuring clear, consistent identification across diverse systems.
 
 > [!NOTE]
 > For more details on CTI specification, see [Cross-domain Typed Identifiers (CTI) version 1.0 Specification](./cti-spec/SPEC.md)
@@ -36,18 +36,18 @@ The project provides the following:
 
 ## How the technology is used
 
-Cross-domain Typed Identifiers (CTI) technology is utilized by Acronis Cyber Application technology that allows third-party ISVs (application vendors) to extend Acronis Cyber Protect Cloud platform (the platform) by:
+CTI technology is utilized by Acronis CyberApp technology that allows third-party ISVs (application vendors) to extend Acronis Cyber Protect Cloud platform (the platform) by:
 
 * Bringing new object types and APIs to the system.
 * Extending the platform base domain model types (like types of tenants, alerts, events, protection plans) by new inherited types.
-* Enforce granular access to the objects of different types for the API clients.
+* Enforce granular access to objects of different types for the API clients.
 
-With CTI identifiers, the following entities become explicitly defined and linked to corresponding entities:
+With CTI, the following entities become explicitly defined and linked to corresponding entities:
 
 * Domain object types, i.e. object schemas like tenants, alerts, protection plans, etc.
 * Well-known object instances, like event topics, namespaces, groups.
 
-To describe types and instances that are associated with the CTI identifiers, RAMLx is used.
+To describe types and instances that are associated with the CTI, RAMLx is used.
 
 ## Installation
 
@@ -67,7 +67,7 @@ go install github.com/acronis/go-cti/cmd/cti@latest
 
 > [!NOTE]
 > By default, all commands are executed in the current working directory.
-> You can use the global `--working-dir` argument to specify the working directory if necessary.
+> You can use the global `--working-dir` argument to specify the working directory, if necessary.
 
 ### cti init
 
@@ -85,7 +85,7 @@ cti init
 cti pkg get <git_remote>@<git_ref>
 ```
 
-Fetches the package from the specified git remote and append package in the dependencies list of current component.
+Fetches the package from the specified git remote and appends the package in the dependencies list of the current component.
 
 Example:
 
@@ -105,7 +105,7 @@ cti validate
 
 ### cti pack
 
-Packs the package into a bundle. Valid package should be in current working directory (or directory specified by `--working-dir`).
+Packs the package into a bundle. The valid package should be in the current working directory (or directory specified by `--working-dir`).
 
 Example:
 
@@ -119,7 +119,7 @@ sample-package.cti
 
 #### --include-source
 
-Includes the source files into the bundle. By default, the source files are not included.
+Includes the source files in the bundle. By default, the source files are not included.
 Hidden files (starting with a dot) are not included in the bundle.
 
 #### --format
