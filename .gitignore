@@ -6,3 +6,5 @@ testdata/
 
 ./cti.exe
 ./cti
+
+metadata/pacman/fixtures/_packages/
