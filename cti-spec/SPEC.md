@@ -6,9 +6,11 @@ This document provides a specification for **Cross-domain Typed Identifiers (CTI
 
 ## Table of Content
 
+- [Abstract](#abstract)
+- [Table of Content](#table-of-content)
 - [Problem Statement](#problem-statement)
 - [Introduction](#introduction)
-  - [The CTI identifier syntax](#the-cti-typed-identifier-syntax)
+  - [The CTI syntax](#the-cti-syntax)
   - [Versioning](#versioning)
   - [Query language](#query-language)
   - [Attribute query](#attribute-query)
@@ -16,6 +18,7 @@ This document provides a specification for **Cross-domain Typed Identifiers (CTI
     - [Using wildcard](#using-wildcard)
     - [Using version](#using-version)
   - [Extended Backus-Naur form](#extended-backus-naur-form)
+- [CTI Metadata](#cti-metadata)
 - [Inheritance, instances and semantics](#inheritance-instances-and-semantics)
   - [Dynamic configuration through instances](#dynamic-configuration-through-instances)
   - [Extensible object types through type inheritance](#extensible-object-types-through-type-inheritance)
@@ -24,7 +27,7 @@ This document provides a specification for **Cross-domain Typed Identifiers (CTI
   - [Limiting type specialization](#limiting-type-specialization)
   - [Access modifiers](#access-modifiers)
   - [Traits](#traits)
-- [Types and instances definition](#types-and-instances-definition)
+- [Types and instances definition with RAMLx 1.0](#types-and-instances-definition-with-ramlx-10)
   - [Typed annotations](#typed-annotations)
   - [User-defined facets](#user-defined-facets)
   - [Annotations overview](#annotations-overview)
@@ -501,7 +504,7 @@ traits:
   topic_id: cti.a.p.topic.v1.0~a.p.user.v1.0
 ```
 
-## Types and instances definition
+## Types and instances definition with RAMLx 1.0
 
 To express CTI semantics and describe domain object types and define static object instances, CTI uses RAMLx 1.0, an extension of [RAML 1.0](https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md/).
 RAML 1.0 provides a data type system capable of working with inheritance and provides means to extend semantics of the types.
