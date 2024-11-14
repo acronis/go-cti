@@ -316,6 +316,26 @@ A complete syntax of CTI identifier is represented using the following Extended 
   wildcard = "*";
 ```
 
+## CTI Metadata
+
+CTI is also associated with a specific data type or data object. The information about this association is represented by a standard metadata structure defined in this specification.
+
+The metadata has the following structure:
+
+|   **Field**   | **Type** |                                   **Description**                                  |
+|:-------------:|:--------:|:----------------------------------------------------------------------------------:|
+| cti           | CTI      | Identifier of the CTI entity.                                                      |
+| final         | boolean  | Indicates that the CTI entity is final and cannot have derived entities.           |
+| display_name  | string   | A human-readable name of CTI entity.                                               |
+| description   | string   | A human-readable description of CTI entity.                                        |
+| schema        | object   | Data type schema. Only present for CTI types.                                      |
+| values        | any      | Arbitrary values that follow the parent schema. Only present for CTI instances.    |
+| traits_schema | object   | Traits schema. Only present for CTI types.                                         |
+| traits        | any      | Arbitrary values that follow the parent traits schema. Only present for CTI types. |
+| annotations   | object   | An object where key is a path to annotated property and value is an object.        |
+
+For examples that demonstrate the usage of CTI Metadata, see **Inheritance, instances and semantics**.
+
 ## Inheritance, instances and semantics
 
 > [!NOTE]
