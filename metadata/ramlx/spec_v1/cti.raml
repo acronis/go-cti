@@ -195,11 +195,10 @@ types:
 
   Instance:
     description: |
-      CTI instance is a JSON object that represents a specific entity of a CTI type.
-      It is a JSON object that conforms to the schema of the CTI type it represents.
+      CTI instance is an object that represents a specific entity of a CTI type.
       CTI instance is identified by the `id` field that contains the CTI of the instance.
-      CTI instance might have a `type` field that contains the CTI ID of the type it represents.
-      CTI instance might have a `description` field that contains the description of the instance.
+      CTI instance must have a `description` field that contains the description of the instance.
+      CTI instance must have a `values` field that contains the value of the instance which can be narrowed down to a specific schema.
       CTI instance might have a `display_name` field that contains the display name of the instance.
     additionalProperties: false
     properties:
@@ -214,7 +213,7 @@ types:
         description: |
           The value of the CTI instance.
           The value of this field is the value of the instance.
-          You can override that field to define the schema to help the user understand the value and validate it.
+          You can override that field to define the schema to help the user to understand the value and validate it.
       description: 
         type: scalar.string2048
         description: |
