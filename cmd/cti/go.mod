@@ -3,7 +3,7 @@ module github.com/acronis/go-cti/cmd/cti
 go 1.22.6
 
 require (
-	github.com/acronis/go-cti/metadata v0.24.0
+	github.com/acronis/go-cti/metadata v0.25.0
 	github.com/acronis/go-stacktrace v0.4.0
 	github.com/acronis/go-stacktrace/slogex v0.3.0
 	github.com/dusted-go/logging v1.3.0
@@ -22,7 +22,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/otiai10/copy v1.14.0 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect

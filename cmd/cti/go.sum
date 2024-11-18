@@ -1,7 +1,7 @@
 github.com/acronis/go-cti v1.0.0 h1:ZVW28Gn8Xist+lOB5914rqBs9p4kbrbBoxd6E0Go32c=
 github.com/acronis/go-cti v1.0.0/go.mod h1:bKgD6h/r4PVdiU4uFMPmlIaVRirP70754aSC9b3ftpk=
-github.com/acronis/go-cti/metadata v0.24.0 h1:NDc1bpWxR0aID+gQYAh00D3BotqEkG40R8/M1N3rJFA=
-github.com/acronis/go-cti/metadata v0.24.0/go.mod h1:XQ0aZknhwtiWYwxVZ/hkjQKOFD81huT4gHY6iGkOU0I=
+github.com/acronis/go-cti/metadata v0.25.0 h1:NfXhc5v5qvcwZyd5U33/pz7lknBr6Kyg95ZPZSO/PP4=
+github.com/acronis/go-cti/metadata v0.25.0/go.mod h1:92gapcuXWeinz0EX3pqDOvdAy39EcJfSpojcokTl9mw=
 github.com/acronis/go-cti/metadata/ramlx v1.0.0 h1:N89j0AwVOyGC5AK3z42VZknGD7/v3bd1IXnlkubTroc=
 github.com/acronis/go-cti/metadata/ramlx v1.0.0/go.mod h1:x1atAQyu/8hiFyNEqkLfR2afrTEoi1TYlMofmUcWnbY=
 github.com/acronis/go-raml v0.15.0 h1:ugL4NRjungGd2mgHUSvVhFaGZbHufqODAy9t4B7+7/o=
@@ -17,7 +17,6 @@ github.com/bahlo/generic-list-go v0.2.0/go.mod h1:2KvAjgMlE5NNynlg/5iLrrCCZ2+5xW
 github.com/buger/jsonparser v1.1.1 h1:2PnMjfWD7wBILjqQbt530v576A/cAbQvEW9gGIpYMUs=
 github.com/buger/jsonparser v1.1.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
 github.com/cpuguy83/go-md2man/v2 v2.0.4/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
-github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
