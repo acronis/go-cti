@@ -1,8 +1,0 @@
-go 1.22.6
-
-use (
-	.
-	./cmd/cti
-	./metadata
-	./metadata/ramlx
-)
