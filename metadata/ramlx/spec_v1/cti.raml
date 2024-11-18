@@ -209,7 +209,7 @@ types:
           The unique identifier of the CTI instance.
           The value of this field is a CTI ID that uniquely identifies the instance.
           The value of this field is a string that conforms to the CTI pattern.
-      value: 
+      val:
         type: any
         description: |
           The value of the CTI instance.
@@ -225,4 +225,27 @@ types:
         description: |
           The display name of the CTI instance.
           The value of this field is a string that represents the display name of the instance.
-      
+    examples:
+      1: 
+        id: cti.foo.bar.name.v1.0~x.y.kirill.v1.0
+        val: Kirill
+        description: The name of the person
+        display_name: The name is Kirill
+      2:
+        id: "cti.foo.bar.salary.v1.0~x.y.kirill.v1.0"
+        val: 100500
+        description: The salary of the person
+        display_name: The salary is 100500
+      3:
+        id: "cti.foo.bar.is_active.v1.0~x.y.kirill.v1.0"
+        val: true
+        description: The person is active
+        display_name: The person is active
+      4:
+        id: "cti.foo.bar.info.v1.0~x.y.kirill.v1.0"
+        val:
+          name: Kirill
+          salary: 100500
+          is_active: true
+        description: The information about the person
+        display_name: The info of Kirill
