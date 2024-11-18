@@ -19,14 +19,19 @@ This document provides a specification for **Cross-domain Typed Identifiers (CTI
     - [Using version](#using-version)
   - [Extended Backus-Naur form](#extended-backus-naur-form)
 - [CTI Metadata](#cti-metadata)
-- [Inheritance, instances and semantics](#inheritance-instances-and-semantics)
-  - [Dynamic configuration through instances](#dynamic-configuration-through-instances)
-  - [Extensible object types through type inheritance](#extensible-object-types-through-type-inheritance)
+- [Data types, instances and semantics](#data-types-instances-and-semantics)
+  - [Data types](#data-types)
+  - [Instances](#instances)
   - [References](#references)
   - [Disallowing inheritance](#disallowing-inheritance)
   - [Limiting type specialization](#limiting-type-specialization)
   - [Access modifiers](#access-modifiers)
   - [Traits](#traits)
+- [Examples](#examples)
+  - [Dynamic configuration through instances](#dynamic-configuration-through-instances)
+  - [Extensible object types through type inheritance](#extensible-object-types-through-type-inheritance)
+  - [Controlling the type behavior](#controlling-the-type-behavior)
+    - [Expressing a relationship without an intermediate mapping](#expressing-a-relationship-without-an-intermediate-mapping)
 - [Types and instances definition with RAMLx 1.0](#types-and-instances-definition-with-ramlx-10)
   - [Typed annotations](#typed-annotations)
   - [User-defined facets](#user-defined-facets)
@@ -323,7 +328,7 @@ CTI is also associated with a specific data type or data object. The information
 The metadata has the following structure:
 
 |   **Field**   | **Type** |                                   **Description**                                  |
-|:-------------:|:--------:|:----------------------------------------------------------------------------------:|
+|---------------|----------|------------------------------------------------------------------------------------|
 | cti           | CTI      | Identifier of the CTI entity.                                                      |
 | final         | boolean  | Indicates that the CTI entity is final and cannot have derived entities.           |
 | display_name  | string   | A human-readable name of CTI entity.                                               |
@@ -334,22 +339,88 @@ The metadata has the following structure:
 | traits        | any      | Arbitrary values that follow the parent traits schema. Only present for CTI types. |
 | annotations   | object   | An object where key is a path to annotated property and value is an object.        |
 
-For examples that demonstrate the usage of CTI Metadata, see **Inheritance, instances and semantics**.
+For examples that demonstrate the usage of CTI Metadata, see **Types, instances and semantics**.
 
-## Inheritance, instances and semantics
+## Data types, instances and semantics
 
-> [!NOTE]
-> All examples of type schemas use CTI Metadata structure where schemas are presented in JSON Schema.
+A CTI may be used to express the following types of entities in the system:
+
+1. Type - an extensible data type schema that expresses a domain object type.
+2. Instance - a static object that follows the parent data type schema and its semantics.
 
 With the extension mechanism provided by CTI, each type can be extended through inheritance or an instance of that type can be created.
-Additionally, using an extensible type system, such as RAML, additional semantics may be applied. For example:
+Additionally, using an extensible type system such as RAML, additional semantics may be applied. For example:
 
-1. Allow or disallow inheritance or instantiation (sealed type).
+1. Allow or disallow inheritance (sealed type).
 2. Allow or disallow narrowing specific properties of the type.
 3. Express a relationship between objects by specifying a reference.
-4. Instantiate types with specific traits.
+4. Instantiate types with specific traits that controls specific behavior.
 
 This allows vendors to control the way in which their domains can be extended and whether they want them to be extended.
+
+### Data types
+
+A base CTI or its extension can be associated with a dynamically extensible data type schema that may be used in the following ways:
+
+- Platform developers may define base types or extend existing types.
+- Vendors may extend existing types.
+
+Data type schemas may utilize the extension mechanism to build an inheritance relationship, similar to object-oriented languages.
+This allows platform developers to establish the interface (abstract data type schema) which vendors may use to dynamically
+introduce new types (concrete data type schema) in the platform.
+
+However, CTI establishes not only a syntactic relationship, but also a semantic relationship. A base data type may imply a specific
+behavior that is preserved by the entire inheritance chain and that derived types cannot change, or provide **Traits**
+that allow the type to control the behavior.
+
+For example, a platform developer may introduce a generic alert type that would introduce standard alerts management semantics
+like dismissal flow, rendering flow, alert generation rules, etc. Derived alert types would have the same semantics applied,
+but may also imply additional semantics like specific alerts aggregation/processing rules implemented by the service that
+works with objects of this type.
+
+### Instances
+
+A CTI extension can be associated with an object instance derived from a parent data type.
+
+CTI instances are static objects and follow semantics defined by the parent data type. They are particularly
+useful for defining static configuration, such as predefined service configuration, intermediate mapping entity, etc.
+
+Platform developers and vendors may create instances to dynamically extend the domain.
+
+### References
+
+In addition to inheritance, platform developers can express relationship between different CTIs.
+
+### Disallowing inheritance
+
+Vendors may disallow inheritance of specific types to avoid extending types that are not meant to be extended.
+
+### Limiting type specialization
+
+Vendors may limit type specialization by allowing other vendors to specialize only specific properties.
+
+### Access modifiers
+
+Vendors may use access modifiers, akin to object-oriented programming languages, to limit access to specific types and instances to prevent other vendors from extending private parts of the domain.
+
+The following access modifiers are available:
+
+- Public - allowed to be referenced by anyone.
+- Protected - allowed to be referenced only by the same vendor.
+- Private - allowed to be referenced only by the same package.
+
+Access modifiers do not prevent derived types and instances from being less restrictive than their parents. Developers are encouraged to limit the accessibility level of lower-level entities and expose only higher-level entities where applicable.
+
+### Traits
+
+Platform developers may define traits that express domain-specific semantics and vendors
+may introduce an extension that uses traits to specify these semantics. This is similar to CTI instances,
+but does not require an intermediate entity.
+
+## Examples
+
+> [!NOTE]
+> All examples of type schemas use **CTI Metadata** structure where all schemas are presented in JSON Schema format.
 
 ### Dynamic configuration through instances
 
@@ -361,7 +432,7 @@ Instead of using UUID, we can replace it with a CTI and extend the diagram as fo
 
 ![](./assets/simple_event_topic_cti.drawio.png)
 
-By introducing CTI, a vendor may easily introduce a new event topic object without the need to generate an identifier. Additionally, it becomes possible implement static configuration that is dynamically extensible since the identifier also provides a type schema that can be used to create objects of that type.
+By introducing CTI, a vendor may easily introduce a new event topic object without the need to generate a random identifier. Additionally, it becomes possible to implement a dynamically extensible configuration since new objects become available to the upstream services immediately.
 
 For example, let us assume that the **CTI** table contains the following CTI with the base event type schema:
 
@@ -388,6 +459,8 @@ values:
   name: User-related events topic.
   retention: 30d
 ```
+
+With a new topic registered through CTI, it now becomes possible to attach events to this topic without re-deploying or re-configuring the service.
 
 ### Extensible object types through type inheritance
 
@@ -442,35 +515,11 @@ schema:
   required: [ data ]
 ```
 
-### References
+### Controlling the type behavior
 
-In addition to inheritance, platform developers can express relationship between different CTIs.
+Using **Traits**, it is possible to create concrete types with specific behavior that the service, that serves that domain, expects.
 
-### Disallowing inheritance
-
-Vendors may disallow inheritance of specific types to avoid extending types that are not meant to be extended.
-
-### Limiting type specialization
-
-Vendors may limit type specialization by allowing other vendors to specialize only specific properties.
-
-### Access modifiers
-
-Vendors may use access modifiers, akin to object-oriented programming languages, to limit access to specific types and instances to prevent other vendors from extending private parts of the domain.
-
-The following access modifiers are available:
-
-- Public - allowed to be referenced by anyone.
-- Protected - allowed to be referenced only by the same vendor.
-- Private - allowed to be referenced only by the same package.
-
-Access modifiers do not prevent derived types and instances from being less restrictive than their parents. Developers are encouraged to limit the accessibility level of lower-level entities and expose only higher-level entities where applicable.
-
-### Traits
-
-Platform developers may define and apply traits to the types to express domain-specific semantics. For example,
-traits can be used in combination with references to build a relationship between domain objects that
-do not require an intermediate mapping entity.
+#### Expressing a relationship without an intermediate mapping
 
 Let us consider the following entity-relationship diagram where a specific **event** is associated with an **event topic**:
 
