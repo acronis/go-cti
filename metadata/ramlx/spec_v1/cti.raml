@@ -10,7 +10,7 @@ annotationTypes:
       Type field could be marked with this annotation to indicate the value of that field will be used
       as `description` for CTI instance.
       For CTI types RAML facet `description` is used for the same purpose.
-      Description is mandatory for both CTI types and instances.
+      Deprecated: use type `Instance` to describe CTI instance.
     allowedTargets: TypeDeclaration
 
   display_name:
@@ -20,6 +20,7 @@ annotationTypes:
       as `display_name` for CTI instance.
       For CTI types RAML facet `displayName` is used for the same purpose.
       By default, if not set RAML type name will be used as `display_name` of CTI type.
+      Deprecated: use type `Instance` to describe CTI instance.
     allowedTargets: TypeDeclaration
 
   cti:
@@ -33,6 +34,7 @@ annotationTypes:
     type: boolean
     description: >
       Indicates that the field value represents cti entity id. If entity is type it also this field also could be used as discriminator.
+      Deprecated: use type `Instance` to describe CTI instance.
     allowedTargets: TypeDeclaration
 
   final:
@@ -190,3 +192,59 @@ types:
     type: scalar.string2K
     # According to RFC 2.2. Root Identifier each JSONPath query must start with '$'.
     pattern: ^\$.*$
+
+  Instance:
+    description: |
+      CTI instance is an object that represents a specific entity of a CTI type.
+      CTI instance is identified by the `id` field that contains the CTI of the instance.
+      CTI instance must have a `description` field that contains the description of the instance.
+      CTI instance must have a `values` field that contains the value of the instance which can be narrowed down to a specific schema.
+      CTI instance might have a `display_name` field that contains the display name of the instance.
+    additionalProperties: false
+    properties:
+      id: 
+        type: CTI
+        description: |
+          The unique identifier of the CTI instance.
+          The value of this field is a CTI ID that uniquely identifies the instance.
+          The value of this field is a string that conforms to the CTI pattern.
+      values:
+        type: any
+        description: |
+          The value of the CTI instance.
+          The value of this field is the value of the instance.
+          You can override that field to define the schema to help the user to understand the value and validate it.
+      description: 
+        type: scalar.string2048
+        description: |
+          The description of the CTI instance.
+          The value of this field is a string that describes the instance.
+      display_name?:
+        type: scalar.string1024
+        description: |
+          The display name of the CTI instance.
+          The value of this field is a string that represents the display name of the instance.
+    examples:
+      1: 
+        id: cti.foo.bar.name.v1.0~x.y.kirill.v1.0
+        values: Kirill
+        description: The name of the person
+        display_name: The name is Kirill
+      2:
+        id: cti.foo.bar.salary.v1.0~x.y.kirill.v1.0
+        values: 100500
+        description: The salary of the person
+        display_name: The salary is 100500
+      3:
+        id: cti.foo.bar.is_active.v1.0~x.y.kirill.v1.0
+        values: true
+        description: The person is active
+        display_name: The person is active
+      4:
+        id: cti.foo.bar.info.v1.0~x.y.kirill.v1.0
+        values:
+          name: Kirill
+          salary: 100500
+          is_active: true
+        description: The information about the person
+        display_name: The info of Kirill
