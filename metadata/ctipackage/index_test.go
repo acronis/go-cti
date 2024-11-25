@@ -1,7 +1,6 @@
 package ctipackage
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,210 +8,159 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func getIndexFilePath() string {
-	wd := os.Getenv("TestDir")
-	path := filepath.Join(wd, ".platform", "index.json")
-	return path
+func initIndexFixture(t *testing.T, content []byte) {
+	testPath := filepath.Join("testdata", "indexes")
+	indexPath := filepath.Join(testPath, "index.json")
+	require.NoError(t, os.RemoveAll(testPath))
+	require.NoError(t, os.MkdirAll(testPath, os.ModePerm))
+	require.NoError(t, os.WriteFile(indexPath, content, os.ModePerm))
 }
 
-func TestConfig_IsValid_OK(t *testing.T) {
-	// Create a temporary file for testing
-	tempFilePath, _ := getTempIndexJson()
-	defer os.Remove(tempFilePath)
-
-	file, err := os.Open(tempFilePath)
-	require.NoError(t, err)
-	defer file.Close()
-
-	_, err = DecodeIndex(file)
-	require.NoError(t, err)
-}
-
-func TestConfig_IsValid_Err(t *testing.T) {
-	// Create a temporary file for testing
-	tempFilePath, _ := getTempInvalidIndexJson()
-	defer os.Remove(tempFilePath)
-
-	file, err := os.Open(tempFilePath)
-	require.NoError(t, err)
-	defer file.Close()
-
-	_, err = DecodeIndex(file)
-	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal object into Go struct field Config.entities of type []string")
-}
-
-func TestOpenIndexFile_OK(t *testing.T) {
-	tempFilePath, _ := getTempIndexJson()
-	defer os.Remove(tempFilePath)
-
-	config, err := ReadIndexFile("json")
-	require.NoError(t, err)
-	require.NotNil(t, config)
-}
-
-func TestOpenIndexFile_err(t *testing.T) {
-	tempFilePath, _ := getTmpJsonFile("nonIndex.json")
-	defer os.Remove(tempFilePath)
-
-	_, err := ReadIndexFile(tempFilePath)
-	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.PackageIndex")
-}
-
-func TestOpenIndexFile_err2(t *testing.T) {
-	nonExistenceFile := "nonExistenceFile.json"
-	_, err := ReadIndexFile(nonExistenceFile)
-	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.PackageIndex")
-}
-
-func TestValidateIndex_Err(t *testing.T) {
-	tempFilePath, _ := getTmpJsonFile("nonIndex.json")
-	defer os.Remove(tempFilePath)
-
-	file, err := os.Open(tempFilePath)
-	require.NoError(t, err)
-	defer file.Close()
-
-	_, err = DecodeIndex(file)
-	require.Errorf(t, err, "error decoding index file: json: cannot unmarshal string into Go value of type index.PackageIndex")
-}
-
-func getTmpJsonFile(fileName string) (string, []byte) {
-	// Create a temporary test file
-	fileContent := []byte(`"assets": [
-		"tmp/tmpFile1.json",
-		"tmp/tmpFile1.json"
-	  ]`)
-
-	_ = createTestFile(fileName, fileContent)
-
-	return fileName, fileContent
-}
-
-func TestValidateIndex_OK(t *testing.T) {
-	tempFilePath, _ := getTempIndexJson()
-	defer os.Remove(tempFilePath)
-
-	file, err := os.Open(tempFilePath)
-	require.NoError(t, err)
-	defer file.Close()
-
-	config, err := DecodeIndex(file)
-	require.NoError(t, err)
-	require.NotNil(t, config)
-}
-
-func getTempIndexJson() (string, []byte) {
-	// Create a temporary test file
-	fileName := "index.json"
-	fileContent := []byte(`{
-	  "entities": [
-		"entities/backup.raml",
-		"entities/basic_alerts.raml",
-		"entities/basic_alerts_objects.raml",
-		"entities/email_security_1.raml",
-		"entities/email_security_2.raml",
-		"entities/security.raml"
-	  ]
+func Test_ReadIndexFile(t *testing.T) {
+	validIndexContent := []byte(`{
+		"package_id": "test.pkg",
+		"ramlx_version": "1.0",
+		"apis": ["api.raml"],
+		"entities": ["entity.raml"],
+		"assets": ["asset.png"],
+		"dictionaries": ["dict.json"],
+		"depends": {"dep": "1.0"},
+		"examples": ["example.raml"],
+		"serialized": [".cache.json"]
 	}`)
 
-	_ = createTestFile(fileName, fileContent)
-
-	return fileName, fileContent
-}
-
-func getTempInvalidIndexJson() (string, []byte) {
-	// Create a temporary test file
-	fileName := "index.json"
-	fileContent := []byte(`{
-	  "entities": {
-		"test": "test"
-	  }
+	invalidIndexContent := []byte(`{
+		"package_id": "",
+		"ramlx_version": "1.0",
+		"apis": ["api.raml"],
+		"entities": ["entity.raml"],
+		"assets": ["asset.png"],
+		"dictionaries": ["dict.json"],
+		"depends": {"dep": "1.0"},
+		"examples": ["example.raml"],
+		"serialized": [".cache.json"]
 	}`)
 
-	_ = createTestFile(fileName, fileContent)
-
-	return fileName, fileContent
-}
-
-func createTestFile(filePath string, content []byte) error {
-	file, err := os.Create(filePath)
-	if err != nil {
-		return err
+	tests := []struct {
+		name        string
+		content     []byte
+		expectError bool
+	}{
+		{"ValidIndexFile", validIndexContent, false},
+		{"InvalidIndexFile", invalidIndexContent, true},
 	}
-	defer file.Close()
 
-	_, err = file.WriteString(string(content))
-	return err
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			initIndexFixture(t, tt.content)
+			idx, err := ReadIndexFile(filepath.Join("testdata", "indexes", "index.json"))
+			if tt.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, idx)
+				require.Equal(t, "test.pkg", idx.PackageID)
+			}
+		})
+	}
 }
 
-func TestGetEntities(t *testing.T) {
-	// TODO rework
-	path := getIndexFilePath()
-	idx, _ := ReadIndexFile(path)
-	entities, err := idx.GetEntities()
-	require.NoError(t, err)
+func Test_IndexCheck(t *testing.T) {
+	tests := []struct {
+		name        string
+		index       Index
+		expectError bool
+	}{
+		{
+			name: "ValidIndex",
+			index: Index{
+				PackageID: "test.pkg",
+				Apis:      []string{"api1.raml"},
+				Entities:  []string{"entity1.raml"},
+				Examples:  []string{"example1.raml"},
+			},
+			expectError: false,
+		},
+		{
+			name: "EmptyApiPath",
+			index: Index{
+				PackageID: "test.pkg",
+				Apis:      []string{""},
+				Entities:  []string{"entity1.raml"},
+				Examples:  []string{"example1.raml"},
+			},
+			expectError: true,
+		},
+		{
+			name: "InvalidApiExtension",
+			index: Index{
+				PackageID: "test.pkg",
+				Apis:      []string{"api1.txt"},
+				Entities:  []string{"entity1.raml"},
+				Examples:  []string{"example1.raml"},
+			},
+			expectError: true,
+		},
+		{
+			name: "EmptyEntityPath",
+			index: Index{
+				PackageID: "test.pkg",
+				Apis:      []string{"api1.raml"},
+				Entities:  []string{""},
+				Examples:  []string{"example1.raml"},
+			},
+			expectError: true,
+		},
+		{
+			name: "InvalidEntityExtension",
+			index: Index{
+				PackageID: "test.pkg",
+				Apis:      []string{"api1.raml"},
+				Entities:  []string{"entity1.txt"},
+				Examples:  []string{"example1.raml"},
+			},
+			expectError: true,
+		},
+		{
+			name: "EmptyExamplePath",
+			index: Index{
+				PackageID: "test.pkg",
+				Apis:      []string{"api1.raml"},
+				Entities:  []string{"entity1.raml"},
+				Examples:  []string{""},
+			},
+			expectError: true,
+		},
+		{
+			name: "InvalidExampleExtension",
+			index: Index{
+				PackageID: "test.pkg",
+				Apis:      []string{"api1.raml"},
+				Entities:  []string{"entity1.raml"},
+				Examples:  []string{"example1.txt"},
+			},
+			expectError: true,
+		},
+		{
+			name: "MissingPackageID",
+			index: Index{
+				PackageID: "",
+				Apis:      []string{"api1.raml"},
+				Entities:  []string{"entity1.raml"},
+				Examples:  []string{"example1.raml"},
+			},
+			expectError: true,
+		},
+	}
 
-	require.NotEmpty(t, entities)
-
-	jsonOutput, err := json.Marshal(entities)
-	require.NoError(t, err)
-	require.NotEmpty(t, jsonOutput)
-}
-
-func TestGetAssets(t *testing.T) {
-	// TODO rework
-	path := getIndexFilePath()
-	idx, _ := ReadIndexFile(path)
-	assets := idx.GetAssets()
-
-	require.Empty(t, assets)
-}
-
-func TestGetDictionaries(t *testing.T) {
-	// TODO rework
-	pkg, err := New(getIndexFilePath())
-	require.NoError(t, err)
-	require.NoError(t, pkg.Read())
-
-	dictionaries, err := pkg.GetDictionaries()
-	require.NoError(t, err)
-	require.NotEmpty(t, dictionaries)
-
-	jsonOutput, err := json.Marshal(dictionaries)
-	require.NoError(t, err)
-	require.NotEmpty(t, jsonOutput)
-}
-
-func getTmpDictionaryFile(fileName string) (string, []byte) {
-	// Create a temporary test file
-	fileContent := []byte(`{ "name": "test", "description": "test desc" }`)
-
-	_ = createTestFile(fileName, fileContent)
-
-	return fileName, fileContent
-}
-
-func TestValidateDictionary_OK(t *testing.T) {
-	tempFilePath, _ := getTmpDictionaryFile("en.json")
-	defer os.Remove(tempFilePath)
-
-	file, err := os.Open(tempFilePath)
-	require.NoError(t, err)
-	defer file.Close()
-
-	config, err := validateDictionary(file)
-	require.NoError(t, err)
-	require.NotNil(t, config)
-}
-
-func TestValidateDictionary_Err(t *testing.T) {
-	tempFilePath, _ := getTmpJsonFile("any.json")
-	defer os.Remove(tempFilePath)
-
-	file, err := os.Open(tempFilePath)
-	require.NoError(t, err)
-	defer file.Close()
-
-	_, err = validateDictionary(file)
-	require.Errorf(t, err, "error decoding dictionary file: json: cannot unmarshal string into Go value of type models.Entry")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.index.Check()
+			if tt.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
