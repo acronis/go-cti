@@ -3,7 +3,7 @@ module github.com/acronis/go-cti/cmd/cti
 go 1.22.6
 
 require (
-	github.com/acronis/go-cti/metadata v0.25.0
+	github.com/acronis/go-cti/metadata v0.26.0
 	github.com/acronis/go-stacktrace v0.4.0
 	github.com/acronis/go-stacktrace/slogex v0.3.0
 	github.com/dusted-go/logging v1.3.0
