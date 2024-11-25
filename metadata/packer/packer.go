@@ -71,6 +71,10 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 		return fmt.Errorf("read package: %w", err)
 	}
 
+	if err := pkg.Parse(); err != nil {
+		return fmt.Errorf("parse package: %w", err)
+	}
+
 	zipWriter, err := p.Archiver.Init(destination)
 	if err != nil {
 		return fmt.Errorf("create zip writer: %w", err)

@@ -22,7 +22,13 @@ type parserTestCase struct {
 }
 
 func Test_EmptyPackage(t *testing.T) {
-	pkg, err := New("./fixtures/valid/empty")
+	testPath := "./testdata/valid/empty"
+
+	require.NoError(t, os.RemoveAll(testPath))
+	require.NoError(t, os.MkdirAll(testPath, os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(testPath, "index.json"), []byte(`{"package_id": "test.pkg"}`), os.ModePerm))
+
+	pkg, err := New(testPath)
 	require.NoError(t, err)
 	require.NoError(t, pkg.Read())
 	require.NoError(t, pkg.Parse())

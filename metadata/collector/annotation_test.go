@@ -40,8 +40,7 @@ func Test_AnnotationCollector(t *testing.T) {
 			fn: func(e raml.Shape) any {
 				c := NewAnnotationsCollector()
 				obj := e.(*raml.ObjectShape)
-				c.Collect(obj)
-				return c.annotations
+				return c.Collect(obj)
 			},
 			want: map[metadata.GJsonPath]metadata.Annotations{".": {
 				Cti: "cti.vendor.app.test.v1.0",
@@ -52,7 +51,7 @@ func Test_AnnotationCollector(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.fn(tc.shape)
-			require.Equal(t, got, tc.want)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
