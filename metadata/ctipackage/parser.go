@@ -16,6 +16,11 @@ const (
 )
 
 func (pkg *Package) Parse() error {
+	// NOTE: Sync is mandatory before parse. Otherwise, parse may fail due to missing ramlx folder.
+	if err := pkg.Sync(); err != nil {
+		return fmt.Errorf("sync package: %w", err)
+	}
+
 	baseDir := pkg.BaseDir
 
 	absPath, err := filepath.Abs(baseDir)
@@ -35,6 +40,11 @@ func (pkg *Package) Parse() error {
 
 	pkg.Registry = c.Registry
 
+	// TODO: Maybe need an option to parse without dumping cache?
+	if err := pkg.DumpCache(); err != nil {
+		return fmt.Errorf("dump cache: %w", err)
+	}
+
 	return nil
 }
 
@@ -49,10 +59,6 @@ func (pkg *Package) DumpCache() error {
 func (pkg *Package) ParseWithCache() (*collector.MetadataRegistry, error) {
 	if err := pkg.Parse(); err != nil {
 		return nil, fmt.Errorf("parse package: %w", err)
-	}
-
-	if err := pkg.DumpCache(); err != nil {
-		return nil, fmt.Errorf("dump cache: %w", err)
 	}
 
 	// Make a shallow clone of the resulting registry to make an enriched registry
