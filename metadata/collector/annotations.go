@@ -7,6 +7,8 @@ import (
 	"github.com/acronis/go-raml"
 )
 
+const MetadataPrefix = "cti."
+
 type AnnotationsCollector struct {
 	annotations map[metadata.GJsonPath]metadata.Annotations
 }
@@ -78,7 +80,7 @@ func (c *AnnotationsCollector) collectAnnotations(ctx string, s *raml.BaseShape)
 	filtered := make([]*raml.DomainExtension, 0)
 	for pair := s.CustomDomainProperties.Oldest(); pair != nil; pair = pair.Next() {
 		annotation := pair.Value
-		if strings.HasPrefix(annotation.Name, "metadata.") {
+		if strings.HasPrefix(annotation.Name, MetadataPrefix) {
 			filtered = append(filtered, annotation)
 		}
 	}
