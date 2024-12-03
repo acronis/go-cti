@@ -32,6 +32,7 @@ This document provides a specification for **Cross-domain Typed Identifiers (CTI
   - [Extensible object types through type inheritance](#extensible-object-types-through-type-inheritance)
   - [Controlling the type behavior](#controlling-the-type-behavior)
     - [Expressing a relationship without an intermediate mapping](#expressing-a-relationship-without-an-intermediate-mapping)
+  - [Access scoping](#access-scoping)
 - [Types and instances definition with RAMLx 1.0](#types-and-instances-definition-with-ramlx-10)
   - [Typed annotations](#typed-annotations)
   - [User-defined facets](#user-defined-facets)
@@ -124,7 +125,7 @@ associated with this identifier.
 ### Query language
 
 > [!IMPORTANT]
-> Attribute query may not serve as an identifier of a type or instance.
+> CTI containing a query may not serve as an identifier of a type or instance.
 
 Query language, similar to XPath language, allows the developers to narrow scope by specific attributes. Query syntax can be applied to a CTI by appending a list of attribute name and attribute value parameters in square brackets. For example: `<cti>[ <attribute name>="<attribute value>", <attribute name2>="<attribute value>", ... ]`.
 
@@ -140,7 +141,7 @@ It's possible to filter by multiple query parameters:
 ### Attribute query
 
 > [!IMPORTANT]
-> Attribute query may not serve as an identifier of a type or instance.
+> CTI containing an attribute query may not serve as an identifier of a type or instance.
 
 Similar to JSONPath dot notation, CTI provides the attribute selector that allows the developers to get an attribute value of the CTI instance. Attribute selector can be applied to a CTI that is bound to an instance by appending the `@` to the identifier and specifying a property path. For example: `<cti>@<root_attr_name>.<nested_attr_name>`.
 
@@ -157,7 +158,7 @@ Nested attributes also can be accessed within the instance's structure. For exam
 The specification provides several means to match and collect identifiers.
 
 > [!IMPORTANT]
-> The following notations may not serve as identifiers of a type or instance.
+> CTIs containing the following notations may not serve as identifiers of a type or instance.
 
 #### Using wildcard
 
@@ -586,6 +587,17 @@ schema:
 traits:
   topic_id: cti.a.p.topic.v1.0~a.p.user.v1.0
 ```
+
+### Access scoping
+
+With the query language and CTI collection syntax, it is possible to grant access to a specific CTI entity or a list of CTIs
+that an identity may have access to. The following table shows of claims and their scope of access:
+
+| **Claim example**                                                                  | **Description**                                                                                                  |
+|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| cti.a.p.am.alert.v1.0~vendor.pkg.*                                                 | Access to all alerts of types introduced by **vendor.pkg** package and **all** its sub-packages and sub-vendors. |
+| cti.a.p.am.alert.v1.0~vendor.pkg.alert.v1.0                                        | Access to the alert introduced by **vendor.pkg** package.                                                        |
+| cti.a.p.am.alert.v1.0[ category="cti.a.p.category.v1.0~vendor.pkg.category.v1.0" ] | Access to all alerts in a category introduced by **vendor.pkg** package.                                         |
 
 ## Types and instances definition with RAMLx 1.0
 
