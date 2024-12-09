@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,12 +51,23 @@ func (wr *tarWriter) Init(destination string) (io.Closer, error) {
 
 func (wr *tarWriter) WriteFile(baseDir string, fName string) error {
 	filePath := filepath.Join(baseDir, fName)
-	fileInfo, err := os.Stat(filePath)
+	info, err := os.Stat(filePath)
 	if err != nil {
 		return fmt.Errorf("get file info: %w", err)
 	}
 
-	header, err := tar.FileInfoHeader(fileInfo, "")
+	var link string
+	if info.Mode()&os.ModeSymlink != 0 {
+		if link, err = os.Readlink(filePath); err != nil {
+			return fmt.Errorf("read link: %w", err)
+		}
+	}
+
+	if link != "" {
+		slog.Warn("Symlink found", slog.String("link", link), slog.String("path", filePath))
+	}
+
+	header, err := tar.FileInfoHeader(info, link)
 	if err != nil {
 		return fmt.Errorf("create file info header: %w", err)
 	}
@@ -76,10 +88,13 @@ func (wr *tarWriter) WriteFile(baseDir string, fName string) error {
 	}
 	defer f.Close()
 
-	// Copy file content to tar archive
-	_, err = io.Copy(wr.tw, f)
-	if err != nil {
-		return err
+	if _, err = io.Copy(wr.tw, f); err != nil {
+		slog.Error("Failed to write file content into archive",
+			slog.String("file", fName),
+			slog.Any("info", info),
+			slog.Any("header", header))
+
+		return fmt.Errorf("write file content into archive: %w", err)
 	}
 
 	return nil
@@ -111,14 +126,32 @@ func (wr *tarWriter) WriteDirectory(baseDir string, excludeFn func(fsPath string
 	if !strings.HasSuffix(baseDir, "/") {
 		baseDir += "/"
 	}
+	destinationInfo, err := wr.archive.Stat()
+	if err != nil {
+		return fmt.Errorf("get archive info: %w", err)
+	}
+
 	if err := filepath.WalkDir(baseDir, func(fsPath string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
+		// skip archive file itself, avoid recursive archiving
+		if !d.IsDir() {
+			fInfo, err := d.Info()
+			if err != nil {
+				return fmt.Errorf("get file info: %w", err)
+			}
+
+			if os.SameFile(fInfo, destinationInfo) {
+				slog.Debug("Skip archive file to avoid recursion", slog.String("path", fsPath))
+				return nil
+			}
+		}
+
 		rel, err := filepath.Rel(baseDir, fsPath)
 		if err != nil {
-			return fmt.Errorf("walk directory: %w", err)
+			return fmt.Errorf("get relative path: %w", err)
 		}
 
 		// skip the base directory itself
