@@ -200,6 +200,13 @@ types:
     enum: [false]
     description: "Boolean value `false` only"
 
+  # UUID type
+  uuid:
+    description: |
+      UUID format compliant to [RFC 4122](https://tools.ietf.org/html/rfc4122).
+    type: string
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+
   # Date and time types
   
   duration:
