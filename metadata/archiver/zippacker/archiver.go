@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -76,6 +77,11 @@ func (zipWriter *zipWriter) WriteDirectory(baseDir string, excludeFn func(fsPath
 		baseDir += "/"
 	}
 
+	destinationInfo, err := zipWriter.archive.Stat()
+	if err != nil {
+		return fmt.Errorf("get archive info: %w", err)
+	}
+
 	if err := filepath.WalkDir(baseDir, func(fsPath string, d os.DirEntry, err error) error {
 		rel, err := filepath.Rel(baseDir, fsPath)
 		if err != nil {
@@ -83,6 +89,17 @@ func (zipWriter *zipWriter) WriteDirectory(baseDir string, excludeFn func(fsPath
 		}
 
 		if rel == "." || rel == "" || d.IsDir() {
+			return nil
+		}
+
+		// skip archive file itself, avoid recursive archiving
+		fInfo, err := d.Info()
+		if err != nil {
+			return fmt.Errorf("get file info: %w", err)
+		}
+
+		if os.SameFile(fInfo, destinationInfo) {
+			slog.Debug("Skip archive file to avoid recursion", slog.String("path", fsPath))
 			return nil
 		}
 
