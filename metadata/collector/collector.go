@@ -314,6 +314,10 @@ func (c *Collector) getOrUnwrapCtiType(id string) (*raml.BaseShape, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unwrap cti type: %w", err)
 	}
+	_, err = c.raml.FindAndMarkRecursion(us)
+	if err != nil {
+		return nil, fmt.Errorf("find and mark recursion: %w", err)
+	}
 	c.unwrappedCtiTypes[id] = us
 	return us, nil
 }
@@ -492,6 +496,10 @@ func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension) er
 		items, err = c.raml.UnwrapShape(items.CloneDetached())
 		if err != nil {
 			return fmt.Errorf("unwrap annotation type: %w", err)
+		}
+		_, err = c.raml.FindAndMarkRecursion(items)
+		if err != nil {
+			return fmt.Errorf("find and mark recursion: %w", err)
 		}
 		c.unwrappedCtiTypes[parentCti] = items
 	} else {
