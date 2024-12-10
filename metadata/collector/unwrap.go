@@ -29,7 +29,7 @@ func (c *Collector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, e
 		if err != nil {
 			return nil, fmt.Errorf("alias unwrap: %w", err)
 		}
-		return base.AliasTo(us), nil
+		return base.AliasTo(us)
 	}
 
 	if base.Link != nil {
