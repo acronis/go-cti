@@ -1,7 +1,7 @@
 github.com/acronis/go-cti v1.0.0 h1:ZVW28Gn8Xist+lOB5914rqBs9p4kbrbBoxd6E0Go32c=
 github.com/acronis/go-cti v1.0.0/go.mod h1:bKgD6h/r4PVdiU4uFMPmlIaVRirP70754aSC9b3ftpk=
-github.com/acronis/go-cti/metadata/ramlx v1.0.0 h1:N89j0AwVOyGC5AK3z42VZknGD7/v3bd1IXnlkubTroc=
-github.com/acronis/go-cti/metadata/ramlx v1.0.0/go.mod h1:x1atAQyu/8hiFyNEqkLfR2afrTEoi1TYlMofmUcWnbY=
+github.com/acronis/go-cti/metadata/ramlx v1.3.0 h1:KUjQyoyQheOUw0DKfza8KgM29kGGgfGctOwSmLnUC3E=
+github.com/acronis/go-cti/metadata/ramlx v1.3.0/go.mod h1:x1atAQyu/8hiFyNEqkLfR2afrTEoi1TYlMofmUcWnbY=
 github.com/acronis/go-raml v0.17.0 h1:K57QJp8pq9K7sfsPkmswgN9n0NC0eyotNnZdX2ic4RQ=
 github.com/acronis/go-raml v0.17.0/go.mod h1:b7A+r3k7Mk07ei/Oa2PFmrKEbh6AqZ7OI8baFYUQMjc=
 github.com/acronis/go-stacktrace v0.4.0 h1:rL+6LxDnQ1/KcaCvF6ftC1Hjg91rjuPjPxS7+xH81xk=
