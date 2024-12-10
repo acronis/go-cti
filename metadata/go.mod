@@ -5,7 +5,7 @@ go 1.22.6
 require (
 	github.com/acronis/go-cti v1.0.0
 	github.com/acronis/go-cti/metadata/ramlx v1.0.0
-	github.com/acronis/go-raml v0.16.0
+	github.com/acronis/go-raml v0.17.0
 	github.com/acronis/go-stacktrace v0.4.0
 	github.com/acronis/go-stacktrace/slogex v0.3.0
 	github.com/dusted-go/logging v1.3.0
