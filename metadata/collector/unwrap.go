@@ -32,7 +32,8 @@ func (c *Collector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, e
 		return base.AliasTo(us)
 	}
 
-	if base.Link != nil {
+	switch {
+	case base.Link != nil:
 		us, err := c.unwrapMetadataType(base.Link.Shape)
 		if err != nil {
 			return nil, fmt.Errorf("link unwrap: %w", err)
@@ -40,16 +41,26 @@ func (c *Collector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, e
 		source = us
 
 		base.Link = nil
-	} else if len(base.Inherits) > 0 {
-		inherits := base.Inherits
-		if len(inherits) > 1 {
-			return nil, fmt.Errorf("multiple inheritance is not supported")
-		}
-		parent := inherits[0]
+	case len(base.Inherits) == 1:
+		parent := base.Inherits[0]
+		// Continue unwrapping non-CTI type
 		if _, ok := parent.CustomDomainProperties.Get(metadata.Cti); !ok {
 			ss, err := c.unwrapMetadataType(parent)
 			if err != nil {
 				return nil, fmt.Errorf("parent unwrap: %w", err)
+			}
+			source = ss
+		}
+	case len(base.Inherits) > 1:
+		inherits := base.Inherits
+		ctiInherits, ramlInherits := c.splitMultipleInherits(inherits)
+		if len(ctiInherits) > 1 {
+			return nil, fmt.Errorf("multiple CTI inheritance is not supported")
+		}
+		if len(ramlInherits) > 0 {
+			ss, err := c.inheritMultipleRamlParents(ramlInherits)
+			if err != nil {
+				return nil, fmt.Errorf("inherit multiple raml parents: %w", err)
 			}
 			source = ss
 		}
@@ -89,4 +100,36 @@ func (c *Collector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, e
 	base.ShapeVisited = false
 	base.SetUnwrapped()
 	return base, nil
+}
+
+func (c *Collector) inheritMultipleRamlParents(inherits []*raml.BaseShape) (*raml.BaseShape, error) {
+	ss, err := c.unwrapMetadataType(inherits[0])
+	if err != nil {
+		return nil, fmt.Errorf("parent unwrap: %w", err)
+	}
+	for i := 1; i < len(inherits); i++ {
+		us, err := c.unwrapMetadataType(inherits[i])
+		if err != nil {
+			return nil, fmt.Errorf("parent unwrap: %w", err)
+		}
+		_, err = ss.Inherit(us)
+		if err != nil {
+			return nil, fmt.Errorf("inherit shapes: %w", err)
+		}
+	}
+	return ss, nil
+}
+
+func (c *Collector) splitMultipleInherits(inherits []*raml.BaseShape) ([]*raml.BaseShape, []*raml.BaseShape) {
+	ramlInherits := make([]*raml.BaseShape, 0, len(inherits))
+	ctiInherits := make([]*raml.BaseShape, 0, len(inherits))
+	// Multiple parents are aliased
+	for _, inherit := range inherits {
+		if _, ok := inherit.Alias.CustomDomainProperties.Get(metadata.Cti); ok {
+			ctiInherits = append(ctiInherits, inherit.Alias)
+		} else {
+			ramlInherits = append(ramlInherits, inherit.Alias)
+		}
+	}
+	return ctiInherits, ramlInherits
 }
