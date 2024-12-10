@@ -5,8 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/acronis/go-cti/metadata/filesys"
 	"github.com/acronis/go-cti/metadata/ramlx"
+
+	"github.com/acronis/go-cti/metadata/filesys"
 )
 
 const (
@@ -19,9 +20,14 @@ func extractRAMLxSpec(dst string) error {
 	if err := os.RemoveAll(dst); err != nil {
 		return fmt.Errorf("remove destination directory: %w", err)
 	}
+
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
 	err := filesys.CopyFS(ramlx.RamlFiles, dst,
 		filesys.WithRoot("spec_v"+defaultRamlxVersion),
-		filesys.WithOverwrite(true))
+	)
 
 	if err != nil {
 		return fmt.Errorf("copy RAMLx specification: %w", err)
