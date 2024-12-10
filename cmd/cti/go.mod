@@ -15,7 +15,7 @@ require (
 require (
 	github.com/acronis/go-cti v1.0.0 // indirect
 	github.com/acronis/go-cti/metadata/ramlx v1.0.0 // indirect
-	github.com/acronis/go-raml v0.15.0 // indirect
+	github.com/acronis/go-raml v0.16.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
