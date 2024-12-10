@@ -200,6 +200,17 @@ types:
     enum: [false]
     description: "Boolean value `false` only"
 
+  # URI type
+  uri:
+    description: |
+      URI format compliant to [RFC 3986](https://tools.ietf.org/html/rfc3986).
+    type: |
+      { 
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "type": "string",
+        "format": "uri"
+      }
+
   # UUID type
   uuid:
     description: |
