@@ -16,9 +16,10 @@ const (
 )
 
 type Packer struct {
-	IncludeSources     bool
-	Archiver           archiver.Archiver
-	AnnotationHandlers []AnnotationHandler
+	IncludeSources      bool
+	Archiver            archiver.Archiver
+	AnnotationHandlers  []AnnotationHandler
+	FileExcludeFunction func(fsPath string, e os.DirEntry) error
 }
 
 type Option func(*Packer) error
@@ -43,6 +44,13 @@ func WithAnnotationHandler(h AnnotationHandler) Option {
 			return fmt.Errorf("writer is not set")
 		}
 		p.AnnotationHandlers = append(p.AnnotationHandlers, h)
+		return nil
+	}
+}
+
+func WithFileExcludeFunction(f func(fsPath string, e os.DirEntry) error) Option {
+	return func(p *Packer) error {
+		p.FileExcludeFunction = f
 		return nil
 	}
 }
@@ -120,6 +128,13 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 				// file already written
 				if e.Name() == ctipackage.IndexFileName {
 					return archiver.SkipFile
+				}
+			}
+
+			// Suport custom file exclude function
+			if p.FileExcludeFunction != nil {
+				if err := p.FileExcludeFunction(fsPath, e); err != nil {
+					return err
 				}
 			}
 
