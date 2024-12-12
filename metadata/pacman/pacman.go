@@ -7,6 +7,7 @@ import (
 	"github.com/acronis/go-cti/metadata/ctipackage"
 	"github.com/acronis/go-cti/metadata/storage"
 	"github.com/acronis/go-cti/metadata/storage/gitstorage"
+	"github.com/blang/semver/v4"
 )
 
 type PackageManager interface {
@@ -94,8 +95,7 @@ func (pm *packageManager) Install(pkg *ctipackage.Package) error {
 	return nil
 }
 
-func (pm *packageManager) Download(depends map[string]string) ([]CachedDependencyInfo, error) {
-	installed := []CachedDependencyInfo{}
+func (pm *packageManager) download(depends map[string]string, installed []CachedDependencyInfo) ([]CachedDependencyInfo, error) {
 	subDepends := map[string]string{}
 	for source, version := range depends {
 		info, err := pm.downloadDependency(source, version)
@@ -106,18 +106,70 @@ func (pm *packageManager) Download(depends map[string]string) ([]CachedDependenc
 		installed = append(installed, info)
 		// TODO check for cyclic dependencies or duplicates
 		for subSource, subTag := range info.Index.Depends {
+			installedDep := func() CachedDependencyInfo {
+				for _, info := range installed {
+					if info.Source == subSource {
+						return info
+					}
+				}
+				return CachedDependencyInfo{}
+			}()
+			if installedDep.Source != "" {
+				slog.Info("Dependency already installed",
+					slog.String("source", source),
+					slog.String("package", subSource),
+					slog.String("version", subTag))
+
+				// compare versions
+				installedVers, err := semver.Parse(installedDep.Version)
+				if err != nil {
+					return nil, fmt.Errorf("parse installed version %s: %w", installedDep.Version, err)
+				}
+				depVers, err := semver.Parse(subTag)
+				if err != nil {
+					return nil, fmt.Errorf("parse dependency version %s: %w", subTag, err)
+				}
+
+				if installedVers.LT(depVers) {
+					slog.Info("Installed version is older, update",
+						slog.String("source", source),
+						slog.String("package", subSource),
+						slog.String("installed", installedDep.Version),
+						slog.String("dependency", subTag))
+				} else {
+					logText := func() string {
+						if installedVers.GT(depVers) {
+							return "newer"
+						}
+						return "the same"
+					}()
+
+					slog.Info(fmt.Sprintf("Installed version is %s, skip", logText),
+						slog.String("source", source),
+						slog.String("package", subSource),
+						slog.String("installed", installedDep.Version),
+						slog.String("dependency", subTag))
+					continue
+				}
+			}
+
 			subDepends[subSource] = subTag
 		}
 	}
 
 	// Recursively download sub-dependencies
 	if len(subDepends) != 0 {
-		inst, err := pm.Download(subDepends)
+		slog.Info("Download sub-dependencies")
+		inst, err := pm.download(subDepends, installed)
 		if err != nil {
 			return nil, fmt.Errorf("download sub-dependencies: %w", err)
 		}
-		installed = append(installed, inst...)
+		installed = inst
 	}
 
 	return installed, nil
+}
+
+func (pm *packageManager) Download(depends map[string]string) ([]CachedDependencyInfo, error) {
+	return pm.download(depends, []CachedDependencyInfo{})
 }
