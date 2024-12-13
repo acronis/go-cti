@@ -1,7 +1,9 @@
 package filesys
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -39,6 +41,14 @@ func ReplaceWithMove(src, dst string) error {
 	}
 
 	if err := os.Rename(src, dst); err != nil {
+		slog.Error("Failed to move directory, try copy",
+			slog.String("src", src),
+			slog.String("dst", dst),
+			slog.String("error", err.Error()))
+		if errors.Is(err, os.ErrPermission) {
+			// For windows os.Rename is failing due to permission issue
+			return ReplaceWithCopy(src, dst)
+		}
 		return fmt.Errorf("move %s -> %s: %w", src, dst, err)
 	}
 	return nil

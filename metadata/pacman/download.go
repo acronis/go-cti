@@ -15,7 +15,7 @@ func (pm *packageManager) downloadDependency(source, version string) (CachedDepe
 		return CachedDependencyInfo{}, fmt.Errorf("discover source %s version %s: %w", source, version, err)
 	}
 
-	slog.Info("Discovered dependency", slog.String("package", source))
+	slog.Info("Discovered dependency", slog.String("package", source), slog.String("version", version))
 
 	// Pre-download integrity check
 	if err := pm.validateSourceInformation(source, version, info); err != nil {
