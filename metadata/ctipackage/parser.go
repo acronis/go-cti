@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/collector"
@@ -17,29 +18,33 @@ const (
 )
 
 func (pkg *Package) Parse() error {
-	// NOTE: Sync is mandatory before parse. Otherwise, parse may fail due to missing ramlx folder.
-	if err := pkg.Sync(); err != nil {
-		return fmt.Errorf("sync package: %w", err)
+	c := collector.New()
+	// TODO: This will work only for top-level packages. Need to handle nested dependencies.
+	for _, dep := range pkg.IndexLock.SourceInfo {
+		depIndexFile := filepath.Join(pkg.BaseDir, DependencyDirName, dep.PackageID)
+		// FIXME: Need a proper detection of the package type.
+		if strings.Contains(pkg.BaseDir, "/.dep/") {
+			depIndexFile = filepath.Join(pkg.BaseDir, "..", dep.PackageID)
+		}
+		depPkg, err := New(depIndexFile)
+		if err != nil {
+			return fmt.Errorf("new package: %w", err)
+		}
+		if err = depPkg.Read(); err != nil {
+			return fmt.Errorf("read package: %w", err)
+		}
+		err = depPkg.parse(c, false)
+		if err != nil {
+			return fmt.Errorf("parse dependent package: %w", err)
+		}
 	}
 
-	baseDir := pkg.BaseDir
-
-	absPath, err := filepath.Abs(baseDir)
+	err := pkg.parse(c, true)
 	if err != nil {
-		return fmt.Errorf("get absolute path: %w", err)
+		return fmt.Errorf("parse dependent package: %w", err)
 	}
-
-	r, err := raml.ParseFromString(pkg.Index.GenerateIndexRaml(false), "index.raml", absPath, raml.OptWithValidate())
-	if err != nil {
-		return fmt.Errorf("parse index.raml: %w", err)
-	}
-
-	c := collector.New(r, baseDir)
-	if err := c.Collect(); err != nil {
-		return fmt.Errorf("collect from package: %w", err)
-	}
-
-	pkg.Registry = c.Registry
+	pkg.LocalRegistry = c.LocalRegistry
+	pkg.GlobalRegistry = c.GlobalRegistry
 
 	// TODO: Maybe need an option to parse without dumping cache?
 	if err := pkg.DumpCache(); err != nil {
@@ -49,9 +54,27 @@ func (pkg *Package) Parse() error {
 	return nil
 }
 
+func (pkg *Package) parse(c *collector.Collector, isLocal bool) error {
+	// NOTE: Sync is mandatory before parse. Otherwise, parse may fail due to missing ramlx folder.
+	if err := pkg.Sync(); err != nil {
+		return fmt.Errorf("sync package: %w", err)
+	}
+
+	r, err := raml.ParseFromString(pkg.Index.GenerateIndexRaml(false), "index.raml", pkg.BaseDir, raml.OptWithValidate())
+	if err != nil {
+		return fmt.Errorf("parse index.raml: %w", err)
+	}
+
+	c.SetRaml(r)
+	if err := c.Collect(isLocal); err != nil {
+		return fmt.Errorf("collect from package: %w", err)
+	}
+	return nil
+}
+
 func (pkg *Package) DumpCache() error {
 	var items []*metadata.Entity
-	for _, v := range pkg.Registry.Index {
+	for _, v := range pkg.LocalRegistry.Index {
 		items = append(items, v)
 	}
 	// Sort entities by CTI to make the cache deterministic
@@ -66,50 +89,44 @@ func (pkg *Package) DumpCache() error {
 	return os.WriteFile(filepath.Join(pkg.BaseDir, MetadataCacheFile), bytes, 0600)
 }
 
-func (pkg *Package) ParseWithCache() (*collector.MetadataRegistry, error) {
-	if err := pkg.Parse(); err != nil {
-		return nil, fmt.Errorf("parse package: %w", err)
-	}
+// FIXME: Fix caching.
+// Currently it may not work in cases when extraneous cti.schema is used by the package
+// func (pkg *Package) ParseWithCache() (*collector.MetadataRegistry, error) {
+// 	if err := pkg.Parse(); err != nil {
+// 		return nil, fmt.Errorf("parse package: %w", err)
+// 	}
 
-	// Make a shallow clone of the resulting registry to make an enriched registry
-	r := pkg.Registry.Clone()
+// 	// Make a shallow clone of the resulting registry to make an enriched registry
+// 	r := pkg.LocalRegistry.Clone()
 
-	for _, dep := range pkg.IndexLock.SourceInfo {
-		cacheFile := filepath.Join(pkg.BaseDir, DependencyDirName, dep.PackageID, MetadataCacheFile)
-		// TODO: Automatically rebuild cache if missing?
+// 	for _, dep := range pkg.IndexLock.SourceInfo {
+// 		cacheFile := filepath.Join(pkg.BaseDir, DependencyDirName, dep.PackageID, MetadataCacheFile)
+// 		// TODO: Automatically rebuild cache if missing?
+// 		entities, err := loadEntitiesFromCache(cacheFile)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("load cache file %s: %w", cacheFile, err)
+// 		}
+// 		for _, entity := range entities {
+// 			err = r.Add(pkg.BaseDir, entity)
+// 			if err != nil {
+// 				return nil, fmt.Errorf("add entity %s: %w", entity.Cti, err)
+// 			}
+// 		}
+// 	}
+// 	return r, nil
+// }
 
-		entities, err := loadIndexFromCache(cacheFile)
-		if err != nil {
-			return nil, fmt.Errorf("load cache file %s: %w", cacheFile, err)
-		}
-		for _, entity := range entities {
-			switch {
-			case entity.Values != nil:
-				r.Instances[entity.Cti] = entity
-			case entity.Schema != nil:
-				r.Types[entity.Cti] = entity
-			default:
-				return nil, fmt.Errorf("invalid entity: %s", entity.Cti)
-			}
+// func loadEntitiesFromCache(cacheFile string) (metadata.Entities, error) {
+// 	f, err := os.OpenFile(cacheFile, os.O_RDONLY, 0644)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("open cache file %s: %w", cacheFile, err)
+// 	}
+// 	defer f.Close()
 
-			// TODO: Check for duplicates?
-			r.Index[entity.Cti] = entity
-		}
-	}
-	return r, nil
-}
-
-func loadIndexFromCache(cacheFile string) (metadata.Entities, error) {
-	f, err := os.OpenFile(cacheFile, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("open cache file %s: %w", cacheFile, err)
-	}
-	defer f.Close()
-
-	d := json.NewDecoder(f)
-	var entities metadata.Entities
-	if err := d.Decode(&entities); err != nil {
-		return nil, fmt.Errorf("decode cache file %s: %w", cacheFile, err)
-	}
-	return entities, nil
-}
+// 	d := json.NewDecoder(f)
+// 	var entities metadata.Entities
+// 	if err := d.Decode(&entities); err != nil {
+// 		return nil, fmt.Errorf("decode cache file %s: %w", cacheFile, err)
+// 	}
+// 	return entities, nil
+// }

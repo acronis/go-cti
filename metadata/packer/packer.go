@@ -131,7 +131,7 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 				}
 			}
 
-			// Suport custom file exclude function
+			// Support custom file exclude function
 			if p.FileExcludeFunction != nil {
 				if err := p.FileExcludeFunction(fsPath, e); err != nil {
 					return err
@@ -144,10 +144,7 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 		}
 	}
 
-	r, err := pkg.ParseWithCache()
-	if err != nil {
-		return fmt.Errorf("parse with cache: %w", err)
-	}
+	r := pkg.GlobalRegistry
 	for _, entity := range r.Instances {
 		if err := p.WriteEntity(pkg.BaseDir, r, entity); err != nil {
 			return fmt.Errorf("write entity: %w", err)

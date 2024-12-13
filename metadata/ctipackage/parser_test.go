@@ -33,8 +33,8 @@ func Test_EmptyPackage(t *testing.T) {
 	require.NoError(t, pkg.Read())
 	require.NoError(t, pkg.Parse())
 
-	require.NotNil(t, pkg.Registry)
-	require.Empty(t, pkg.Registry.Index)
+	require.NotNil(t, pkg.LocalRegistry)
+	require.Empty(t, pkg.LocalRegistry.Index)
 }
 
 func Test_EmptyIndex(t *testing.T) {

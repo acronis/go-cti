@@ -77,10 +77,6 @@ func (pm *packageManager) installFromCache(target *ctipackage.Package, depends [
 			return fmt.Errorf("parse package: %w", err)
 		}
 
-		if err := pkg.DumpCache(); err != nil {
-			return fmt.Errorf("build cache: %w", err)
-		}
-
 		checksum, err := filesys.ComputeDirectoryHash(depPath)
 		if err != nil {
 			return fmt.Errorf("compute directory hash: %w", err)

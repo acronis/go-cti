@@ -13,48 +13,48 @@ import (
 
 var annotationsToMove = []string{metadata.Reference, metadata.Schema}
 
-type MetadataRegistry struct {
-	Types            metadata.EntitiesMap
-	Instances        metadata.EntitiesMap
-	FragmentEntities map[string]metadata.Entities
-	Index            metadata.EntitiesMap
-}
-
-func (r *MetadataRegistry) Clone() *MetadataRegistry {
-	c := *r
-	return &c
-}
-
 type Collector struct {
-	Registry             *MetadataRegistry
 	baseDir              string
-	ramlCtiTypes         map[string]*raml.BaseShape
-	unwrappedCtiTypes    map[string]*raml.BaseShape
 	raml                 *raml.RAML
-	ctiParser            *cti.Parser
 	jsonSchemaConverter  *raml.JSONSchemaConverter
 	annotationsCollector *AnnotationsCollector
+
+	ctiParser *cti.Parser
+
+	// Local Registry holds entities that are declared by the package.
+	LocalRegistry *MetadataRegistry
+
+	// Global Registry holds all entities collected during the session. May include both local and external entities.
+	GlobalRegistry *MetadataRegistry
+
+	localRamlCtiTypes  map[string]*raml.BaseShape
+	globalRamlCtiTypes map[string]*raml.BaseShape
+	unwrappedCtiTypes  map[string]*raml.BaseShape
 }
 
-func New(r *raml.RAML, baseDir string) *Collector {
+func New() *Collector {
 	return &Collector{
-		baseDir:              baseDir,
-		raml:                 r,
 		jsonSchemaConverter:  raml.NewJSONSchemaConverter(raml.WithOmitRefs(true)),
 		annotationsCollector: NewAnnotationsCollector(),
 		ctiParser:            cti.NewParser(),
-		Registry: &MetadataRegistry{
-			Types:            make(metadata.EntitiesMap),
-			Instances:        make(metadata.EntitiesMap),
-			Index:            make(metadata.EntitiesMap),
-			FragmentEntities: make(map[string]metadata.Entities),
-		},
-		ramlCtiTypes:      make(map[string]*raml.BaseShape),
-		unwrappedCtiTypes: make(map[string]*raml.BaseShape),
+		LocalRegistry:        NewMetadataRegistry(),
+		GlobalRegistry:       NewMetadataRegistry(),
+		localRamlCtiTypes:    make(map[string]*raml.BaseShape),
+		globalRamlCtiTypes:   make(map[string]*raml.BaseShape),
+		unwrappedCtiTypes:    make(map[string]*raml.BaseShape),
 	}
 }
 
-func (c *Collector) Collect() error {
+func (c *Collector) SetRaml(r *raml.RAML) {
+	c.raml = r
+	c.baseDir = r.GetLocation()
+	c.localRamlCtiTypes = make(map[string]*raml.BaseShape)
+}
+
+func (c *Collector) Collect(isLocal bool) error {
+	if c.raml == nil {
+		return fmt.Errorf("raml is not set")
+	}
 	idx, ok := c.raml.EntryPoint().(*raml.Library)
 	if !ok {
 		return fmt.Errorf("entry point is not a library")
@@ -69,7 +69,7 @@ func (c *Collector) Collect() error {
 		}
 		for pair := ref.Link.CustomDomainProperties.Oldest(); pair != nil; pair = pair.Next() {
 			annotation := pair.Value
-			if err := c.readAndMakeCtiInstances(annotation); err != nil {
+			if err := c.readAndMakeCtiInstances(annotation, isLocal); err != nil {
 				return fmt.Errorf("read and make cti instances: %w", err)
 			}
 		}
@@ -77,7 +77,7 @@ func (c *Collector) Collect() error {
 
 	// NOTE: This is a custom pipeline for RAML-CTI types processing.
 	// Unwrap implemented in go-raml cannot be used since CTI types require special handling.
-	for k, shape := range c.ramlCtiTypes {
+	for k, shape := range c.localRamlCtiTypes {
 		// Create a copy of CTI type and unwrap it using special rules.
 		//
 		// NOTE: Copy is required since CTI types may share some RAML types.
@@ -103,12 +103,16 @@ func (c *Collector) Collect() error {
 		if err != nil {
 			return fmt.Errorf("make cti type: %w", err)
 		}
-		if _, ok := c.Registry.Index[k]; ok {
-			return fmt.Errorf("duplicate cti entity %s", k)
+		err = c.GlobalRegistry.Add(entity.SourceMap.OriginalPath, entity)
+		if err != nil {
+			return fmt.Errorf("add cti entity: %w", err)
 		}
-		c.Registry.FragmentEntities[entity.SourceMap.OriginalPath] = append(c.Registry.FragmentEntities[entity.SourceMap.OriginalPath], entity)
-		c.Registry.Index[k] = entity
-		c.Registry.Types[k] = entity
+		if isLocal {
+			err = c.LocalRegistry.Add(entity.SourceMap.OriginalPath, entity)
+			if err != nil {
+				return fmt.Errorf("add cti entity: %w", err)
+			}
+		}
 	}
 
 	return nil
@@ -304,7 +308,7 @@ func (c *Collector) getOrUnwrapCtiType(id string) (*raml.BaseShape, error) {
 	if schema, ok := c.unwrappedCtiTypes[id]; ok {
 		return schema, nil
 	}
-	shape, ok := c.ramlCtiTypes[id]
+	shape, ok := c.globalRamlCtiTypes[id]
 	if !ok {
 		return nil, fmt.Errorf("cti type %s not found", id)
 	}
@@ -455,18 +459,19 @@ func (c *Collector) readCtiType(base *raml.BaseShape) error {
 	}
 
 	for _, cti := range ctis {
-		if _, ok := c.ramlCtiTypes[cti]; ok {
+		if _, ok := c.localRamlCtiTypes[cti]; ok {
 			return fmt.Errorf("duplicate cti.cti: %s", cti)
 		}
 		if _, err := c.ctiParser.Parse(cti); err != nil {
 			return fmt.Errorf("parse cti.cti: %w", err)
 		}
-		c.ramlCtiTypes[cti] = base
+		c.globalRamlCtiTypes[cti] = base
+		c.localRamlCtiTypes[cti] = base
 	}
 	return nil
 }
 
-func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension) error {
+func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension, isLocal bool) error {
 	definedBy := annotation.DefinedBy
 	s, ok := definedBy.Shape.(*raml.ArrayShape)
 	if !ok {
@@ -526,12 +531,16 @@ func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension) er
 		}
 
 		entity := c.MakeMetadataInstanceFromExtension(id, s, obj, annotation.Extension.Location)
-		if _, ok := c.Registry.Index[id]; ok {
-			return fmt.Errorf("duplicate cti entity %s", id)
+		err = c.GlobalRegistry.Add(entity.SourceMap.OriginalPath, entity)
+		if err != nil {
+			return fmt.Errorf("add cti entity: %w", err)
 		}
-		c.Registry.FragmentEntities[entity.SourceMap.OriginalPath] = append(c.Registry.FragmentEntities[entity.SourceMap.OriginalPath], entity)
-		c.Registry.Index[id] = entity
-		c.Registry.Instances[id] = entity
+		if isLocal {
+			err = c.LocalRegistry.Add(entity.SourceMap.OriginalPath, entity)
+			if err != nil {
+				return fmt.Errorf("add cti entity: %w", err)
+			}
+		}
 	}
 	return nil
 }
