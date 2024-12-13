@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/collector"
@@ -49,7 +50,16 @@ func (pkg *Package) Parse() error {
 }
 
 func (pkg *Package) DumpCache() error {
-	bytes, err := json.Marshal(pkg.Registry.Total)
+	var items []*metadata.Entity
+	for _, v := range pkg.Registry.Index {
+		items = append(items, v)
+	}
+	// Sort entities by CTI to make the cache deterministic
+	sort.Slice(items, func(a, b int) bool {
+		return items[a].Cti < items[b].Cti
+	})
+
+	bytes, err := json.Marshal(items)
 	if err != nil {
 		return fmt.Errorf("serialize entities: %w", err)
 	}
@@ -67,7 +77,8 @@ func (pkg *Package) ParseWithCache() (*collector.MetadataRegistry, error) {
 	for _, dep := range pkg.IndexLock.SourceInfo {
 		cacheFile := filepath.Join(pkg.BaseDir, DependencyDirName, dep.PackageID, MetadataCacheFile)
 		// TODO: Automatically rebuild cache if missing?
-		entities, err := loadEntitiesFromCache(cacheFile)
+
+		entities, err := loadIndexFromCache(cacheFile)
 		if err != nil {
 			return nil, fmt.Errorf("load cache file %s: %w", cacheFile, err)
 		}
@@ -82,14 +93,13 @@ func (pkg *Package) ParseWithCache() (*collector.MetadataRegistry, error) {
 			}
 
 			// TODO: Check for duplicates?
-			r.TotalIndex[entity.Cti] = entity
-			r.Total = append(r.Total, entity)
+			r.Index[entity.Cti] = entity
 		}
 	}
 	return r, nil
 }
 
-func loadEntitiesFromCache(cacheFile string) (metadata.Entities, error) {
+func loadIndexFromCache(cacheFile string) (metadata.Entities, error) {
 	f, err := os.OpenFile(cacheFile, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, fmt.Errorf("open cache file %s: %w", cacheFile, err)

@@ -20,7 +20,6 @@ const (
 )
 
 type MetadataValidator struct {
-	entities  metadata.Entities
 	index     metadata.EntitiesMap
 	ctiParser *cti.Parser
 }
@@ -33,8 +32,7 @@ func MakeMetadataValidator() *MetadataValidator {
 }
 
 func (v *MetadataValidator) LoadFromRegistry(entities *collector.MetadataRegistry) {
-	v.index = entities.TotalIndex
-	v.entities = entities.Total
+	v.index = entities.Index
 }
 
 func (v *MetadataValidator) AddEntities(entities metadata.Entities) error {
@@ -44,20 +42,17 @@ func (v *MetadataValidator) AddEntities(entities metadata.Entities) error {
 		}
 		v.index[entity.Cti] = entity
 	}
-	v.entities = append(v.entities, entities...)
 	return nil
 }
 
 func (v *MetadataValidator) Reset() {
 	v.ctiParser = cti.NewParser()
 	v.index = make(metadata.EntitiesMap)
-	v.entities = nil
 }
 
 func (v *MetadataValidator) ValidateAll() error {
 	st := stacktrace.StackTrace{}
-	for i := range v.entities {
-		entity := v.entities[i]
+	for _, entity := range v.index {
 		if err := v.Validate(entity); err != nil {
 			_ = st.Append(stacktrace.NewWrapped("validation failed", err, stacktrace.WithInfo("cti", entity.Cti), stacktrace.WithType("validation")))
 		}

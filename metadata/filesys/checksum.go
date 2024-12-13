@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rogpeppe/go-internal/dirhash"
 	"github.com/zeebo/xxh3"
+	"golang.org/x/mod/sumdb/dirhash"
 )
 
 func hashXXH3(files []string, open func(string) (io.ReadCloser, error)) (string, error) {

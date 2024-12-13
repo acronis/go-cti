@@ -1,9 +1,11 @@
+github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
+github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/acronis/go-cti v1.0.0 h1:ZVW28Gn8Xist+lOB5914rqBs9p4kbrbBoxd6E0Go32c=
 github.com/acronis/go-cti v1.0.0/go.mod h1:bKgD6h/r4PVdiU4uFMPmlIaVRirP70754aSC9b3ftpk=
 github.com/acronis/go-cti/metadata/ramlx v1.3.0 h1:KUjQyoyQheOUw0DKfza8KgM29kGGgfGctOwSmLnUC3E=
 github.com/acronis/go-cti/metadata/ramlx v1.3.0/go.mod h1:x1atAQyu/8hiFyNEqkLfR2afrTEoi1TYlMofmUcWnbY=
-github.com/acronis/go-raml v0.17.0 h1:K57QJp8pq9K7sfsPkmswgN9n0NC0eyotNnZdX2ic4RQ=
-github.com/acronis/go-raml v0.17.0/go.mod h1:b7A+r3k7Mk07ei/Oa2PFmrKEbh6AqZ7OI8baFYUQMjc=
+github.com/acronis/go-raml v0.19.0 h1:QUlgIjL/z59ZQg0xBiC0vWEvnsYxY4Jsj2r8wdYvBnU=
+github.com/acronis/go-raml v0.19.0/go.mod h1:z6t0FprNcpiYE2+i5B92fXcBCGY1jcnZ2hHT+O+SrXg=
 github.com/acronis/go-stacktrace v0.4.0 h1:rL+6LxDnQ1/KcaCvF6ftC1Hjg91rjuPjPxS7+xH81xk=
 github.com/acronis/go-stacktrace v0.4.0/go.mod h1:7Yf4nTbD//u5yR21BhiLzitxh8lU8Vb8SakHhoRAyqQ=
 github.com/acronis/go-stacktrace/slogex v0.3.0 h1:PdHLMwPql8V7ZnmzzfCuZsrP7xCDpqfyNSfGDu8+OgI=
@@ -12,8 +14,12 @@ github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
 github.com/bahlo/generic-list-go v0.2.0 h1:5sz/EEAK+ls5wF+NeqDpk5+iNdMDXrh3z3nPnH1Wvgk=
 github.com/bahlo/generic-list-go v0.2.0/go.mod h1:2KvAjgMlE5NNynlg/5iLrrCCZ2+5xWbdbCW3pNTGyYg=
+github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=
+github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/buger/jsonparser v1.1.1 h1:2PnMjfWD7wBILjqQbt530v576A/cAbQvEW9gGIpYMUs=
 github.com/buger/jsonparser v1.1.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
+github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
+github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
@@ -45,6 +51,8 @@ github.com/samber/slog-formatter v1.1.1 h1:8hmUOoWlO+lF4Df1CO8be63IdTnvJubjBDW3i
 github.com/samber/slog-formatter v1.1.1/go.mod h1:62fqjJlw8uYOByt0g+oPZ5wNe9EcLmFoAgmPiun5qds=
 github.com/samber/slog-multi v1.2.4 h1:k9x3JAWKJFPKffx+oXZ8TasaNuorIW4tG+TXxkt6Ry4=
 github.com/samber/slog-multi v1.2.4/go.mod h1:ACuZ5B6heK57TfMVkVknN2UZHoFfjCwRxR0Q2OXKHlo=
+github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 h1:qLC7fQah7D6K1B0ujays3HV9gkFtllcxhzImRR7ArPQ=
+github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=

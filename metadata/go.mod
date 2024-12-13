@@ -5,12 +5,12 @@ go 1.22.6
 require (
 	github.com/acronis/go-cti v1.0.0
 	github.com/acronis/go-cti/metadata/ramlx v1.3.0
-	github.com/acronis/go-raml v0.17.0
+	github.com/acronis/go-raml v0.19.0
 	github.com/acronis/go-stacktrace v0.4.0
 	github.com/acronis/go-stacktrace/slogex v0.3.0
+	github.com/blang/semver/v4 v4.0.0
 	github.com/dusted-go/logging v1.3.0
 	github.com/otiai10/copy v1.14.0
-	github.com/rogpeppe/go-internal v1.13.1
 	github.com/samber/slog-formatter v1.1.1
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.18.0
@@ -24,6 +24,7 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect

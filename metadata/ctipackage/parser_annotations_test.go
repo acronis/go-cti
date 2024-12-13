@@ -337,9 +337,9 @@ types:
 
 			generateGoldenFiles(t, pkg.BaseDir, pkg.Registry.FragmentEntities)
 
-			require.Equal(t, tc.total, len(pkg.Registry.Total))
-			require.Equal(t, tc.types, len(pkg.Registry.Types))
-			require.Equal(t, tc.instances, len(pkg.Registry.Instances))
+			require.EqualValues(t, tc.total, len(pkg.Registry.Index))
+			require.EqualValues(t, tc.types, len(pkg.Registry.Types))
+			require.EqualValues(t, tc.instances, len(pkg.Registry.Instances))
 		})
 	}
 }
