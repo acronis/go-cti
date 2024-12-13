@@ -8,9 +8,9 @@ require (
 	github.com/acronis/go-raml v0.17.0
 	github.com/acronis/go-stacktrace v0.4.0
 	github.com/acronis/go-stacktrace/slogex v0.3.0
+	github.com/blang/semver/v4 v4.0.0
 	github.com/dusted-go/logging v1.3.0
 	github.com/otiai10/copy v1.14.0
-	github.com/rogpeppe/go-internal v1.13.1
 	github.com/samber/slog-formatter v1.1.1
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.18.0

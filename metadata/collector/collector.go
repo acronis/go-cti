@@ -17,8 +17,7 @@ type MetadataRegistry struct {
 	Types            metadata.EntitiesMap
 	Instances        metadata.EntitiesMap
 	FragmentEntities map[string]metadata.Entities
-	Total            metadata.Entities
-	TotalIndex       metadata.EntitiesMap
+	Index            metadata.EntitiesMap
 }
 
 func (r *MetadataRegistry) Clone() *MetadataRegistry {
@@ -47,7 +46,7 @@ func New(r *raml.RAML, baseDir string) *Collector {
 		Registry: &MetadataRegistry{
 			Types:            make(metadata.EntitiesMap),
 			Instances:        make(metadata.EntitiesMap),
-			TotalIndex:       make(metadata.EntitiesMap),
+			Index:            make(metadata.EntitiesMap),
 			FragmentEntities: make(map[string]metadata.Entities),
 		},
 		ramlCtiTypes:      make(map[string]*raml.BaseShape),
@@ -104,13 +103,12 @@ func (c *Collector) Collect() error {
 		if err != nil {
 			return fmt.Errorf("make cti type: %w", err)
 		}
-		if _, ok := c.Registry.TotalIndex[k]; ok {
+		if _, ok := c.Registry.Index[k]; ok {
 			return fmt.Errorf("duplicate cti entity %s", k)
 		}
 		c.Registry.FragmentEntities[entity.SourceMap.OriginalPath] = append(c.Registry.FragmentEntities[entity.SourceMap.OriginalPath], entity)
-		c.Registry.TotalIndex[k] = entity
+		c.Registry.Index[k] = entity
 		c.Registry.Types[k] = entity
-		c.Registry.Total = append(c.Registry.Total, entity)
 	}
 
 	return nil
@@ -528,13 +526,12 @@ func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension) er
 		}
 
 		entity := c.MakeMetadataInstanceFromExtension(id, s, obj, annotation.Extension.Location)
-		if _, ok := c.Registry.TotalIndex[id]; ok {
+		if _, ok := c.Registry.Index[id]; ok {
 			return fmt.Errorf("duplicate cti entity %s", id)
 		}
 		c.Registry.FragmentEntities[entity.SourceMap.OriginalPath] = append(c.Registry.FragmentEntities[entity.SourceMap.OriginalPath], entity)
-		c.Registry.TotalIndex[id] = entity
+		c.Registry.Index[id] = entity
 		c.Registry.Instances[id] = entity
-		c.Registry.Total = append(c.Registry.Total, entity)
 	}
 	return nil
 }
