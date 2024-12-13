@@ -335,11 +335,11 @@ types:
 				require.Error(t, err)
 			}
 
-			generateGoldenFiles(t, pkg.BaseDir, pkg.Registry.FragmentEntities)
+			generateGoldenFiles(t, pkg.BaseDir, pkg.LocalRegistry.FragmentEntities)
 
-			require.EqualValues(t, tc.total, len(pkg.Registry.Index))
-			require.EqualValues(t, tc.types, len(pkg.Registry.Types))
-			require.EqualValues(t, tc.instances, len(pkg.Registry.Instances))
+			require.EqualValues(t, tc.total, len(pkg.LocalRegistry.Index))
+			require.EqualValues(t, tc.types, len(pkg.LocalRegistry.Types))
+			require.EqualValues(t, tc.instances, len(pkg.LocalRegistry.Instances))
 		})
 	}
 }

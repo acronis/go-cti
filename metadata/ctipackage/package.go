@@ -20,7 +20,8 @@ type Package struct {
 	Index     *Index
 	IndexLock *IndexLock
 
-	Registry *collector.MetadataRegistry
+	LocalRegistry  *collector.MetadataRegistry
+	GlobalRegistry *collector.MetadataRegistry
 
 	BaseDir string
 }
@@ -28,8 +29,12 @@ type Package struct {
 // New creates a new package from the specified path.
 // If the path is empty, the current working directory is used.
 func New(baseDir string, options ...InitializeOption) (*Package, error) {
+	absPath, err := filepath.Abs(path.Clean(baseDir))
+	if err != nil {
+		return nil, fmt.Errorf("get absolute path: %w", err)
+	}
 	b := &Package{
-		BaseDir: filepath.ToSlash(path.Clean(baseDir)),
+		BaseDir: filepath.ToSlash(absPath),
 		Index:   &Index{},
 		IndexLock: &IndexLock{
 			Version:           IndexLockVersion,
