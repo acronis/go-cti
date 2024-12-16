@@ -233,13 +233,22 @@ func (v *MetadataValidator) GetMergedSchema(id string) (map[string]interface{}, 
 	if !ok {
 		return nil, fmt.Errorf("failed to find cti %s", root)
 	}
+	var err error
 	var schema map[string]any
-	if err := json.Unmarshal([]byte(entity.Schema), &schema); err != nil {
+	if err = json.Unmarshal([]byte(entity.Schema), &schema); err != nil {
+		return nil, err
+	}
+	schema, err = merger.ExtractSchemaDefinition(schema)
+	if err != nil {
 		return nil, err
 	}
 
 	for {
 		parentCti := metadata.GetParentCti(root)
+		if parentCti == root {
+			break
+		}
+		root = parentCti
 
 		entity, ok := v.index[parentCti]
 		if !ok {
@@ -249,16 +258,16 @@ func (v *MetadataValidator) GetMergedSchema(id string) (map[string]interface{}, 
 		if err := json.Unmarshal([]byte(entity.Schema), &parentSchema); err != nil {
 			return nil, err
 		}
-		// TODO: This is probably not great performance-wise. Need to pass pointer and mutate the original schema in-place
-		mergedSchema, err := merger.MergeSchemas(schema, parentSchema)
+		parentSchema, err = merger.ExtractSchemaDefinition(parentSchema)
 		if err != nil {
 			return nil, err
 		}
-		schema = mergedSchema
-		if parentCti == entity.Cti {
-			break
+
+		// NOTE: Resulting schema does not have ref.
+		schema, err = merger.MergeSchemas(schema, parentSchema)
+		if err != nil {
+			return nil, err
 		}
-		root = parentCti
 	}
 	return schema, nil
 }
