@@ -29,17 +29,7 @@ var propertiesToMerge = [...]string{
 
 // MergeSchemas merges a source schema onto a target one, applying various validations,,
 func MergeSchemas(source, target map[string]any) (map[string]any, error) {
-	sourceSchema, err := ExtractSchemaDefinition(source)
-	if err != nil {
-		return nil, err
-	}
-
-	targetSchema, err := ExtractSchemaDefinition(target)
-	if err != nil {
-		return nil, err
-	}
-
-	mergedSchema, err := mergeObjects(sourceSchema, targetSchema)
+	mergedSchema, err := mergeObjects(source, target)
 	if err != nil {
 		return nil, err
 	}
