@@ -19,7 +19,7 @@ const (
 
 type Index struct {
 	PackageID            string            `json:"package_id"`
-	RamlxVersion         string            `json:"ramlx_version"`
+	RamlxVersion         string            `json:"ramlx_version,omitempty"`
 	Apis                 []string          `json:"apis,omitempty"`
 	Entities             []string          `json:"entities,omitempty"`
 	Assets               []string          `json:"assets,omitempty"`
