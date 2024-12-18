@@ -73,6 +73,16 @@ To address these issues, **Cross-domain Typed Identifiers** provides an identifi
 
 **Cross-domain Typed Identifiers (CTI)** is a conventional system that provides a structured, standardized approach for uniquely identifying data types, instances and their relationships across multi-service, multi-vendor, multi-platform and multi-application environments. By encoding essential information about vendor, package, and version, CTI ensures consistent, scalable identification of data types and instances in shared data storage, API objects, and documentation. Designed to support interoperability, CTI enables cross-platform compatibility and prevents conflicts by assigning each data type and instance a globally unique identifier that retains meaning and structure across contexts.
 
+The CTI notations offer broad applicability. Here are just several examples of how they can be used:
+
+- **API Data Type Definitions**: CTI ensures unique identification and data structures compatibility across different services and systems APIs.
+- **UI Data Type Definitions**: CTI enables consistent definitions for UI components, such as form fields, dropdowns, and layout elements, ensuring compatibility and reusability of UI data types across different screens or control panels.
+- **Event Schema Definitions**: CTI enables precise event schemas definition and events relationship streamlining, such as linking events to specific topics, managing hierarchical event types or referencing API data types in events payload.
+- **Access Rights (Roles) Definitions**: CTI facilitates precise definition and versioning of user roles, permissions, and access rights, ensuring compatibility across services and enabling traceability in multi-system environments.
+- **Configuration Management**: CTI can define and version application configurations, enabling dynamic updates and compatibility checks without manual intervention.
+- **Database Schema Definitions**: CTI helps to organize and version database schemas, ensuring extensibility and compatibility of the schemas, which can be leveraged by database schemas migrations frameworks.
+- **Data Warehouse Schema Management**: CTI simplifies managing and versioning large-scale data warehouse schemas, ensuring consistent definitions of datasets and enabling traceability across various data sources.
+
 CTI are not limited to identifying data structures and instances alone; they also enable several advanced capabilities:
 
 - **Cross-references**: Allow fields in one data object (e.g., type A) to reference objects of a different type (e.g., type B), enabling data linkages and associations across types.
@@ -94,9 +104,11 @@ The following comparison table summarizes the comparison between the mentioned t
 | Versioned                   | No                                         | No                                                       | Yes, using semantic versioning                            | No                            |
 | Security                    | No, only handles file types                | Yes, can be used for IAM roles and permission management | Yes, can be used for IAM roles and permission management  | No                            |
 
-### The CTI syntax
+### The CTI notation syntax
 
-CTI consists of two parts:
+The CTI identifiers can be considered as `address` or `name` of the data types or individual objects.
+
+The CTI identifier consists of two logical parts:
 
 1. Base part that begins with `cti.` and helps to identify the string as a CTI. For example, a fully qualified name of a CTI will be `cti.<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>`.
 1. Extension part (CTX) that is appended to CTI using the `~` character and extends (through inheritance or instantiation) the preceding identifier. For example, a fully qualified name of a CTI with CTX will be `cti.<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>~<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>`.
@@ -321,6 +333,31 @@ A complete syntax of CTI is represented using the following Extended Backus-Naur
 
   wildcard = "*";
 ```
+
+#### Using CTI for data objects access control
+
+The CTI identifier notation is a powerful tool for managing data access control and performing access checks at runtime. It can be effectively utilized for implementing **Attribute-Based Access Control** (ABAC) as well as defining roles for **Role-Based Access Control** (RBAC). Services implementing APIs can leverage CTI identifiers to grant or deny access to specific objects or categories of objects based on their types. For example [self-encoded JWT tokens] (https://auth0.com/docs/secure/tokens/json-web-tokens) might have the list of granted `scopes` in form of CTIs, with support for wildcard shortcuts. Here’s a sample API JWT token:
+
+```
+{
+  "iss": "cti.vendor.platform.auth.v1.0",           // Token issuer identifier is Vendor's Platform
+  "sub": "e0d31952-f46f-4e2a-9327-ee04a0eef544",    // Subject: API client (or user) identifier
+  "exp": 1700000000,                                // Expiration time (Unix timestamp)
+  "iat": 1690000000,                                // Issued at time (Unix timestamp)
+  "scope": [                                        // ABAC example
+    "cti.vendor.platform.task.v1.0~*:read",         // Grant access to read all the objects with type inherited from cti.vendor.platform.task.v1.0
+    "cti.partner_vendor.integration_app.*:read"     // Read-only access to all the objects introduced by 'Integration App' from 'Partner Vendor'
+    "cti.vendor.platform.alert.v1.0~2181ab50-a526-4507-901a-64af98b3be53:admin", // Admin access to specific alert object with given UUID
+    "cti.vendor.platform.alert.v1.0~vendor.platform.license_expired.v1.0:admin", // Additional Admin access to all alerts with ~vendor.platform.license_expired.v1.0 type
+  ],
+  "roles": [                                        // RBAC example
+     "cti.vendor.platform.role.v1.0~vendor.platform.read_only_admin.v1.0", // The API client (or user) gets the read-only admin permissions for Platform services
+     "cti.vendor.platform.role.v1.0~partner_vendor.integration_app.support_engineer.v1.0" // Additionally, it gets some 'support engineer' permissions in the 'Integration App'
+  ]
+}
+```
+
+Similarly, access control rules can be applied to database tables, events, configuration files, and other objects for enforcing appropriate access checks.
 
 ## CTI Metadata
 
