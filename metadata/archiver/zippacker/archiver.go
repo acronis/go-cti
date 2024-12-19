@@ -36,6 +36,7 @@ func (zipWriter *zipWriter) Init(destination string) (io.Closer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create archive: %w", err)
 	}
+	zipWriter.archive = archive
 	zipWriter.Writer = *zip.NewWriter(archive)
 
 	return zipWriter, nil
