@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -20,39 +19,20 @@ const (
 )
 
 type MetadataValidator struct {
-	index     metadata.EntitiesMap
+	registry  *collector.MetadataRegistry
 	ctiParser *cti.Parser
 }
 
-func MakeMetadataValidator() *MetadataValidator {
+func MakeMetadataValidator(r *collector.MetadataRegistry) *MetadataValidator {
 	return &MetadataValidator{
 		ctiParser: cti.NewParser(),
-		index:     make(metadata.EntitiesMap),
+		registry:  r,
 	}
-}
-
-func (v *MetadataValidator) LoadFromRegistry(entities *collector.MetadataRegistry) {
-	v.index = entities.Index
-}
-
-func (v *MetadataValidator) AddEntities(entities metadata.Entities) error {
-	for _, entity := range entities {
-		if _, ok := v.index[entity.Cti]; ok {
-			return fmt.Errorf("attempting to add duplicate cti %s", entity.Cti)
-		}
-		v.index[entity.Cti] = entity
-	}
-	return nil
-}
-
-func (v *MetadataValidator) Reset() {
-	v.ctiParser = cti.NewParser()
-	v.index = make(metadata.EntitiesMap)
 }
 
 func (v *MetadataValidator) ValidateAll() error {
 	st := stacktrace.StackTrace{}
-	for _, entity := range v.index {
+	for _, entity := range v.registry.Index {
 		if err := v.Validate(entity); err != nil {
 			_ = st.Append(stacktrace.NewWrapped("validation failed", err, stacktrace.WithInfo("cti", entity.Cti), stacktrace.WithType("validation")))
 		}
@@ -88,7 +68,7 @@ func (v *MetadataValidator) Validate(current *metadata.Entity) error {
 		return nil
 	}
 
-	parent, ok := v.index[parentCti]
+	parent, ok := v.registry.Index[parentCti]
 	if !ok {
 		return fmt.Errorf("%s failed to find parent type", current.Cti)
 	}
@@ -100,7 +80,7 @@ func (v *MetadataValidator) Validate(current *metadata.Entity) error {
 		if parent.Schema == nil {
 			return fmt.Errorf("%s instance is derived from non-type CTI", current.Cti)
 		}
-		mergedSchema, err := v.GetMergedSchema(parent.Cti)
+		mergedSchema, err := merger.GetMergedCtiSchema(parent.Cti, v.registry)
 		if err != nil {
 			return err
 		}
@@ -148,7 +128,7 @@ func (v *MetadataValidator) Validate(current *metadata.Entity) error {
 	}
 	if current.Traits != nil {
 		id := metadata.GetBaseCti(parentCti)
-		base, ok := v.index[id]
+		base, ok := v.registry.Index[id]
 		if !ok {
 			return fmt.Errorf("%s failed to find base type", current.Cti)
 		}
@@ -226,52 +206,6 @@ func (v *MetadataValidator) matchCti(ref *cti.Expression, id string) error {
 	return nil
 }
 
-func (v *MetadataValidator) GetMergedSchema(id string) (map[string]interface{}, error) {
-	root := id
-
-	entity, ok := v.index[root]
-	if !ok {
-		return nil, fmt.Errorf("failed to find cti %s", root)
-	}
-	var err error
-	var schema map[string]any
-	if err = json.Unmarshal([]byte(entity.Schema), &schema); err != nil {
-		return nil, err
-	}
-	schema, err = merger.ExtractSchemaDefinition(schema)
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		parentCti := metadata.GetParentCti(root)
-		if parentCti == root {
-			break
-		}
-		root = parentCti
-
-		entity, ok := v.index[parentCti]
-		if !ok {
-			return nil, fmt.Errorf("failed to find cti parent %s", parentCti)
-		}
-		var parentSchema map[string]any
-		if err := json.Unmarshal([]byte(entity.Schema), &parentSchema); err != nil {
-			return nil, err
-		}
-		parentSchema, err = merger.ExtractSchemaDefinition(parentSchema)
-		if err != nil {
-			return nil, err
-		}
-
-		// NOTE: Resulting schema does not have ref.
-		schema, err = merger.MergeSchemas(schema, parentSchema)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return schema, nil
-}
-
 func (v *MetadataValidator) FindInheritedAnnotation(
 	id string, key metadata.GJsonPath, predicate func(*metadata.Annotations) bool,
 ) *metadata.Annotations {
@@ -279,7 +213,7 @@ func (v *MetadataValidator) FindInheritedAnnotation(
 	for {
 		parentCti := metadata.GetParentCti(root)
 
-		entity, ok := v.index[parentCti]
+		entity, ok := v.registry.Index[parentCti]
 		if !ok {
 			return nil
 		}
