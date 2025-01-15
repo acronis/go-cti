@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/acronis/go-cti/metadata"
+	"github.com/acronis/go-cti/metadata/collector"
 )
 
 const (
@@ -278,4 +281,50 @@ func ValidateSchemaProperty(property map[string]any, name string) error {
 	}
 
 	return nil
+}
+
+func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]interface{}, error) {
+	root := cti
+
+	entity, ok := r.Index[root]
+	if !ok {
+		return nil, fmt.Errorf("failed to find cti %s", root)
+	}
+	var err error
+	var schema map[string]any
+	if err = json.Unmarshal([]byte(entity.Schema), &schema); err != nil {
+		return nil, err
+	}
+	schema, err = ExtractSchemaDefinition(schema)
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		parentCti := metadata.GetParentCti(root)
+		if parentCti == root {
+			break
+		}
+		root = parentCti
+
+		entity, ok := r.Index[parentCti]
+		if !ok {
+			return nil, fmt.Errorf("failed to find cti parent %s", parentCti)
+		}
+		var parentSchema map[string]any
+		if err := json.Unmarshal([]byte(entity.Schema), &parentSchema); err != nil {
+			return nil, err
+		}
+		parentSchema, err = ExtractSchemaDefinition(parentSchema)
+		if err != nil {
+			return nil, err
+		}
+
+		// NOTE: Resulting schema does not have ref.
+		schema, err = MergeSchemas(schema, parentSchema)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return schema, nil
 }
