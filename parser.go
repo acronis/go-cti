@@ -198,6 +198,7 @@ func (p *Parser) MustParse(input string) Expression {
 	return expr
 }
 
+//nolint:funlen,gocyclo,gocognit // func implements an alg with well-defined concrete purpose, so high cyclomatic complexity is ok here
 func (p *Parser) parseExpression(s string, params parserParams) (Expression, error) {
 	if !strings.HasPrefix(s, "cti.") {
 		return emptyExpression, ErrNotExpression
@@ -228,6 +229,7 @@ func (p *Parser) parseExpression(s string, params parserParams) (Expression, err
 	var tail *Node
 
 	for s != "" {
+		//nolint:nestif
 		if head != nil {
 			if tail.HasWildcard() {
 				return emptyExpression, fmt.Errorf(`expression may have wildcard "%c" only at the end`, Wildcard)
@@ -401,7 +403,7 @@ func (p *Parser) parseVendorOrPackage(s string) (identifier string, tail string,
 	return val, s[i:], nil
 }
 
-//nolint:funlen,gocyclo // func implements an alg with well-defined concrete purpose, so high cyclomatic complexity is ok here
+//nolint:funlen,gocyclo,gocognit // func implements an alg with well-defined concrete purpose, so high cyclomatic complexity is ok here
 func (p *Parser) parseEntityNameAndVersion(s string) (name EntityName, ver Version, tail string, err error) {
 	if s == "" {
 		return "", Version{}, s, fmt.Errorf(`entity name cannot be empty`)
@@ -451,6 +453,7 @@ loop:
 			}
 
 		case s[i] == Wildcard:
+			//nolint:nestif
 			if i > 0 {
 				//nolint:gocritic // if-else if more readable here than nested switch.
 				if minorIdx != -1 {

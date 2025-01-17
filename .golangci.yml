@@ -17,11 +17,6 @@ run:
 # This file contains only configs which differ from defaults.
 # All possible options can be found here https://github.com/golangci/golangci-lint/blob/master/.golangci.reference.yml
 linters-settings:
-  nestif:
-    # Minimal complexity of if statements to report.
-    # Default: 5
-    min-complexity: 12
-
   cyclop:
     # The maximal code complexity to report.
     # Default: 10
@@ -165,7 +160,7 @@ linters-settings:
   nolintlint:
     # Exclude following linters from requiring an explanation.
     # Default: []
-    allow-no-explanation: [ funlen, gocognit, lll ]
+    allow-no-explanation: [ funlen, gocognit, lll, nestif ]
     # Enable to require an explanation of nonzero length after each nolint directive.
     # Default: false
     require-explanation: true
