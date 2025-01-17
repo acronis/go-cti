@@ -362,7 +362,7 @@ func (e *Expression) MatchIgnoreQuery(secondExpression Expression) (bool, error)
 	return e.match(secondExpression, true)
 }
 
-// nolint:gocyclo // func implements an alg with well-defined concrete purpose, so high cyclomatic complexity is ok here
+//nolint:gocyclo // func implements an alg with well-defined concrete purpose, so high cyclomatic complexity is ok here
 func (e *Expression) match(secondExpression Expression, ignoreQuery bool) (bool, error) {
 	if e.AttributeSelector != "" {
 		return false, fmt.Errorf("matching of CTI with attribute selector is not supported")
