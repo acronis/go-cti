@@ -198,7 +198,7 @@ func (p *Parser) MustParse(input string) Expression {
 	return expr
 }
 
-//nolint:funlen,gocyclo,gocognit // func implements an alg with well-defined concrete purpose, so high cyclomatic complexity is ok here
+//nolint:funlen,gocognit // func implements an alg with well-defined concrete purpose, so high cyclomatic complexity is ok here
 func (p *Parser) parseExpression(s string, params parserParams) (Expression, error) {
 	if !strings.HasPrefix(s, "cti.") {
 		return emptyExpression, ErrNotExpression
@@ -403,7 +403,7 @@ func (p *Parser) parseVendorOrPackage(s string) (identifier string, tail string,
 	return val, s[i:], nil
 }
 
-//nolint:funlen,gocyclo,gocognit // func implements an alg with well-defined concrete purpose, so high cyclomatic complexity is ok here
+//nolint:funlen,gocyclo,gocognit,cyclop // func implements an alg with well-defined concrete purpose, so high cyclomatic complexity is ok here
 func (p *Parser) parseEntityNameAndVersion(s string) (name EntityName, ver Version, tail string, err error) {
 	if s == "" {
 		return "", Version{}, s, fmt.Errorf(`entity name cannot be empty`)
