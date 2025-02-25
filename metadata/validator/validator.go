@@ -173,17 +173,15 @@ func (v *MetadataValidator) Validate(current *metadata.Entity) error {
 			if parentRef != TrueStr && currentRef == TrueStr {
 				return fmt.Errorf("%s@%s: parent cti.reference defines a specific CTI, but child specifies true", current.Cti, key)
 			}
-			if currentRef == TrueStr {
+			// If either the parent or the current reference is true, then we don't need to validate the reference
+			if currentRef == TrueStr || parentRef == TrueStr {
 				continue
 			}
-			expr, err := v.ctiParser.Parse(currentRef)
+			expr, err := v.ctiParser.Parse(parentRef)
 			if err != nil {
 				return fmt.Errorf("%s@%s: %s", current.Cti, key, err.Error())
 			}
-			if parentRef == TrueStr {
-				continue
-			}
-			if err := v.matchCti(&expr, parentRef); err != nil {
+			if err := v.matchCti(&expr, currentRef); err != nil {
 				return fmt.Errorf("%s@%s: %s", current.Cti, key, err.Error())
 			}
 		}
