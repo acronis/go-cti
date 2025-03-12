@@ -72,7 +72,7 @@ func (v *MetadataValidator) Validate(current *metadata.Entity) error {
 	if !ok {
 		return fmt.Errorf("%s failed to find parent type", current.Cti)
 	}
-	if parent.Final {
+	if parent.Final && current.Values == nil {
 		return fmt.Errorf("%s is derived from final type", current.Cti)
 	}
 	// TODO: Need to memoize validated schemas and values for better performance
