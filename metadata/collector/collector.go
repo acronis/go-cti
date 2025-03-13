@@ -372,9 +372,15 @@ func (c *Collector) preProcessCtiType(shape *raml.BaseShape) (*raml.BaseShape, e
 }
 
 func (c *Collector) moveAnnotationsToArrayItem(array *raml.ArrayShape) {
-	// Moving is fine since all shapes are copied during the unwrap process.
+	copied := false
 	for _, annotationName := range annotationsToMove {
 		if a, ok := array.CustomDomainProperties.Get(annotationName); ok {
+			// Need to perform shallow clone since we want to create and modify the base shape of the same underlying type.
+			if !copied {
+				array.Items = array.Items.CloneShallow()
+				copied = true
+			}
+
 			array.Items.CustomDomainProperties.Set(annotationName, a)
 			array.CustomDomainProperties.Delete(annotationName)
 		}
