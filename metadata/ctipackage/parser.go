@@ -18,13 +18,23 @@ const (
 )
 
 func (pkg *Package) Parse() error {
+	// TODO: Probably this can be combined into a single step during dependency resolution.
+	deps, err := pkg.resolveDependencyOrder()
+	if err != nil {
+		return fmt.Errorf("resolve dependency order: %w", err)
+	}
 	c := collector.New()
-	// TODO: This will work only for top-level packages. Need to handle nested dependencies.
-	for _, dep := range pkg.IndexLock.SourceInfo {
-		depIndexFile := filepath.Join(pkg.BaseDir, DependencyDirName, dep.PackageID)
+	// This ensures that duplicate dependencies are parsed only once.
+	processed := map[string]struct{}{}
+	for _, dep := range deps {
+		if _, ok := processed[dep]; ok {
+			continue
+		}
+		processed[dep] = struct{}{}
+		depIndexFile := filepath.Join(pkg.BaseDir, DependencyDirName, dep)
 		// FIXME: Need a proper detection of the package type.
 		if strings.Contains(pkg.BaseDir, "/.dep/") {
-			depIndexFile = filepath.Join(pkg.BaseDir, "..", dep.PackageID)
+			depIndexFile = filepath.Join(pkg.BaseDir, "..", dep)
 		}
 		depPkg, err := New(depIndexFile)
 		if err != nil {
@@ -39,9 +49,9 @@ func (pkg *Package) Parse() error {
 		}
 	}
 
-	err := pkg.parse(c, true)
+	err = pkg.parse(c, true)
 	if err != nil {
-		return fmt.Errorf("parse dependent package: %w", err)
+		return fmt.Errorf("parse main package: %w", err)
 	}
 	pkg.LocalRegistry = c.LocalRegistry
 	pkg.GlobalRegistry = c.GlobalRegistry
@@ -52,6 +62,31 @@ func (pkg *Package) Parse() error {
 	}
 
 	return nil
+}
+
+func (pkg *Package) resolveDependencyOrder() ([]string, error) {
+	var deps []string
+	for _, dep := range pkg.IndexLock.SourceInfo {
+		depIndexFile := filepath.Join(pkg.BaseDir, DependencyDirName, dep.PackageID)
+		// FIXME: Need a proper detection of the package type.
+		if strings.Contains(pkg.BaseDir, "/.dep/") {
+			depIndexFile = filepath.Join(pkg.BaseDir, "..", dep.PackageID)
+		}
+		depPkg, err := New(depIndexFile)
+		if err != nil {
+			return nil, fmt.Errorf("new package: %w", err)
+		}
+		if err = depPkg.Read(); err != nil {
+			return nil, fmt.Errorf("read package: %w", err)
+		}
+		depNames, err := depPkg.resolveDependencyOrder()
+		if err != nil {
+			return nil, fmt.Errorf("resolve dependency order: %w", err)
+		}
+		deps = append(deps, depNames...)
+		deps = append(deps, dep.PackageID)
+	}
+	return deps, nil
 }
 
 func (pkg *Package) parse(c *collector.Collector, isLocal bool) error {
