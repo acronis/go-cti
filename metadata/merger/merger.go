@@ -302,7 +302,7 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 	definitions := map[string]interface{}{}
 	outSchema := map[string]interface{}{
 		"$schema":     "http://json-schema.org/draft-07/schema",
-		"$ref":        "#/definitions/Result",
+		"$ref":        "#/definitions/" + refType,
 		"definitions": definitions,
 	}
 	for k, v := range childRootSchema["definitions"].(map[string]any) {
@@ -352,6 +352,6 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 			}
 		}
 	}
-	definitions["Result"] = childSchema
+	definitions[refType] = childSchema
 	return outSchema, nil
 }
