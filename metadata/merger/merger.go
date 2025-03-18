@@ -207,28 +207,28 @@ func getRefType(ref string) (string, error) {
 
 // ExtractSchemaDefinition extracts the actual schema definition from the wider structure,
 // which includes $ref, $schema, etc.
-func ExtractSchemaDefinition(object map[string]any) (map[string]any, error) {
+func ExtractSchemaDefinition(object map[string]any) (map[string]any, string, error) {
 	ref, ok := object[refKey].(string)
 	if !ok {
-		return nil, errInvalidSchemaError
+		return nil, "", errInvalidSchemaError
 	}
 
 	refType, err := getRefType(ref)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	definitions, ok := object[definitionsKey].(map[string]any)
 	if !ok {
-		return nil, errInvalidSchemaError
+		return nil, "", errInvalidSchemaError
 	}
 
 	schema, ok := definitions[refType].(map[string]any)
 	if !ok || schema == nil {
-		return nil, fmt.Errorf("schema does not have $ref:%s", refType)
+		return nil, "", fmt.Errorf("schema does not have $ref:%s", refType)
 	}
 
-	return schema, nil
+	return schema, refType, nil
 }
 
 // isAnyOf tells whether the object is an anyOf property.
@@ -290,14 +290,26 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 	if !ok {
 		return nil, fmt.Errorf("failed to find cti %s", root)
 	}
-	var err error
-	var schema map[string]any
-	if err = json.Unmarshal([]byte(entity.Schema), &schema); err != nil {
+	var childRootSchema map[string]any
+	if err := json.Unmarshal([]byte(entity.Schema), &childRootSchema); err != nil {
 		return nil, err
 	}
-	schema, err = ExtractSchemaDefinition(schema)
+	childSchema, refType, err := ExtractSchemaDefinition(childRootSchema)
 	if err != nil {
 		return nil, err
+	}
+
+	definitions := map[string]interface{}{}
+	outSchema := map[string]interface{}{
+		"$schema":     "http://json-schema.org/draft-07/schema",
+		"$ref":        "#/definitions/Result",
+		"definitions": definitions,
+	}
+	for k, v := range childRootSchema["definitions"].(map[string]any) {
+		if k == refType {
+			continue
+		}
+		definitions[k] = v
 	}
 
 	for {
@@ -311,20 +323,35 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 		if !ok {
 			return nil, fmt.Errorf("failed to find cti parent %s", parentCti)
 		}
-		var parentSchema map[string]any
-		if err := json.Unmarshal([]byte(entity.Schema), &parentSchema); err != nil {
+		var parentRootSchema map[string]any
+		if err := json.Unmarshal([]byte(entity.Schema), &parentRootSchema); err != nil {
 			return nil, err
 		}
-		parentSchema, err = ExtractSchemaDefinition(parentSchema)
+		parentSchema, parentRefType, err := ExtractSchemaDefinition(parentRootSchema)
 		if err != nil {
 			return nil, err
 		}
 
-		// NOTE: Resulting schema does not have ref.
-		schema, err = MergeSchemas(schema, parentSchema)
+		childSchema, err = MergeSchemas(childSchema, parentSchema)
 		if err != nil {
 			return nil, err
 		}
+
+		for k, v := range parentRootSchema["definitions"].(map[string]any) {
+			if k == parentRefType {
+				continue
+			}
+			if definition, ok := definitions[k]; ok {
+				definition, err = MergeSchemas(v.(map[string]any), definition.(map[string]any))
+				if err != nil {
+					return nil, err
+				}
+				definitions[k] = definition
+			} else {
+				definitions[k] = v
+			}
+		}
 	}
-	return schema, nil
+	definitions["Result"] = childSchema
+	return outSchema, nil
 }
