@@ -1,8 +1,11 @@
 package ctipackage
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -63,6 +66,182 @@ func Test_ReadIndexFile(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_DecodeIndex(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+	}{
+		{
+			name: "ValidIndex",
+			input: `{"package_id":"test.pkg","apis":["api.raml"]}
+`,
+			expectError: false,
+		},
+		{
+			name: "InvalidJSON",
+			input: `{invalid json`,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.input)
+			idx, err := DecodeIndex(reader)
+			if tt.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, idx)
+				require.Equal(t, "test.pkg", idx.PackageID)
+			}
+		})
+	}
+}
+
+func Test_GenerateIndexRaml(t *testing.T) {
+	tests := []struct {
+		name            string
+		index           Index
+		includeExamples bool
+		expectedOutput  string
+	}{
+		{
+			name: "WithoutExamples",
+			index: Index{
+				Entities: []string{"entity1.raml", "entity2.raml"},
+				Examples: []string{"example1.raml"},
+			},
+			includeExamples: false,
+			expectedOutput: "#%RAML 1.0 Library\nuses:\n  e1: entity1.raml\n  e2: entity2.raml",
+		},
+		{
+			name: "WithExamples",
+			index: Index{
+				Entities: []string{"entity1.raml"},
+				Examples: []string{"example1.raml", "example2.raml"},
+			},
+			includeExamples: true,
+			expectedOutput: "#%RAML 1.0 Library\nuses:\n  e1: entity1.raml\n  x1: example1.raml\n  x2: example2.raml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := tt.index.GenerateIndexRaml(tt.includeExamples)
+			require.Equal(t, tt.expectedOutput, output)
+		})
+	}
+}
+
+func Test_Clone(t *testing.T) {
+	original := &Index{
+		PackageID:    "test.pkg",
+		RamlxVersion: "1.0",
+		Apis:         []string{"api.raml"},
+		Entities:     []string{"entity.raml"},
+		Depends:      map[string]string{"dep": "1.0"},
+	}
+
+	cloned := original.Clone()
+
+	require.NotSame(t, original, cloned)
+	require.Equal(t, original.PackageID, cloned.PackageID)
+	require.Equal(t, original.RamlxVersion, cloned.RamlxVersion)
+	require.Equal(t, original.Apis, cloned.Apis)
+	require.Equal(t, original.Entities, cloned.Entities)
+	require.Equal(t, original.Depends, cloned.Depends)
+}
+
+func Test_ToBytes(t *testing.T) {
+	idx := &Index{
+		PackageID: "test.pkg",
+		Apis:      []string{"api.raml"},
+	}
+
+	bytes := idx.ToBytes()
+
+	// Verify the bytes can be unmarshaled back to the same structure
+	var decoded Index
+	require.NoError(t, json.Unmarshal(bytes, &decoded))
+	require.Equal(t, idx.PackageID, decoded.PackageID)
+	require.Equal(t, idx.Apis, decoded.Apis)
+}
+
+func Test_Save(t *testing.T) {
+	testDir := filepath.Join("testdata", "save_test")
+	require.NoError(t, os.RemoveAll(testDir))
+	require.NoError(t, os.MkdirAll(testDir, os.ModePerm))
+
+	idx := &Index{
+		PackageID: "test.pkg",
+		Apis:      []string{"api.raml"},
+	}
+
+	require.NoError(t, idx.Save(testDir))
+
+	// Verify the file was created and contains correct content
+	content, err := os.ReadFile(filepath.Join(testDir, IndexFileName))
+	require.NoError(t, err)
+
+	var decoded Index
+	require.NoError(t, json.Unmarshal(content, &decoded))
+	require.Equal(t, idx.PackageID, decoded.PackageID)
+	require.Equal(t, idx.Apis, decoded.Apis)
+}
+
+func Test_PutSerialized(t *testing.T) {
+	tests := []struct {
+		name           string
+		initSerialized []string
+		newFile        string
+		expected       []string
+	}{
+		{
+			name:           "AddNewFile",
+			initSerialized: []string{"file1.json"},
+			newFile:        "file2.json",
+			expected:       []string{"file1.json", "file2.json"},
+		},
+		{
+			name:           "DuplicateFile",
+			initSerialized: []string{"file1.json"},
+			newFile:        "file1.json",
+			expected:       []string{"file1.json"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			idx := &Index{Serialized: tt.initSerialized}
+			idx.PutSerialized(tt.newFile)
+			require.Equal(t, tt.expected, idx.Serialized)
+		})
+	}
+}
+
+func Test_GetEntities(t *testing.T) {
+	idx := &Index{
+		Entities: []string{"path/to/entity1.raml", "path/to/entity2.raml"},
+	}
+
+	entities, err := idx.GetEntities()
+	require.NoError(t, err)
+	require.Len(t, entities, 2)
+	require.Equal(t, "entity1", entities[0].Name)
+	require.Equal(t, "path/to/entity1.raml", entities[0].Path)
+	require.Equal(t, "entity2", entities[1].Name)
+	require.Equal(t, "path/to/entity2.raml", entities[1].Path)
+}
+
+func Test_GetAssets(t *testing.T) {
+	assets := []string{"asset1.png", "asset2.jpg"}
+	idx := &Index{Assets: assets}
+
+	require.Equal(t, assets, idx.GetAssets())
 }
 
 func Test_IndexCheck(t *testing.T) {
