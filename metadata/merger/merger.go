@@ -116,14 +116,32 @@ func mergeRequired(source, target map[string]any) ([]string, error) {
 	// Use maps to simulate sets
 	requiredSet := make(map[any]struct{})
 
-	requiredSrc, _ := source[requiredKey].([]any)
-	for _, item := range requiredSrc {
-		requiredSet[item] = struct{}{}
+	// Extract source required fields
+	if src, ok := source[requiredKey]; ok {
+		switch typedSrc := src.(type) {
+		case []any:
+			for _, item := range typedSrc {
+				requiredSet[item] = struct{}{}
+			}
+		case []string:
+			for _, item := range typedSrc {
+				requiredSet[item] = struct{}{}
+			}
+		}
 	}
 
-	requiredTrg, _ := target[requiredKey].([]any)
-	for _, item := range requiredTrg {
-		requiredSet[item] = struct{}{}
+	// Extract target required fields
+	if trg, ok := target[requiredKey]; ok {
+		switch typedTrg := trg.(type) {
+		case []any:
+			for _, item := range typedTrg {
+				requiredSet[item] = struct{}{}
+			}
+		case []string:
+			for _, item := range typedTrg {
+				requiredSet[item] = struct{}{}
+			}
+		}
 	}
 
 	targetRequired := make([]string, 0, len(requiredSet))
