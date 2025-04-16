@@ -11,7 +11,7 @@ MODULE_DIRS = . pkg/identifier
 GO_INSTALLABLE_DIRS = cmd/cti
 
 # Directories that we want to test and track coverage for.
-TEST_DIRS = .
+TEST_DIRS = . ./metadata
 
 .PHONY: all
 all: lint cover
