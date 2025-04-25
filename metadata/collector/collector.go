@@ -131,6 +131,10 @@ func (c *Collector) MakeMetadataTypeFromShape(id string, shape *raml.BaseShape) 
 	if val, ok := shape.CustomDomainProperties.Get(metadata.Final); ok {
 		final = val.Extension.Value.(bool)
 	}
+	resilient := false
+	if val, ok := shape.CustomDomainProperties.Get(metadata.Resilient); ok {
+		resilient = val.Extension.Value.(bool)
+	}
 	var traitsBytes []byte
 	if shape.CustomShapeFacets != nil {
 		if t, ok := shape.CustomShapeFacets.Get(metadata.Traits); ok {
@@ -165,6 +169,7 @@ func (c *Collector) MakeMetadataTypeFromShape(id string, shape *raml.BaseShape) 
 	entity := &metadata.Entity{
 		Cti:               id,
 		Final:             final,
+		Resilient:         resilient,
 		DisplayName:       displayName,
 		Description:       description,
 		Schema:            schemaBytes,

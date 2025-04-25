@@ -95,6 +95,9 @@ func (c *AnnotationsCollector) collectAnnotations(ctx string, s *raml.BaseShape)
 		case metadata.Final:
 			v := annotation.Extension.Value.(bool)
 			item.Final = &v
+		case metadata.Resilient:
+			v := annotation.Extension.Value.(bool)
+			item.Resilient = &v
 		case metadata.ID:
 			v := annotation.Extension.Value.(bool)
 			item.ID = &v
