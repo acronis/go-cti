@@ -13,6 +13,10 @@ annotationTypes:
       Deprecated: use type `Instance` to describe CTI instance.
     allowedTargets: TypeDeclaration
 
+  resilient:
+    type: boolean
+    allowedTargets: TypeDeclaration
+
   display_name:
     type: boolean
     description: >-
@@ -202,7 +206,7 @@ types:
       CTI instance might have a `display_name` field that contains the display name of the instance.
     additionalProperties: false
     properties:
-      id: 
+      id:
         type: CTI
         description: |
           The unique identifier of the CTI instance.
@@ -214,7 +218,7 @@ types:
           The value of the CTI instance.
           The value of this field is the value of the instance.
           You can override that field to define the schema to help the user to understand the value and validate it.
-      description: 
+      description:
         type: scalar.string2048
         description: |
           The description of the CTI instance.
@@ -225,7 +229,7 @@ types:
           The display name of the CTI instance.
           The value of this field is a string that represents the display name of the instance.
     examples:
-      1: 
+      1:
         id: cti.foo.bar.name.v1.0~x.y.kirill.v1.0
         values: Kirill
         description: The name of the person
