@@ -14,6 +14,7 @@ type EntitiesMap map[string]*Entity
 type Entity struct {
 	Final             bool                      `json:"final"`
 	Cti               string                    `json:"cti"`
+	Resilient         bool                      `json:"resilient"`
 	DisplayName       string                    `json:"display_name,omitempty"`
 	Description       string                    `json:"description,omitempty"`
 	Dictionaries      map[string]interface{}    `json:"dictionaries,omitempty"` // Deprecated
@@ -50,6 +51,7 @@ type Annotations struct {
 	Reference     interface{}            `json:"cti.reference,omitempty"` // bool or string or []string
 	Overridable   *bool                  `json:"cti.overridable,omitempty"`
 	Final         *bool                  `json:"cti.final,omitempty"`
+	Resilient     *bool                  `json:"cti.resilient,omitempty"`
 	Asset         *bool                  `json:"cti.asset,omitempty"`
 	L10N          *bool                  `json:"cti.l10n,omitempty"`
 	Schema        interface{}            `json:"cti.schema,omitempty"` // string or []string

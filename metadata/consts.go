@@ -3,6 +3,7 @@ package metadata
 const (
 	Cti           = "cti.cti"
 	Final         = "cti.final"
+	Resilient     = "cti.resilient"
 	ID            = "cti.id"
 	L10n          = "cti.l10n"
 	DisplayName   = "cti.display_name"
