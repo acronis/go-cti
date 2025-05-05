@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/acronis/go-cti/metadata"
@@ -17,13 +18,16 @@ const (
 )
 
 type Packer struct {
+	arch archiver.Archiver
+
 	IncludeSources     bool
-	Archiver           archiver.Archiver
 	AnnotationHandlers []AnnotationHandler
 	// ExcludeFunction is called for each file in the package.
 	// If SkipFile is returned, the file will be excluded from the archive.
 	// If SkipDir is returned, whole directory will be excluded from the archive.
 	ExcludeFunction func(fsPath string, e os.DirEntry) error
+	//
+	ExtraFiles []string
 }
 
 type Option func(*Packer) error
@@ -37,14 +41,14 @@ func WithSources() Option {
 
 func WithArchiver(w archiver.Archiver) Option {
 	return func(p *Packer) error {
-		p.Archiver = w
+		p.arch = w
 		return nil
 	}
 }
 
 func WithAnnotationHandler(h AnnotationHandler) Option {
 	return func(p *Packer) error {
-		if p.Archiver == nil {
+		if p.arch == nil {
 			return fmt.Errorf("writer is not set")
 		}
 		p.AnnotationHandlers = append(p.AnnotationHandlers, h)
@@ -55,6 +59,13 @@ func WithAnnotationHandler(h AnnotationHandler) Option {
 func WithExcludeFunction(f func(fsPath string, e os.DirEntry) error) Option {
 	return func(p *Packer) error {
 		p.ExcludeFunction = f
+		return nil
+	}
+}
+
+func WithExtraFiles(files ...string) Option {
+	return func(p *Packer) error {
+		p.ExtraFiles = append(p.ExtraFiles, files...)
 		return nil
 	}
 }
@@ -75,7 +86,7 @@ func New(opts ...Option) (*Packer, error) {
 }
 
 func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
-	if p.Archiver == nil {
+	if p.arch == nil {
 		return fmt.Errorf("writer is not set")
 	}
 
@@ -87,7 +98,7 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 		return fmt.Errorf("parse package: %w", err)
 	}
 
-	zipWriter, err := p.Archiver.Init(destination)
+	zipWriter, err := p.arch.Init(destination)
 	if err != nil {
 		return fmt.Errorf("create zip writer: %w", err)
 	}
@@ -96,18 +107,23 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 	idx := pkg.Index.Clone()
 	idx.PutSerialized(ctipackage.MetadataCacheFile)
 
-	if err := p.Archiver.WriteBytes(ctipackage.IndexFileName, idx.ToBytes()); err != nil {
+	if err := p.arch.WriteBytes(ctipackage.IndexFileName, idx.ToBytes()); err != nil {
 		return fmt.Errorf("write index: %w", err)
 	}
 
-	for _, metadata := range idx.Serialized {
-		if err := p.Archiver.WriteFile(pkg.BaseDir, metadata); err != nil {
-			return fmt.Errorf("write metadata %s: %w", metadata, err)
+	// Direct write files
+	files := slices.Concat(idx.Serialized, p.ExtraFiles)
+	slices.Sort(files)
+	files = slices.Compact(files)
+
+	for _, f := range files {
+		if err := p.arch.WriteFile(pkg.BaseDir, f); err != nil {
+			return fmt.Errorf("write file %s: %w", f, err)
 		}
 	}
 
 	if p.IncludeSources {
-		if err := p.Archiver.WriteDirectory(pkg.BaseDir, func(fsPath string, e os.DirEntry) error {
+		if err := p.arch.WriteDirectory(pkg.BaseDir, func(fsPath string, e os.DirEntry) error {
 			if e.IsDir() {
 				switch e.Name() {
 				case ctipackage.DependencyDirName:
@@ -148,6 +164,7 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 		}
 	}
 
+	// Allow callback to write file dependent to annotations
 	r := pkg.GlobalRegistry
 	for _, entity := range r.Instances {
 		if err := p.WriteEntity(pkg.BaseDir, r, entity); err != nil {
@@ -167,7 +184,7 @@ func (p *Packer) WriteEntity(baseDir string, r *collector.MetadataRegistry, enti
 	// TODO: Collect annotations from the entire chain of CTI types
 	for _, handler := range p.AnnotationHandlers {
 		for key, annotation := range typ.Annotations {
-			if err := handler(baseDir, p.Archiver, key, entity, annotation); err != nil {
+			if err := handler(baseDir, p.arch, key, entity, annotation); err != nil {
 				return fmt.Errorf("handle annotation: %w", err)
 			}
 		}
