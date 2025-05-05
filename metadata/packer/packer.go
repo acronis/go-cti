@@ -1,8 +1,10 @@
 package packer
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/acronis/go-cti/metadata"
@@ -15,11 +17,23 @@ const (
 	ArchiveExtension = ".cti"
 )
 
+var (
+	SkipFile   error = errors.New("skip this file")
+	SkipDir    error = filepath.SkipDir
+	SkipChecks error = errors.New("skip other checks")
+)
+
 type Packer struct {
-	IncludeSources      bool
-	Archiver            archiver.Archiver
-	AnnotationHandlers  []AnnotationHandler
-	FileExcludeFunction func(fsPath string, e os.DirEntry) error
+	IncludeSources     bool
+	Archiver           archiver.Archiver
+	AnnotationHandlers []AnnotationHandler
+	// ExcludeFunction is called for each file in the package.
+	// If SkipFile is returned, the file will be excluded from the archive.
+	// If SkipDir is returned, whole directory will be excluded from the archive.
+	ExcludeFunction func(fsPath string, e os.DirEntry) error
+	// WhitelistFunction is called for each file in the package.
+	// If SkipChecks is returned, all other checks are skipped and the file will be added to the archive.
+	WhitelistFunction func(fsPath string, e os.DirEntry) error
 }
 
 type Option func(*Packer) error
@@ -48,9 +62,16 @@ func WithAnnotationHandler(h AnnotationHandler) Option {
 	}
 }
 
-func WithFileExcludeFunction(f func(fsPath string, e os.DirEntry) error) Option {
+func WithExcludeFunction(f func(fsPath string, e os.DirEntry) error) Option {
 	return func(p *Packer) error {
-		p.FileExcludeFunction = f
+		p.ExcludeFunction = f
+		return nil
+	}
+}
+
+func WithWhitelistFunction(f func(fsPath string, e os.DirEntry) error) Option {
+	return func(p *Packer) error {
+		p.WhitelistFunction = f
 		return nil
 	}
 }
@@ -104,10 +125,17 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 
 	if p.IncludeSources {
 		if err := p.Archiver.WriteDirectory(pkg.BaseDir, func(fsPath string, e os.DirEntry) error {
-			// , err := filepath.Rel(pkg.BaseDir, fsPath)
-			// if err != nil {
-			// 	return err
-			// }
+
+			// Support custom whitelist function
+			if p.WhitelistFunction != nil {
+				if err := p.WhitelistFunction(fsPath, e); err != nil {
+					if errors.Is(err, SkipChecks) {
+						return nil
+					}
+
+					return err
+				}
+			}
 
 			if e.IsDir() {
 				switch e.Name() {
@@ -131,9 +159,14 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 				}
 			}
 
-			// Support custom file exclude function
-			if p.FileExcludeFunction != nil {
-				if err := p.FileExcludeFunction(fsPath, e); err != nil {
+			// Support custom exclude function
+			if p.ExcludeFunction != nil {
+				switch err := p.ExcludeFunction(fsPath, e); {
+				case errors.Is(err, SkipFile):
+					return archiver.SkipFile
+				case errors.Is(err, SkipDir):
+					return archiver.SkipDir
+				default:
 					return err
 				}
 			}
