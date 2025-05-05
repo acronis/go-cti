@@ -13,8 +13,12 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  testGo120:
+    name: Test main module
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-go@v4
@@ -27,7 +31,33 @@ jobs:
         args: --timeout=5m -v
 
     - name: Test
-      run: make test
+      run: go test -race ./...
+
+    - name: Update coverage report
+      uses: ncruces/go-coverage-report@v0
+      with:
+        coverage-file: cover.out
+      continue-on-error: true
+
+  testGo122:
+    name: Test metadate module
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./metadata
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.22.6'
+
+    - uses: golangci/golangci-lint-action@v6
+      with:
+        version: v1.55.2
+        args: --timeout=5m -v
+
+    - name: Test
+      run: go test -race ./...
 
     - name: Update coverage report
       uses: ncruces/go-coverage-report@v0
