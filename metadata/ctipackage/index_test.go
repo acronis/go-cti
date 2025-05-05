@@ -1,7 +1,6 @@
 package ctipackage
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -81,8 +80,8 @@ func Test_DecodeIndex(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "InvalidJSON",
-			input: `{invalid json`,
+			name:        "InvalidJSON",
+			input:       `{invalid json`,
 			expectError: true,
 		},
 	}
@@ -116,7 +115,7 @@ func Test_GenerateIndexRaml(t *testing.T) {
 				Examples: []string{"example1.raml"},
 			},
 			includeExamples: false,
-			expectedOutput: "#%RAML 1.0 Library\nuses:\n  e1: entity1.raml\n  e2: entity2.raml",
+			expectedOutput:  "#%RAML 1.0 Library\nuses:\n  e1: entity1.raml\n  e2: entity2.raml",
 		},
 		{
 			name: "WithExamples",
@@ -125,7 +124,7 @@ func Test_GenerateIndexRaml(t *testing.T) {
 				Examples: []string{"example1.raml", "example2.raml"},
 			},
 			includeExamples: true,
-			expectedOutput: "#%RAML 1.0 Library\nuses:\n  e1: entity1.raml\n  x1: example1.raml\n  x2: example2.raml",
+			expectedOutput:  "#%RAML 1.0 Library\nuses:\n  e1: entity1.raml\n  x1: example1.raml\n  x2: example2.raml",
 		},
 	}
 
