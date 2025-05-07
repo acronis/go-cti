@@ -301,6 +301,32 @@ func ValidateSchemaProperty(property map[string]any, name string) error {
 	return nil
 }
 
+func fixSelfReferences(schema map[string]any, sourceRefType string, refsToReplace map[string]struct{}) {
+	if ref, ok := schema[refKey].(string); ok {
+		if _, ok := refsToReplace[ref]; ok {
+			schema[refKey] = sourceRefType
+		}
+	}
+	switch {
+	case schema[itemsKey] != nil:
+		if items, ok := schema[itemsKey].(map[string]any); ok {
+			fixSelfReferences(items, sourceRefType, refsToReplace)
+		}
+	case schema[propertiesKey] != nil:
+		for _, property := range schema[propertiesKey].(map[string]any) {
+			if propertyMap, ok := property.(map[string]any); ok {
+				fixSelfReferences(propertyMap, sourceRefType, refsToReplace)
+			}
+		}
+	case schema[anyOfKey] != nil:
+		for _, anyOf := range schema[anyOfKey].([]any) {
+			if anyOfMap, ok := anyOf.(map[string]any); ok {
+				fixSelfReferences(anyOfMap, sourceRefType, refsToReplace)
+			}
+		}
+	}
+}
+
 func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]interface{}, error) {
 	root := cti
 
@@ -318,17 +344,15 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 	}
 
 	definitions := map[string]interface{}{}
-	outSchema := map[string]interface{}{
-		"$schema":     "http://json-schema.org/draft-07/schema",
-		"$ref":        "#/definitions/" + refType,
-		"definitions": definitions,
-	}
 	for k, v := range childRootSchema["definitions"].(map[string]any) {
 		if k == refType {
 			continue
 		}
 		definitions[k] = v
 	}
+
+	origSelfRefType := "#/definitions/" + refType
+	refsToReplace := map[string]struct{}{}
 
 	for {
 		parentCti := metadata.GetParentCti(root)
@@ -349,6 +373,7 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 		if err != nil {
 			return nil, err
 		}
+		refsToReplace["#/definitions/"+parentRefType] = struct{}{}
 
 		childSchema, err = MergeSchemas(childSchema, parentSchema)
 		if err != nil {
@@ -371,5 +396,17 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 		}
 	}
 	definitions[refType] = childSchema
+	for _, v := range definitions {
+		if definition, ok := v.(map[string]any); ok {
+			fixSelfReferences(definition, origSelfRefType, refsToReplace)
+		}
+	}
+
+	outSchema := map[string]interface{}{
+		"$schema":     "http://json-schema.org/draft-07/schema",
+		"$ref":        origSelfRefType,
+		"definitions": definitions,
+	}
+
 	return outSchema, nil
 }
