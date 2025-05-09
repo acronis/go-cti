@@ -10,10 +10,11 @@ import (
 
 func TestMergeRequired(t *testing.T) {
 	tests := []struct {
-		name     string
-		source   map[string]any
-		target   map[string]any
-		expected []string
+		name          string
+		source        map[string]any
+		target        map[string]any
+		expected      []string
+		expectedError bool
 	}{
 		{
 			name: "simple required merge",
@@ -23,7 +24,8 @@ func TestMergeRequired(t *testing.T) {
 			target: map[string]any{
 				"required": []any{"baz", "bar"},
 			},
-			expected: []string{"foo", "bar", "baz"},
+			expected:      []string{"foo", "bar", "baz"},
+			expectedError: false,
 		},
 		{
 			name:   "empty source required",
@@ -31,52 +33,51 @@ func TestMergeRequired(t *testing.T) {
 			target: map[string]any{
 				"required": []any{"baz", "bar"},
 			},
-			expected: []string{"baz", "bar"},
+			expected:      []string{"baz", "bar"},
+			expectedError: false,
 		},
 		{
 			name: "empty target required",
 			source: map[string]any{
 				"required": []any{"foo", "bar"},
 			},
-			target:   map[string]any{},
-			expected: []string{"foo", "bar"},
+			target:        map[string]any{},
+			expected:      []string{"foo", "bar"},
+			expectedError: false,
 		},
 		{
-			name: "source with string array",
+			name: "invalid source required type",
 			source: map[string]any{
 				"required": []string{"foo", "bar"},
 			},
 			target: map[string]any{
-				"required": []any{"baz"},
+				"required": []any{"foo", "bar"},
 			},
-			expected: []string{"foo", "bar", "baz"},
+			expected:      nil,
+			expectedError: true,
 		},
 		{
-			name: "target with string array",
+			name: "invalid target required type",
 			source: map[string]any{
-				"required": []any{"foo"},
+				"required": []any{"foo", "bar"},
 			},
 			target: map[string]any{
-				"required": []string{"baz", "bar"},
+				"required": []string{"foo", "bar"},
 			},
-			expected: []string{"foo", "baz", "bar"},
-		},
-		{
-			name: "multiple formats conversion resilience",
-			source: map[string]any{
-				"required": []string{"field1", "field2"}, // First as string array
-			},
-			target: map[string]any{
-				"required": []any{"field3", "field4"}, // Then as interface array
-			},
-			expected: []string{"field1", "field2", "field3", "field4"},
+			expected:      nil,
+			expectedError: true,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			required, err := mergeRequired(tc.source, tc.target)
-			require.NoError(t, err)
-			require.ElementsMatch(t, tc.expected, required)
+			if tc.expectedError {
+				require.Error(t, err)
+				require.Nil(t, required)
+			} else {
+				require.NoError(t, err)
+				require.ElementsMatch(t, tc.expected, required)
+			}
 		})
 	}
 }
@@ -87,6 +88,7 @@ func TestFixSelfReferences(t *testing.T) {
 		sourceRefType  string
 		refsToReplace  map[string]struct{}
 		expectedSchema map[string]any
+		expectedError  bool
 	}{
 		{
 			name:           "simple ref replacement",
@@ -94,6 +96,7 @@ func TestFixSelfReferences(t *testing.T) {
 			sourceRefType:  "#/definitions/NewRef",
 			refsToReplace:  map[string]struct{}{"#/definitions/OldRef": {}},
 			expectedSchema: map[string]any{"$ref": "#/definitions/NewRef"},
+			expectedError:  false,
 		},
 		{
 			name: "nested items ref replacement",
@@ -105,6 +108,7 @@ func TestFixSelfReferences(t *testing.T) {
 			expectedSchema: map[string]any{
 				"items": map[string]any{"$ref": "#/definitions/NewRef"},
 			},
+			expectedError: false,
 		},
 		{
 			name: "nested properties ref replacement",
@@ -120,6 +124,7 @@ func TestFixSelfReferences(t *testing.T) {
 					"field1": map[string]any{"$ref": "#/definitions/NewRef"},
 				},
 			},
+			expectedError: false,
 		},
 		{
 			name: "nested anyOf ref replacement",
@@ -131,6 +136,7 @@ func TestFixSelfReferences(t *testing.T) {
 			expectedSchema: map[string]any{
 				"anyOf": []any{map[string]any{"$ref": "#/definitions/NewRef"}},
 			},
+			expectedError: false,
 		},
 		{
 			name:           "no replacement when ref not in refsToReplace",
@@ -138,13 +144,20 @@ func TestFixSelfReferences(t *testing.T) {
 			sourceRefType:  "#/definitions/NewRef",
 			refsToReplace:  map[string]struct{}{"#/definitions/OldRef": {}},
 			expectedSchema: map[string]any{"$ref": "#/definitions/AnotherRef"},
+			expectedError:  false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fixSelfReferences(tc.schema, tc.sourceRefType, tc.refsToReplace)
-			require.Equal(t, tc.expectedSchema, tc.schema)
+			err := fixSelfReferences(tc.schema, tc.sourceRefType, tc.refsToReplace)
+			if tc.expectedError {
+				require.Error(t, err)
+				require.Nil(t, tc.schema)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedSchema, tc.schema)
+			}
 		})
 	}
 }
@@ -237,8 +250,67 @@ func TestGetMergedCtiSchema(t *testing.T) {
 				child := definitions["Child"].(map[string]interface{})
 				childProperties := child["properties"].(map[string]interface{})
 				require.Contains(t, childProperties, "recursive")
-				// Merged child schema should have a recursive reference to itself updated
+				// Merged child schema must have a recursive reference to itself updated
 				require.Equal(t, "#/definitions/Child", childProperties["recursive"].(map[string]interface{})["$ref"].(string))
+			},
+		},
+		{
+			name: "merge with anyOf",
+			cti:  "cti.x.y.sample_entity.v1.0~x.y._.v1.0",
+			registry: &collector.MetadataRegistry{
+				Index: map[string]*metadata.Entity{
+					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": {
+						Schema: []byte(`{
+							"$ref": "#/definitions/Child",
+							"definitions": {
+								"Child": { "anyOf": [
+									{
+										"type": "object",
+										"properties": {
+											"field2": { "type": "string" },
+											"field3": { "type": "integer" }
+										}
+									},
+									{ "type": "string" }
+								] }
+							}
+						}`),
+					},
+					"cti.x.y.sample_entity.v1.0": {
+						Schema: []byte(`{
+							"$ref": "#/definitions/Parent",
+							"definitions": {
+								"Parent": { "anyOf": [
+									{
+										"type": "object",
+										"properties": {
+											"field1": { "type": "number" }
+										}
+									},
+									{ "type": "string" }
+								] }
+							}
+						}`),
+					},
+				},
+			},
+			validate: func(t *testing.T, schema map[string]interface{}) {
+				require.Equal(t, "http://json-schema.org/draft-07/schema", schema["$schema"])
+				require.Equal(t, "#/definitions/Child", schema["$ref"])
+				definitions := schema["definitions"].(map[string]interface{})
+				require.Contains(t, definitions, "Child")
+				require.NotContains(t, definitions, "Parent")
+				child := definitions["Child"].(map[string]interface{})
+				// Merged anyOf must keep the type []interface{}
+				childAnyOf, ok := child["anyOf"].([]interface{})
+				require.True(t, ok)
+				require.Len(t, childAnyOf, 2)
+
+				// Merged child schema must have field1 inherited from parent in anyOf
+				firstMember := childAnyOf[0].(map[string]interface{})
+				require.Contains(t, firstMember["properties"].(map[string]interface{}), "field1")
+				require.Contains(t, firstMember["properties"].(map[string]interface{}), "field2")
+				require.Contains(t, firstMember["properties"].(map[string]interface{}), "field3")
 			},
 		},
 		{
