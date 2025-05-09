@@ -1,8 +1,0 @@
-{
-  "package_id": "mock.package3",
-  
-  "ramlx_version": "v0.1.0",
-  "depends": {
-    "mock@b2": "v0.0.0-20210101120000-abcdef123456"
-  }
-}

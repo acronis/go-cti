@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/acronis/go-raml"
 	"github.com/tidwall/gjson"
 )
 
@@ -23,22 +22,6 @@ type Entity struct {
 	TraitsSchema      json.RawMessage           `json:"traits_schema,omitempty"`
 	TraitsAnnotations map[GJsonPath]Annotations `json:"traits_annotations,omitempty"`
 	Traits            json.RawMessage           `json:"traits,omitempty"`
-	Annotations       map[GJsonPath]Annotations `json:"annotations,omitempty"`
-	SourceMap         SourceMap                 `json:"source_map,omitempty"`
-}
-
-// TODO: This is a temporary structure until proper model is outlined. Used by tests.
-type EntityStructured struct {
-	Final             bool                      `json:"final"`
-	Cti               string                    `json:"cti"`
-	DisplayName       string                    `json:"display_name,omitempty"`
-	Description       string                    `json:"description,omitempty"`
-	Dictionaries      map[string]interface{}    `json:"dictionaries,omitempty"` // Deprecated
-	Values            map[string]interface{}    `json:"values,omitempty"`
-	Schema            *raml.JSONSchema          `json:"schema,omitempty"`
-	TraitsSchema      *raml.JSONSchema          `json:"traits_schema,omitempty"`
-	TraitsAnnotations map[GJsonPath]Annotations `json:"traits_annotations,omitempty"`
-	Traits            map[string]interface{}    `json:"traits,omitempty"`
 	Annotations       map[GJsonPath]Annotations `json:"annotations,omitempty"`
 	SourceMap         SourceMap                 `json:"source_map,omitempty"`
 }

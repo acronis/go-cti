@@ -19,17 +19,17 @@ func Test_Add(t *testing.T) {
 	testcases := map[string]testcase{
 		"single dependency": {
 			pkgId:   "xyz.mock",
-			depends: map[string]string{"mock@b1": "v1.0.0"},
+			depends: map[string]string{"mock@b1": "1.0.0"},
 		},
 		"chained dependency": {
 			pkgId:   "xyz.mock",
-			depends: map[string]string{"mock@b2": "v0.0.0-20210101120000-abcdef123456"},
+			depends: map[string]string{"mock@b2": "0.0.0-20210101120000-abcdef123456"},
 		},
 		"multiple dependencies": {
 			pkgId: "xyz.mock",
 			depends: map[string]string{
-				"mock@b1": "v1.0.0",
-				"mock@b3": "v3.4.5",
+				"mock@b1": "1.0.0",
+				"mock@b3": "3.4.5",
 			},
 		},
 	}
