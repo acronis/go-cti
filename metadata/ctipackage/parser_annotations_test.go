@@ -1,74 +1,16 @@
 package ctipackage
 
 import (
-	"encoding/json"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/testsupp"
 	"github.com/acronis/go-stacktrace"
 	slogex "github.com/acronis/go-stacktrace/slogex"
 )
-
-func generateGoldenFiles(t *testing.T, baseDir string, collections map[string]metadata.Entities) {
-	t.Helper()
-
-	for fragmentPath, entities := range collections {
-		path := filepath.Join(baseDir, fragmentPath)
-		goldenPath := strings.TrimSuffix(path, filepath.Ext(path)) + "_golden.json"
-		err := func() error {
-			f, err := os.OpenFile(goldenPath, os.O_RDWR|os.O_CREATE, 0644)
-			require.NoError(t, err)
-
-			defer f.Close()
-			stat, err := f.Stat()
-			require.NoError(t, err)
-
-			if stat.Size() == 0 {
-				bytes, err := json.MarshalIndent(entities, "", "  ")
-				require.NoError(t, err)
-				_, err = f.Write(bytes)
-				return err
-			}
-
-			d := json.NewDecoder(f)
-			var golden []*metadata.EntityStructured
-			require.NoError(t, d.Decode(&golden))
-
-			var source []*metadata.EntityStructured
-			for _, entity := range entities {
-				bytes, err := json.Marshal(entity)
-				require.NoError(t, err)
-
-				var structuredEntity *metadata.EntityStructured
-				require.NoError(t, json.Unmarshal(bytes, &structuredEntity))
-				source = append(source, structuredEntity)
-			}
-			found := func() bool {
-				for _, entity := range golden {
-					for _, sourceEntity := range source {
-						if entity.Cti == sourceEntity.Cti {
-							require.Equal(t, entity, sourceEntity)
-							return true
-						}
-					}
-				}
-				return false
-			}()
-
-			require.True(t, found, "Failed to find corresponding CTI entity in %s", goldenPath)
-			return nil
-
-		}()
-		require.NoError(t, err)
-	}
-}
 
 func Test_ParseAnnotations(t *testing.T) {
 	testsupp.InitLog(t)
@@ -334,8 +276,6 @@ types:
 				slog.Error("Command failed", slogex.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
 				require.Error(t, err)
 			}
-
-			generateGoldenFiles(t, pkg.BaseDir, pkg.LocalRegistry.FragmentEntities)
 
 			require.EqualValues(t, tc.total, len(pkg.LocalRegistry.Index))
 			require.EqualValues(t, tc.types, len(pkg.LocalRegistry.Types))

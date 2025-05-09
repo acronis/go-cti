@@ -30,11 +30,11 @@ var propertiesToMerge = [...]string{
 	"uniqueItems", "minProperties", "maxProperties",
 }
 
-// MergeSchemas merges a source schema onto a target one, applying various validations,,
+// MergeSchemas merges a source schema onto a target one, applying various validations
 func MergeSchemas(source, target map[string]any) (map[string]any, error) {
 	mergedSchema, err := mergeObjects(source, target)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to merge schemas: %w", err)
 	}
 
 	return mergedSchema, nil
@@ -75,7 +75,7 @@ func mergeObjects(source, target map[string]any) (map[string]any, error) {
 	}
 
 	if required, err := mergeRequired(source, target); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to merge required fields: %w", err)
 	} else if len(required) > 0 {
 		target[requiredKey] = required
 	}
@@ -101,7 +101,7 @@ func overrideUnionType(source, target map[string]any) (map[string]any, error) {
 	for _, val := range target[anyOfKey].([]any) {
 		object, ok := val.(map[string]any)
 		if !ok {
-			return nil, errInvalidSchemaError
+			return nil, fmt.Errorf("anyOf value is not a map: %v", val)
 		}
 		if object[typeKey] == source[typeKey] || (object[typeKey] == nil && object[anyOfKey] == nil) {
 			return object, nil
@@ -112,41 +112,35 @@ func overrideUnionType(source, target map[string]any) (map[string]any, error) {
 }
 
 // mergeRequired merges two "required" arrays
-func mergeRequired(source, target map[string]any) ([]string, error) {
+func mergeRequired(source, target map[string]any) ([]any, error) {
 	// Use maps to simulate sets
 	requiredSet := make(map[any]struct{})
 
 	// Extract source required fields
-	if src, ok := source[requiredKey]; ok {
-		switch typedSrc := src.(type) {
-		case []any:
-			for _, item := range typedSrc {
-				requiredSet[item] = struct{}{}
-			}
-		case []string:
-			for _, item := range typedSrc {
-				requiredSet[item] = struct{}{}
-			}
+	if someRequired, ok := source[requiredKey]; ok {
+		required, ok := someRequired.([]any)
+		if !ok {
+			return nil, fmt.Errorf("source required field is not a list: %v", someRequired)
+		}
+		for _, item := range required {
+			requiredSet[item] = struct{}{}
 		}
 	}
 
 	// Extract target required fields
-	if trg, ok := target[requiredKey]; ok {
-		switch typedTrg := trg.(type) {
-		case []any:
-			for _, item := range typedTrg {
-				requiredSet[item] = struct{}{}
-			}
-		case []string:
-			for _, item := range typedTrg {
-				requiredSet[item] = struct{}{}
-			}
+	if someRequired, ok := target[requiredKey]; ok {
+		required, ok := someRequired.([]any)
+		if !ok {
+			return nil, fmt.Errorf("target required field is not a list: %v", someRequired)
+		}
+		for _, item := range required {
+			requiredSet[item] = struct{}{}
 		}
 	}
 
-	targetRequired := make([]string, 0, len(requiredSet))
+	targetRequired := make([]any, 0, len(requiredSet))
 	for key := range requiredSet {
-		targetRequired = append(targetRequired, key.(string))
+		targetRequired = append(targetRequired, key)
 	}
 
 	return targetRequired, nil
@@ -156,9 +150,18 @@ func mergeItems(source, target map[string]any) (map[string]any, error) {
 	if target[itemsKey] == nil {
 		target[itemsKey] = source[itemsKey]
 	} else {
-		mergedItems, err := mergeObjects(source[itemsKey].(map[string]any), target[itemsKey].(map[string]any))
+		sourceItems, ok := source[itemsKey].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("source items is not a map: %v", source[itemsKey])
+		}
+		targetItems, ok := target[itemsKey].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("target items is not a map: %v", target[itemsKey])
+		}
+
+		mergedItems, err := mergeObjects(sourceItems, targetItems)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to merge items: %w", err)
 		}
 		target[itemsKey] = mergedItems
 	}
@@ -169,22 +172,41 @@ func mergeProperties(source, target map[string]any) (map[string]any, error) {
 	if target[propertiesKey] == nil {
 		target[propertiesKey] = source[propertiesKey]
 	} else {
-		for key, property := range source[propertiesKey].(map[string]any) {
-			if targetProperty, ok := target[propertiesKey].(map[string]any)[key]; !ok {
-				propertyBytes, _ := json.Marshal(property)
+		sourceProperties, ok := source[propertiesKey].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("source properties is not a map: %v", source[propertiesKey])
+		}
+		targetProperties, ok := target[propertiesKey].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("target properties is not a map: %v", target[propertiesKey])
+		}
+
+		for key, someSourceProperty := range sourceProperties {
+			sourceProperty, ok := someSourceProperty.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("source property is not a map: %v", someSourceProperty)
+			}
+
+			if someTargetProperty, ok := targetProperties[key]; !ok {
+				// If property not in target, make a copy through json.Marshal/Unmarshal
+				// to avoid modifying the original object.
+				propertyBytes, _ := json.Marshal(sourceProperty)
 				var newProperty map[string]any
 				err := json.Unmarshal(propertyBytes, &newProperty)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to unmarshal property: %w", err)
 				}
-				target[propertiesKey].(map[string]any)[key] = newProperty
+				targetProperties[key] = newProperty
 			} else {
-				var err error
-				mergedProperty, err := mergeObjects(property.(map[string]any), targetProperty.(map[string]any))
-				if err != nil {
-					return nil, err
+				targetProperty, ok := someTargetProperty.(map[string]any)
+				if !ok {
+					return nil, fmt.Errorf("target property is not a map: %v", someTargetProperty)
 				}
-				target[propertiesKey].(map[string]any)[key] = mergedProperty
+				mergedProperty, err := mergeObjects(sourceProperty, targetProperty)
+				if err != nil {
+					return nil, fmt.Errorf("failed to merge properties: %w", err)
+				}
+				targetProperties[key] = mergedProperty
 			}
 		}
 	}
@@ -195,16 +217,34 @@ func mergeAnyOf(source, target map[string]any) (map[string]any, error) {
 	if target[anyOfKey] == nil {
 		target[anyOfKey] = source[anyOfKey]
 	} else {
-		anyOfs := make([]map[string]any, 0)
-		for _, schema := range source[anyOfKey].([]interface{}) {
-			for _, item := range target[anyOfKey].([]interface{}) {
-				if item.(map[string]any)[typeKey] == schema.(map[string]any)[typeKey] {
-					merged, err := mergeObjects(schema.(map[string]any), item.(map[string]any))
-					if err != nil {
-						return nil, err
-					}
-					anyOfs = append(anyOfs, merged)
+		sourceAnyOf, ok := source[anyOfKey].([]any)
+		if !ok {
+			return nil, fmt.Errorf("source anyOf is not a list: %v", source[anyOfKey])
+		}
+		targetAnyOf, ok := target[anyOfKey].([]any)
+		if !ok {
+			return nil, fmt.Errorf("target anyOf is not a list: %v", target[anyOfKey])
+		}
+
+		anyOfs := make([]any, 0)
+		for _, someSourceMember := range sourceAnyOf {
+			sourceMember, ok := someSourceMember.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("source anyOf member is not a map: %v", someSourceMember)
+			}
+			for _, someTargetMember := range targetAnyOf {
+				targetMember, ok := someTargetMember.(map[string]any)
+				if !ok {
+					return nil, fmt.Errorf("target anyOf member is not a map: %v", someTargetMember)
 				}
+				if sourceMember[typeKey] != targetMember[typeKey] {
+					continue
+				}
+				merged, err := mergeObjects(sourceMember, targetMember)
+				if err != nil {
+					return nil, fmt.Errorf("failed to merge anyOf: %w", err)
+				}
+				anyOfs = append(anyOfs, merged)
 			}
 		}
 		target[anyOfKey] = anyOfs
@@ -243,7 +283,7 @@ func ExtractSchemaDefinition(object map[string]any) (map[string]any, string, err
 
 	schema, ok := definitions[refType].(map[string]any)
 	if !ok || schema == nil {
-		return nil, "", fmt.Errorf("schema does not have $ref:%s", refType)
+		return nil, "", fmt.Errorf("schema does not have $ref: %s", refType)
 	}
 
 	return schema, refType, nil
@@ -272,7 +312,7 @@ func ValidateSchemaProperty(property map[string]any, name string) error {
 		}
 		for key, p := range properties {
 			if err := ValidateSchemaProperty(p.(map[string]any), fmt.Sprintf("%s.%s", name, key)); err != nil {
-				return err
+				return fmt.Errorf("property %s, of type object, is invalid: %w", name, err)
 			}
 		}
 	case typ == "array":
@@ -282,7 +322,7 @@ func ValidateSchemaProperty(property map[string]any, name string) error {
 			return fmt.Errorf("property %s, of type array, is missing 'items' field", name)
 		}
 		if err := ValidateSchemaProperty(p, name); err != nil {
-			return err
+			return fmt.Errorf("property %s, of type array, is invalid: %w", name, err)
 		}
 	case !exists:
 		// No type presumably means the p is an "anyOf"
@@ -293,7 +333,7 @@ func ValidateSchemaProperty(property map[string]any, name string) error {
 		}
 		for i, p := range options {
 			if err := ValidateSchemaProperty(p.(map[string]any), fmt.Sprintf("%s[%d]", name, i)); err != nil {
-				return err
+				return fmt.Errorf("property %s, of type anyOf, is invalid: %w", name, err)
 			}
 		}
 	}
@@ -301,33 +341,54 @@ func ValidateSchemaProperty(property map[string]any, name string) error {
 	return nil
 }
 
-func fixSelfReferences(schema map[string]any, sourceRefType string, refsToReplace map[string]struct{}) {
+func fixSelfReferences(schema map[string]any, sourceRefType string, refsToReplace map[string]struct{}) error {
 	if ref, ok := schema[refKey].(string); ok {
-		if _, ok := refsToReplace[ref]; ok {
+		if _, ok = refsToReplace[ref]; ok {
 			schema[refKey] = sourceRefType
 		}
 	}
 	switch {
 	case schema[itemsKey] != nil:
-		if items, ok := schema[itemsKey].(map[string]any); ok {
-			fixSelfReferences(items, sourceRefType, refsToReplace)
+		items, ok := schema[itemsKey].(map[string]any)
+		if !ok {
+			return fmt.Errorf("items is not a map: %v", schema[itemsKey])
+		}
+		if err := fixSelfReferences(items, sourceRefType, refsToReplace); err != nil {
+			return fmt.Errorf("failed to fix self references in items: %w", err)
 		}
 	case schema[propertiesKey] != nil:
-		for _, property := range schema[propertiesKey].(map[string]any) {
-			if propertyMap, ok := property.(map[string]any); ok {
-				fixSelfReferences(propertyMap, sourceRefType, refsToReplace)
+		properties, ok := schema[propertiesKey].(map[string]any)
+		if !ok {
+			return fmt.Errorf("properties is not a map: %v", schema[propertiesKey])
+		}
+		for _, property := range properties {
+			v, ok := property.(map[string]any)
+			if !ok {
+				return fmt.Errorf("property is not a map: %v", property)
+			}
+			if err := fixSelfReferences(v, sourceRefType, refsToReplace); err != nil {
+				return fmt.Errorf("failed to fix self references in properties: %w", err)
 			}
 		}
 	case schema[anyOfKey] != nil:
-		for _, anyOf := range schema[anyOfKey].([]any) {
-			if anyOfMap, ok := anyOf.(map[string]any); ok {
-				fixSelfReferences(anyOfMap, sourceRefType, refsToReplace)
+		anyOfs, ok := schema[anyOfKey].([]any)
+		if !ok {
+			return fmt.Errorf("anyOf is not a list: %v", schema[anyOfKey])
+		}
+		for _, anyOf := range anyOfs {
+			v, ok := anyOf.(map[string]any)
+			if !ok {
+				return fmt.Errorf("anyOf is not a map: %v", anyOf)
+			}
+			if err := fixSelfReferences(v, sourceRefType, refsToReplace); err != nil {
+				return fmt.Errorf("failed to fix self references in anyOf: %w", err)
 			}
 		}
 	}
+	return nil
 }
 
-func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]interface{}, error) {
+func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]any, error) {
 	root := cti
 
 	entity, ok := r.Index[root]
@@ -336,15 +397,15 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 	}
 	var childRootSchema map[string]any
 	if err := json.Unmarshal([]byte(entity.Schema), &childRootSchema); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
 	childSchema, refType, err := ExtractSchemaDefinition(childRootSchema)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to extract schema definition: %w", err)
 	}
 
-	definitions := map[string]interface{}{}
-	for k, v := range childRootSchema["definitions"].(map[string]any) {
+	definitions := map[string]any{}
+	for k, v := range childRootSchema[definitionsKey].(map[string]any) {
 		if k == refType {
 			continue
 		}
@@ -366,28 +427,28 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 			return nil, fmt.Errorf("failed to find cti parent %s", parentCti)
 		}
 		var parentRootSchema map[string]any
-		if err := json.Unmarshal([]byte(entity.Schema), &parentRootSchema); err != nil {
-			return nil, err
+		if err = json.Unmarshal([]byte(entity.Schema), &parentRootSchema); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal parent schema: %w", err)
 		}
 		parentSchema, parentRefType, err := ExtractSchemaDefinition(parentRootSchema)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to extract parent schema definition: %w", err)
 		}
 		refsToReplace["#/definitions/"+parentRefType] = struct{}{}
 
 		childSchema, err = MergeSchemas(childSchema, parentSchema)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to merge schemas: %w", err)
 		}
 
-		for k, v := range parentRootSchema["definitions"].(map[string]any) {
+		for k, v := range parentRootSchema[definitionsKey].(map[string]any) {
 			if k == parentRefType {
 				continue
 			}
 			if definition, ok := definitions[k]; ok {
 				definition, err = MergeSchemas(v.(map[string]any), definition.(map[string]any))
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to merge definitions: %w", err)
 				}
 				definitions[k] = definition
 			} else {
@@ -396,13 +457,17 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]i
 		}
 	}
 	definitions[refType] = childSchema
-	for _, v := range definitions {
-		if definition, ok := v.(map[string]any); ok {
-			fixSelfReferences(definition, origSelfRefType, refsToReplace)
+	for _, someDefinition := range definitions {
+		definition, ok := someDefinition.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("definition is not a map: %v", someDefinition)
+		}
+		if err = fixSelfReferences(definition, origSelfRefType, refsToReplace); err != nil {
+			return nil, fmt.Errorf("failed to fix self references: %w", err)
 		}
 	}
 
-	outSchema := map[string]interface{}{
+	outSchema := map[string]any{
 		"$schema":     "http://json-schema.org/draft-07/schema",
 		"$ref":        origSelfRefType,
 		"definitions": definitions,

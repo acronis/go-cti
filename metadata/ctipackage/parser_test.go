@@ -163,7 +163,9 @@ types:
 				pkgId:    "x.y",
 				entities: []string{"non_existent_file.raml"},
 			},
-			expectedError: "non_existent_file.raml: The system cannot find the file specified.",
+			// Win error: non_existent_file.raml: no such file or directory
+			// POSIX error: non_existent_file.raml: The system cannot find the file specified.
+			expectedError: "non_existent_file.raml",
 		},
 	}
 

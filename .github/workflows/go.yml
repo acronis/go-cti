@@ -40,7 +40,7 @@ jobs:
       continue-on-error: true
 
   testGo122:
-    name: Test metadate module
+    name: Test metadata module
     runs-on: ubuntu-latest
     defaults:
       run:
