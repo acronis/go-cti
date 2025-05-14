@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 func TestParseIdentifier(t *testing.T) {
@@ -99,18 +98,18 @@ func TestParseIdentifier(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotExp, gotErr := ParseIdentifier(tt.input)
 			if tt.wantErrMsg != "" {
-				require.EqualError(t, gotErr, tt.wantErrMsg)
+				assertEqualError(t, gotErr, tt.wantErrMsg)
 				return
 			}
-			require.NoError(t, gotErr)
+			assertNoError(t, gotErr)
 			gotExp.parser = nil
-			require.EqualValues(t, tt.wantExp, gotExp)
+			assertEqual(t, tt.wantExp, gotExp)
 
 			wantExpStr := tt.input
 			if tt.wantExpStr != "" {
 				wantExpStr = tt.wantExpStr
 			}
-			require.Equal(t, wantExpStr, tt.wantExp.String())
+			assertEqual(t, wantExpStr, tt.wantExp.String())
 		})
 	}
 }
@@ -201,18 +200,18 @@ func TestParseAttribute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotExp, gotErr := ParseAttributeSelector(tt.input)
 			if tt.wantErrMsg != "" {
-				require.EqualError(t, gotErr, tt.wantErrMsg)
+				assertEqualError(t, gotErr, tt.wantErrMsg)
 				return
 			}
-			require.NoError(t, gotErr)
+			assertNoError(t, gotErr)
 			gotExp.parser = nil
-			require.EqualValues(t, tt.wantExp, gotExp)
+			assertEqual(t, tt.wantExp, gotExp)
 
 			wantExpStr := tt.input
 			if tt.wantExpStr != "" {
 				wantExpStr = tt.wantExpStr
 			}
-			require.Equal(t, wantExpStr, tt.wantExp.String())
+			assertEqual(t, wantExpStr, tt.wantExp.String())
 		})
 	}
 }
@@ -295,18 +294,18 @@ func TestParseQuery(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotExp, gotErr := ParseQuery(tt.input)
 			if tt.wantErrMsg != "" {
-				require.EqualError(t, gotErr, tt.wantErrMsg)
+				assertEqualError(t, gotErr, tt.wantErrMsg)
 				return
 			}
-			require.NoError(t, gotErr)
+			assertNoError(t, gotErr)
 			gotExp.parser = nil
-			require.EqualValues(t, tt.wantExp, gotExp)
+			assertEqual(t, tt.wantExp, gotExp)
 
 			wantExpStr := tt.input
 			if tt.wantExpStr != "" {
 				wantExpStr = tt.wantExpStr
 			}
-			require.Equal(t, wantExpStr, tt.wantExp.String())
+			assertEqual(t, wantExpStr, tt.wantExp.String())
 		})
 	}
 }
@@ -430,18 +429,18 @@ func TestParseReference(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotExp, gotErr := ParseReference(tt.input)
 			if tt.wantErrMsg != "" {
-				require.EqualError(t, gotErr, tt.wantErrMsg)
+				assertEqualError(t, gotErr, tt.wantErrMsg)
 				return
 			}
-			require.NoError(t, gotErr)
+			assertNoError(t, gotErr)
 			gotExp.parser = nil
-			require.EqualValues(t, tt.wantExp, gotExp)
+			assertEqual(t, tt.wantExp, gotExp)
 
 			wantExpStr := tt.input
 			if tt.wantExpStr != "" {
 				wantExpStr = tt.wantExpStr
 			}
-			require.Equal(t, wantExpStr, tt.wantExp.String())
+			assertEqual(t, wantExpStr, tt.wantExp.String())
 		})
 	}
 }
@@ -1225,29 +1224,30 @@ func TestParser_Parse(t *testing.T) {
 			wantExpStr: `cti.a.p.gr.namespace.v1.0~e64db2eb-1d7c-4d66-b610-5c214f5a0cf4[attr_1="val_1"]`,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotExp, gotErr := parser.Parse(tt.input)
 			if tt.wantErrMsg != "" {
-				require.EqualError(t, gotErr, tt.wantErrMsg)
+				assertEqualError(t, gotErr, tt.wantErrMsg)
 				return
 			}
-			require.NoError(t, gotErr)
+			assertNoError(t, gotErr)
 			tt.wantExp.parser = parser
-			require.EqualValues(t, tt.wantExp, gotExp)
+			assertEqual(t, tt.wantExp, gotExp)
 
 			wantExpStr := tt.input
 			if tt.wantExpStr != "" {
 				wantExpStr = tt.wantExpStr
 			}
-			require.Equal(t, wantExpStr, tt.wantExp.String())
+			assertEqual(t, wantExpStr, tt.wantExp.String())
 		})
 	}
 }
 
 func TestMustParse(t *testing.T) {
-	require.PanicsWithError(t, "not CTI expression", func() {
-		MustParse("foo.bar")
+	assertPanicsWithError(t, "not CTI expression", func() {
+		_ = MustParse("")
 	})
 }
 

@@ -8,8 +8,6 @@ package cti
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestExpression_InterpolateDynamicParameterValues(t *testing.T) {
@@ -126,18 +124,18 @@ func TestExpression_InterpolateDynamicParameterValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			exp, parseErr := p.Parse(tt.input)
-			require.NoError(t, parseErr)
+			assertNoError(t, parseErr)
 
-			require.Equal(t, tt.wantHasDynamicParams, exp.HasDynamicParameters())
+			assertEqual(t, tt.wantHasDynamicParams, exp.HasDynamicParameters())
 
 			interpolatedExp, interpolateErr := exp.InterpolateDynamicParameterValues(tt.dynamicValues)
 			if tt.wantInterpolateErrMsg != "" {
-				require.ErrorContains(t, interpolateErr, tt.wantInterpolateErrMsg)
+				assertErrorContains(t, interpolateErr, tt.wantInterpolateErrMsg)
 				return
 			}
-			require.NoError(t, interpolateErr)
+			assertNoError(t, interpolateErr)
 
-			require.Equal(t, tt.wantExpression, interpolatedExp.String())
+			assertEqual(t, tt.wantExpression, interpolatedExp.String())
 		})
 	}
 }
@@ -405,10 +403,10 @@ func TestExpression_Match(t *testing.T) {
 			} else {
 				exp1, parseErr = p.Parse(tt.expression1)
 			}
-			require.NoError(t, parseErr)
+			assertNoError(t, parseErr)
 
 			exp2, parseErr := p.Parse(tt.expression2)
-			require.NoError(t, parseErr)
+			assertNoError(t, parseErr)
 
 			var (
 				matchRes bool
@@ -421,11 +419,11 @@ func TestExpression_Match(t *testing.T) {
 				matchRes, matchErr = exp1.Match(exp2)
 			}
 			if tt.wantMatchErrMsg != "" {
-				require.ErrorContains(t, matchErr, tt.wantMatchErrMsg)
+				assertErrorContains(t, matchErr, tt.wantMatchErrMsg)
 				return
 			}
-			require.NoError(t, matchErr)
-			require.Equal(t, tt.wantMatch, matchRes)
+			assertNoError(t, matchErr)
+			assertEqual(t, tt.wantMatch, matchRes)
 		})
 	}
 }
@@ -474,14 +472,14 @@ func TestExpression_QueryAttributes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			expr, parseErr := p.Parse(tt.expression)
-			require.NoError(t, parseErr)
+			assertNoError(t, parseErr)
 
-			require.Equal(t, tt.hasQueryAttributes, expr.HasQueryAttributes())
+			assertEqual(t, tt.hasQueryAttributes, expr.HasQueryAttributes())
 
 			attr, exist := expr.GetQueryAttributeValue(tt.queryAttributeName)
-			require.Equal(t, tt.isAttributeExist, exist)
+			assertEqual(t, tt.isAttributeExist, exist)
 			if exist {
-				require.Equal(t, tt.isAttributeExpression, attr.IsExpression())
+				assertEqual(t, tt.isAttributeExpression, attr.IsExpression())
 			}
 		})
 	}
@@ -522,7 +520,7 @@ func TestVersion_String(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.expected, tc.version.String())
+			assertEqual(t, tc.expected, tc.version.String())
 		})
 	}
 }
