@@ -47,21 +47,21 @@ func TestCheckPackagesCompatibility(t *testing.T) {
 	checker := &CompatibilityChecker{}
 
 	// Check compatibility between the packages
-	err = checker.CheckPackagesCompatibility(oldPkg, newPkg)
+	ok := checker.CheckPackagesCompatibility(oldPkg, newPkg)
 
 	// We expect an error because the type of 'val' property changed from string to integer
-	if err == nil {
+	if ok {
 		t.Errorf("Expected compatibility check to fail, but it succeeded")
 	} else {
-		t.Logf("Compatibility check failed as expected: %v", err)
+		t.Logf("Compatibility check failed as expected: %v", checker.Messages)
 	}
 
 	// Test with nil packages
-	if err := checker.CheckPackagesCompatibility(nil, newPkg); err == nil {
+	if ok = checker.CheckPackagesCompatibility(nil, newPkg); ok {
 		t.Errorf("Expected error when old package is nil, but got nil")
 	}
 
-	if err := checker.CheckPackagesCompatibility(oldPkg, nil); err == nil {
+	if ok = checker.CheckPackagesCompatibility(oldPkg, nil); ok {
 		t.Errorf("Expected error when new package is nil, but got nil")
 	}
 
@@ -74,11 +74,11 @@ func TestCheckPackagesCompatibility(t *testing.T) {
 		t.Fatalf("Failed to read unparsed package: %v", err)
 	}
 
-	if err := checker.CheckPackagesCompatibility(unparsedPkg, newPkg); err == nil {
+	if ok = checker.CheckPackagesCompatibility(unparsedPkg, newPkg); ok {
 		t.Errorf("Expected error when old package is not parsed, but got nil")
 	}
 
-	if err := checker.CheckPackagesCompatibility(oldPkg, unparsedPkg); err == nil {
+	if ok = checker.CheckPackagesCompatibility(oldPkg, unparsedPkg); ok {
 		t.Errorf("Expected error when new package is not parsed, but got nil")
 	}
 }
@@ -117,10 +117,10 @@ func TestCheckPackagesCompatibilityWithSamePackages(t *testing.T) {
 	checker := &CompatibilityChecker{}
 
 	// Check compatibility between the same packages
-	err = checker.CheckPackagesCompatibility(oldPkg1, oldPkg2)
+	ok := checker.CheckPackagesCompatibility(oldPkg1, oldPkg2)
 
 	// We expect no error because the packages are identical
-	if err != nil {
+	if !ok {
 		t.Errorf("Expected compatibility check to succeed, but it failed: %v", err)
 	} else {
 		t.Logf("Compatibility check succeeded as expected")

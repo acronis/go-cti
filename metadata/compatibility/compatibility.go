@@ -68,16 +68,19 @@ type CompatibilityChecker struct {
 //   - As a comment
 // TODO: Make separate script for checking compatibility and making and sending report in CI
 
-func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipackage.Package) error {
+func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipackage.Package) bool {
 	if oldPkg == nil || newPkg == nil {
-		return errors.New("packages cannot be nil")
+		cc.addMessage(SeverityError, "packages cannot be nil")
+		return false
 	}
 	if !oldPkg.Parsed || !newPkg.Parsed {
-		return errors.New("package must be parsed before compatibility check")
+		cc.addMessage(SeverityError, "packages must be parsed")
+		return false
 	}
 
 	if oldPkg.Index.PackageID != newPkg.Index.PackageID {
-		return fmt.Errorf("package ID mismatch: %s vs %s", oldPkg.Index.PackageID, newPkg.Index.PackageID)
+		cc.addMessage(SeverityError, fmt.Sprintf("package IDs do not match: %s vs %s", oldPkg.Index.PackageID, newPkg.Index.PackageID))
+		return false
 	}
 
 	// Check compatibility of entities that are present in both packages.
@@ -107,55 +110,56 @@ func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipa
 		}
 		cc.CheckEntitiesCompatibility(previousMinorVersionObject, newObject)
 	}
-	return nil
+	return len(cc.Messages) == 0
 }
 
-func (cc *CompatibilityChecker) CheckEntitiesCompatibility(oldObject, newObject metadata.Entity) {
+func (cc *CompatibilityChecker) CheckEntitiesCompatibility(oldObject, newObject metadata.Entity) bool {
 	if oldObject == nil || newObject == nil {
 		cc.addMessage(SeverityError, "objects cannot be nil")
-		return
+		return false
 	}
 	switch oldEntity := oldObject.(type) {
 	case *metadata.EntityType:
 		newEntity, ok := newObject.(*metadata.EntityType)
 		if !ok {
 			cc.addMessage(SeverityError, fmt.Sprintf("entity %s is not a valid EntityType", oldEntity.Cti))
-			return
+			return false
 		}
 		if err := cc.CheckJsonSchemaCompatibility(oldEntity.Schema, newEntity.Schema); err != nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("failed to check schema compatibility: %v", err))
-			return
+			return false
 		}
 		if err := cc.CheckJsonSchemaCompatibility(oldEntity.TraitsSchema, newEntity.TraitsSchema); err != nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("failed to check traits schema compatibility: %v", err))
-			return
+			return false
 		}
 		if err := cc.CheckValuesCompatibility(oldEntity.Traits, newEntity.Traits); err != nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("failed to check traits compatibility: %v", err))
-			return
+			return false
 		}
 		if err := cc.CheckAnnotationsCompatibility(oldEntity.TraitsAnnotations, newEntity.TraitsAnnotations); err != nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("failed to check traits annotations compatibility: %v", err))
-			return
+			return false
 		}
 	case *metadata.EntityInstance:
 		newEntity, ok := newObject.(*metadata.EntityInstance)
 		if !ok {
 			cc.addMessage(SeverityError, fmt.Sprintf("entity %s is not a valid EntityInstance", oldEntity.Cti))
-			return
+			return false
 		}
 		if err := cc.CheckValuesCompatibility(oldEntity.Values, newEntity.Values); err != nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("failed to check values compatibility: %v", err))
-			return
+			return false
 		}
 	default:
 		cc.addMessage(SeverityError, fmt.Sprintf("invalid entity type: %T", oldEntity))
-		return
+		return false
 	}
 	if err := cc.CheckAnnotationsCompatibility(oldObject.GetAnnotations(), newObject.GetAnnotations()); err != nil {
 		cc.addMessage(SeverityError, fmt.Sprintf("failed to check annotations compatibility: %v", err))
-		return
+		return false
 	}
+	return true
 }
 
 func (cc *CompatibilityChecker) CheckAnnotationsCompatibility(oldAnnotations, newAnnotations map[metadata.GJsonPath]metadata.Annotations) error {
