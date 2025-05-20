@@ -60,9 +60,148 @@ type CompatibilityChecker struct {
 	Messages []Message
 }
 
-// TODO: Report formatter
-// TODO: Template for "Validation failed" comment
-// TODO: Template for "Diff report"
+// ValidationSummaryTemplate returns a template for when validation fails.
+// It provides a concise summary of why validation failed.
+func (cc *CompatibilityChecker) ValidationSummaryTemplate() string {
+	var sb strings.Builder
+	sb.WriteString("## Validation Failed\n\n")
+
+	// Count errors, warnings, and info messages
+	var errorCount, warningCount, infoCount int
+	for _, msg := range cc.Messages {
+		switch msg.Severity {
+		case SeverityError:
+			errorCount++
+		case SeverityWarning:
+			warningCount++
+		case SeverityInfo:
+			infoCount++
+		}
+	}
+
+	// Write summary
+	sb.WriteString("### Summary\n\n")
+	sb.WriteString(fmt.Sprintf("- **Errors:** %d\n", errorCount))
+	sb.WriteString(fmt.Sprintf("- **Warnings:** %d\n", warningCount))
+	sb.WriteString(fmt.Sprintf("- **Info:** %d\n", infoCount))
+	sb.WriteString("\n")
+
+	// Write first few errors if any
+	if errorCount > 0 {
+		sb.WriteString("### Critical Issues\n\n")
+		count := 0
+		for _, msg := range cc.Messages {
+			if msg.Severity == SeverityError {
+				sb.WriteString(fmt.Sprintf("- %s\n", msg.Message))
+				count++
+				if count >= 5 && errorCount > 5 {
+					sb.WriteString(fmt.Sprintf("- ... and %d more errors\n", errorCount-5))
+					break
+				}
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("Please see the detailed diff report for more information.\n")
+
+	return sb.String()
+}
+
+// DiffReportTemplate returns a detailed diff report of the differences between the two packages.
+func (cc *CompatibilityChecker) DiffReportTemplate() string {
+	var sb strings.Builder
+	sb.WriteString("# Compatibility Diff Report\n\n")
+
+	// Add summary section
+	sb.WriteString("## Summary\n\n")
+
+	// Count errors, warnings, and info messages
+	var errorCount, warningCount, infoCount int
+	for _, msg := range cc.Messages {
+		switch msg.Severity {
+		case SeverityError:
+			errorCount++
+		case SeverityWarning:
+			warningCount++
+		case SeverityInfo:
+			infoCount++
+		}
+	}
+
+	// Write summary counts
+	sb.WriteString(fmt.Sprintf("- **Errors:** %d\n", errorCount))
+	sb.WriteString(fmt.Sprintf("- **Warnings:** %d\n", warningCount))
+	sb.WriteString(fmt.Sprintf("- **Info:** %d\n", infoCount))
+	sb.WriteString("\n")
+
+	// Add new entities section if any
+	if len(cc.NewEntities) > 0 {
+		sb.WriteString("## New Entities\n\n")
+		for _, entity := range cc.NewEntities {
+			sb.WriteString(fmt.Sprintf("- `%s`\n", entity.GetCti()))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Add removed entities section if any
+	if len(cc.RemovedEntities) > 0 {
+		sb.WriteString("## Removed Entities\n\n")
+		for _, entity := range cc.RemovedEntities {
+			sb.WriteString(fmt.Sprintf("- `%s`\n", entity.GetCti()))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Add modified entities section if any
+	if len(cc.ModifiedEntities) > 0 {
+		sb.WriteString("## Modified Entities\n\n")
+		for _, diff := range cc.ModifiedEntities {
+			sb.WriteString(fmt.Sprintf("### `%s`\n\n", diff.Entity.GetCti()))
+			for _, msg := range diff.Messages {
+				sb.WriteString(fmt.Sprintf("- %s\n", msg))
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	// Add detailed messages section
+	sb.WriteString("## Detailed Messages\n\n")
+
+	// Group messages by severity
+	if errorCount > 0 {
+		sb.WriteString("### Errors\n\n")
+		for _, msg := range cc.Messages {
+			if msg.Severity == SeverityError {
+				sb.WriteString(fmt.Sprintf("- %s\n", msg.Message))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	if warningCount > 0 {
+		sb.WriteString("### Warnings\n\n")
+		for _, msg := range cc.Messages {
+			if msg.Severity == SeverityWarning {
+				sb.WriteString(fmt.Sprintf("- %s\n", msg.Message))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	if infoCount > 0 {
+		sb.WriteString("### Info\n\n")
+		for _, msg := range cc.Messages {
+			if msg.Severity == SeverityInfo {
+				sb.WriteString(fmt.Sprintf("- %s\n", msg.Message))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
 // TODO: To think how to attach the report to PR
 //   - With dedicated file
 //   - As a comment
