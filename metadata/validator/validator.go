@@ -1,17 +1,17 @@
 package validator
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/collector"
 	"github.com/acronis/go-cti/metadata/merger"
 	"github.com/acronis/go-stacktrace"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 const (
@@ -32,9 +32,9 @@ func MakeMetadataValidator(r *collector.MetadataRegistry) *MetadataValidator {
 
 func (v *MetadataValidator) ValidateAll() error {
 	st := stacktrace.StackTrace{}
-	for _, entity := range v.registry.Index {
-		if err := v.Validate(entity); err != nil {
-			_ = st.Append(stacktrace.NewWrapped("validation failed", err, stacktrace.WithInfo("cti", entity.Cti), stacktrace.WithType("validation")))
+	for _, object := range v.registry.Index {
+		if err := v.Validate(object); err != nil {
+			_ = st.Append(stacktrace.NewWrapped("validation failed", err, stacktrace.WithInfo("cti", object.GetCti()), stacktrace.WithType("validation")))
 		}
 	}
 	if len(st.List) > 0 {
@@ -44,134 +44,101 @@ func (v *MetadataValidator) ValidateAll() error {
 	return nil
 }
 
-func (v *MetadataValidator) Validate(current *metadata.Entity) error {
-	// TODO: Pre-parse all CTIs into expressions
-	currentCtiExpr, err := v.ctiParser.Parse(current.Cti)
-	if err != nil {
-		return fmt.Errorf("%s %s", current.Cti, err.Error())
+func (v *MetadataValidator) Validate(object metadata.Entity) error {
+	if err := v.validateBaseProperties(object); err != nil {
+		return fmt.Errorf("%s %s", object.GetCti(), err.Error())
 	}
+	switch entity := object.(type) {
+	case *metadata.EntityType:
+		if err := v.ValidateType(entity); err != nil {
+			return fmt.Errorf("%s %s", object.GetCti(), err.Error())
+		}
+	case *metadata.EntityInstance:
+		if err := v.ValidateInstance(entity); err != nil {
+			return fmt.Errorf("%s %s", object.GetCti(), err.Error())
+		}
+	default:
+		return fmt.Errorf("%s: invalid type", object.GetCti())
+	}
+	return nil
+}
 
-	parentCti := metadata.GetParentCti(current.Cti)
-	if parentCti == current.Cti {
-		if current.Schema != nil {
-			schema := []byte(current.Schema)
-			if err := validateBytesJsonSchema(schema); err != nil {
-				return fmt.Errorf("%s contains invalid schema: %s", current.Cti, err)
-			}
-		}
-		if current.TraitsSchema != nil {
-			schema := []byte(current.TraitsSchema)
-			if err := validateBytesJsonSchema(schema); err != nil {
-				return fmt.Errorf("%s contains invalid schema: %s", current.Cti, err)
-			}
-		}
-		return nil
-	}
-
-	parent, ok := v.registry.Index[parentCti]
-	if !ok {
-		return fmt.Errorf("%s failed to find parent type", current.Cti)
-	}
-	if parent.Final && current.Values == nil {
-		return fmt.Errorf("%s is derived from final type", current.Cti)
-	}
-	// TODO: Need to memoize validated schemas and values for better performance
-	if current.Values != nil {
-		if parent.Schema == nil {
-			return fmt.Errorf("%s instance is derived from non-type CTI", current.Cti)
-		}
-		mergedSchema, err := merger.GetMergedCtiSchema(parent.Cti, v.registry)
+func (v *MetadataValidator) validateBaseProperties(object metadata.Entity) error {
+	currentCti := object.GetCti()
+	parent := object.Parent()
+	if parent != nil {
+		parentCti := parent.GetCti()
+		ok, err := parent.Expression().Match(*object.Expression())
 		if err != nil {
-			return err
+			return fmt.Errorf("%s %s", currentCti, err.Error())
 		}
-		values := []byte(current.Values)
-		if err := validateGoJsonValues(mergedSchema, values); err != nil {
-			return fmt.Errorf("%s contains invalid values: %s", current.Cti, err)
-		}
-		if parent.Annotations != nil {
-			// TODO: Ensure correct cti.id field is used
-			for key, annotation := range parent.Annotations {
-				// if ctis := annotation.ReadCti(); len(ctis) > 0 {
-				// 	for _, id := range ctis {
-				// 		fmt.Printf("key: [%s][cti.cti]: %s", key, id)
-				// 	}
-				// }
-				if parent, err := v.ctiParser.Parse(parent.Cti); err == nil {
-					if ok, err := parent.Match(currentCtiExpr); !ok {
-						if err != nil {
-							return fmt.Errorf("%s: invalid inheritance. Reason: %s", current.Cti, err.Error())
-						}
-
-						return fmt.Errorf("%s: invalid inheritance", current.Cti)
-					}
-				}
-				if ref := annotation.ReadReference(); ref != "" && ref != TrueStr {
-					value := key.GetValue(values)
-					if ref, err := v.ctiParser.Parse(ref); err == nil {
-						for _, val := range value.Array() {
-							err := v.matchCti(&ref, val.Str)
-							if err != nil {
-								return fmt.Errorf("%s@%s: %s in %s", current.Cti, key, err.Error(), val.Str)
-							}
-						}
-					} else {
-						return fmt.Errorf("%s@%s: failed to parse cti.reference. Reason: %s", current.Cti, key, err.Error())
-					}
-				}
-				// if l10n := annotation.L10N; l10n != nil {
-				// 	fmt.Printf("key: [%s][cti.l10n]: %t\n", key, *l10n)
-				// }
-			}
-		} else {
-			return fmt.Errorf("%s does not have any annotations", current.Cti)
-		}
-	}
-	if current.Traits != nil {
-		id := metadata.GetBaseCti(parentCti)
-		base, ok := v.registry.Index[id]
 		if !ok {
-			return fmt.Errorf("%s failed to find base type", current.Cti)
-		}
-		// FIXME: Need to obtain traits from the parent
-		if base.TraitsSchema == nil {
-			return fmt.Errorf("%s type is derived from type that does not define traits", current.Cti)
-		}
-		schema, values := []byte(base.TraitsSchema), []byte(current.Traits)
-		if err := validateBytesJsonValues(schema, values); err != nil {
-			return fmt.Errorf("%s contains invalid values: %s", current.Cti, err)
+			return fmt.Errorf("%s doesn't match %s", currentCti, parentCti)
 		}
 	}
-	if current.Schema != nil {
-		schema := []byte(current.Schema)
-		if err := validateBytesJsonSchema(schema); err != nil {
-			return fmt.Errorf("%s contains invalid schema: %s", current.Cti, err)
+	return nil
+}
+
+func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
+	if entity == nil {
+		return errors.New("entity is nil")
+	}
+
+	if entity.Schema == nil {
+		return fmt.Errorf("%s type has no schema", entity.Cti)
+	}
+
+	currentCti := entity.GetCti()
+	parent := entity.Parent()
+	if parent != nil {
+		parentCti := parent.GetCti()
+		if parent.IsFinal() {
+			return fmt.Errorf("%s is derived from final type %s", currentCti, parentCti)
 		}
 	}
-	if current.TraitsSchema != nil {
-		schema := []byte(current.TraitsSchema)
-		if err := validateBytesJsonSchema(schema); err != nil {
-			return fmt.Errorf("%s contains invalid schema: %s", current.Cti, err)
+
+	if err := validateJSONSchema(entity.Schema); err != nil {
+		return fmt.Errorf("%s contains invalid schema: %s", entity.Cti, err)
+	}
+
+	if entity.Traits != nil {
+		if parent == nil {
+			return fmt.Errorf("%s type has no parent type", entity.Cti)
+		}
+		parentTraitsSchema := parent.FindTraitsSchemaInChain()
+		if parentTraitsSchema == nil {
+			return fmt.Errorf("%s type is derived from type that does not define traits schema", entity.Cti)
+		}
+		if err := validateJSONValues(parentTraitsSchema, entity.Traits); err != nil {
+			return fmt.Errorf("%s contains invalid values: %w", entity.Cti, err)
 		}
 	}
-	if current.Annotations != nil {
-		for key, annotation := range current.Annotations {
+
+	if entity.TraitsSchema != nil {
+		if err := validateJSONSchema(entity.TraitsSchema); err != nil {
+			return fmt.Errorf("%s contains invalid schema: %w", entity.Cti, err)
+		}
+	}
+
+	if entity.Annotations != nil {
+		for key, annotation := range entity.Annotations {
 			currentRef := annotation.ReadReference()
 			if currentRef == "" {
 				continue
 			}
-			parentAnnotations := v.FindInheritedAnnotation(current.Cti, key, func(a *metadata.Annotations) bool { return a.Reference != nil })
+			parentAnnotations := entity.FindAnnotationsKeyInChain(key)
 			if parentAnnotations == nil {
 				if currentRef == TrueStr {
 					continue
 				}
 				if _, err := v.ctiParser.Parse(currentRef); err != nil {
-					return fmt.Errorf("%s@%s: %s", current.Cti, key, err.Error())
+					return fmt.Errorf("%s@%s: %s", entity.Cti, key, err.Error())
 				}
 				continue
 			}
 			parentRef := parentAnnotations.ReadReference()
 			if parentRef != TrueStr && currentRef == TrueStr {
-				return fmt.Errorf("%s@%s: parent cti.reference defines a specific CTI, but child specifies true", current.Cti, key)
+				return fmt.Errorf("%s@%s: parent cti.reference defines a specific CTI, but child specifies true", entity.Cti, key)
 			}
 			// If either the parent or the current reference is true, then we don't need to validate the reference
 			if currentRef == TrueStr || parentRef == TrueStr {
@@ -179,11 +146,57 @@ func (v *MetadataValidator) Validate(current *metadata.Entity) error {
 			}
 			expr, err := v.ctiParser.Parse(parentRef)
 			if err != nil {
-				return fmt.Errorf("%s@%s: %s", current.Cti, key, err.Error())
+				return fmt.Errorf("%s@%s: %s", entity.Cti, key, err.Error())
 			}
-			if err := v.matchCti(&expr, currentRef); err != nil {
-				return fmt.Errorf("%s@%s: %s", current.Cti, key, err.Error())
+			if err = v.matchCti(&expr, currentRef); err != nil {
+				return fmt.Errorf("%s@%s: %s", entity.Cti, key, err.Error())
 			}
+		}
+	}
+
+	return nil
+}
+
+func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) error {
+	if entity == nil {
+		return errors.New("entity is nil")
+	}
+
+	if entity.Values == nil {
+		return fmt.Errorf("%s instance has no values", entity.Cti)
+	}
+
+	currentCti := entity.GetCti()
+	parent := entity.Parent()
+	if parent == nil {
+		return fmt.Errorf("%s instance has no parent type", currentCti)
+	}
+	parentCti := parent.GetCti()
+	mergedSchema, err := merger.GetMergedCtiSchema(parentCti, v.registry)
+	if err != nil {
+		return err
+	}
+	if err = validateJSONValues(mergedSchema, entity.Values); err != nil {
+		return fmt.Errorf("%s contains invalid values: %w", currentCti, err)
+	}
+	if parent.Annotations != nil {
+		values, _ := json.Marshal(entity.Values)
+		for key, annotation := range parent.Annotations {
+			if ref := annotation.ReadReference(); ref != "" && ref != TrueStr {
+				value := key.GetValue(values)
+				if ref, err := v.ctiParser.Parse(ref); err == nil {
+					for _, val := range value.Array() {
+						if err = v.matchCti(&ref, val.Str); err != nil {
+							return fmt.Errorf("%s@%s: %s in %s", currentCti, key, err.Error(), val.Str)
+						}
+					}
+				} else {
+					return fmt.Errorf("%s@%s: failed to parse cti.reference. Reason: %s", currentCti, key, err.Error())
+				}
+			}
+			// if l10n := annotation.L10N; l10n != nil {
+			// 	fmt.Printf("key: [%s][cti.l10n]: %t\n", key, *l10n)
+			// }
 		}
 	}
 	return nil
@@ -204,55 +217,15 @@ func (v *MetadataValidator) matchCti(ref *cti.Expression, id string) error {
 	return nil
 }
 
-func (v *MetadataValidator) FindInheritedAnnotation(
-	id string, key metadata.GJsonPath, predicate func(*metadata.Annotations) bool,
-) *metadata.Annotations {
-	root := id
-	for {
-		parentCti := metadata.GetParentCti(root)
-
-		entity, ok := v.registry.Index[parentCti]
-		if !ok {
-			return nil
-		}
-		if val, ok := entity.Annotations[key]; ok && predicate(&val) {
-			return &val
-		}
-		if parentCti == entity.Cti {
-			break
-		}
-		root = parentCti
-	}
-	return nil
-}
-
-func validateBytesJsonSchema(schema []byte) error {
+func validateJSONSchema(schema interface{}) error {
 	sl := gojsonschema.NewSchemaLoader()
 	sl.Validate = true
-	return sl.AddSchemas(gojsonschema.NewBytesLoader(schema))
+	return sl.AddSchemas(gojsonschema.NewGoLoader(schema))
 }
 
-func validateBytesJsonValues(schema []byte, document []byte) error {
-	sl := gojsonschema.NewBytesLoader(schema)
-	dl := gojsonschema.NewBytesLoader(document)
-	res, err := gojsonschema.Validate(sl, dl)
-	if err != nil {
-		return err
-	}
-	if !res.Valid() {
-		errs := res.Errors()
-		str := make([]string, len(res.Errors()))
-		for i, err := range errs {
-			str[i] = err.Description()
-		}
-		return errors.New(strings.Join(str, "\n-"))
-	}
-	return nil
-}
-
-func validateGoJsonValues(schema map[string]interface{}, document []byte) error {
+func validateJSONValues(schema interface{}, document interface{}) error {
 	sl := gojsonschema.NewGoLoader(schema)
-	dl := gojsonschema.NewBytesLoader(document)
+	dl := gojsonschema.NewGoLoader(document)
 	res, err := gojsonschema.Validate(sl, dl)
 	if err != nil {
 		return err
