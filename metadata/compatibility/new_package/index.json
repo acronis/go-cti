@@ -1,0 +1,7 @@
+{
+    "package_id": "x.y",
+    "ramlx_version": "1.0",
+    "entities": [
+      "types.raml"
+    ]
+  }

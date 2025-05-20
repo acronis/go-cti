@@ -23,6 +23,8 @@ type Package struct {
 	LocalRegistry  *collector.MetadataRegistry
 	GlobalRegistry *collector.MetadataRegistry
 
+	Parsed bool
+
 	BaseDir string
 }
 

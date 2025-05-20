@@ -391,14 +391,12 @@ func fixSelfReferences(schema map[string]any, sourceRefType string, refsToReplac
 func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]any, error) {
 	root := cti
 
-	entity, ok := r.Index[root]
+	entity, ok := r.Types[root]
 	if !ok {
-		return nil, fmt.Errorf("failed to find cti %s", root)
+		return nil, fmt.Errorf("failed to find cti type %s", root)
 	}
-	var childRootSchema map[string]any
-	if err := json.Unmarshal([]byte(entity.Schema), &childRootSchema); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal schema: %w", err)
-	}
+	childRootSchema := entity.Schema
+
 	childSchema, refType, err := ExtractSchemaDefinition(childRootSchema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract schema definition: %w", err)
@@ -422,14 +420,12 @@ func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]a
 		}
 		root = parentCti
 
-		entity, ok := r.Index[parentCti]
+		parentEntity, ok := r.Types[parentCti]
 		if !ok {
-			return nil, fmt.Errorf("failed to find cti parent %s", parentCti)
+			return nil, fmt.Errorf("failed to find cti parent type %s", parentCti)
 		}
-		var parentRootSchema map[string]any
-		if err = json.Unmarshal([]byte(entity.Schema), &parentRootSchema); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal parent schema: %w", err)
-		}
+		parentRootSchema := parentEntity.Schema
+
 		parentSchema, parentRefType, err := ExtractSchemaDefinition(parentRootSchema)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract parent schema definition: %w", err)

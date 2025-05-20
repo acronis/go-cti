@@ -9,7 +9,6 @@ import (
 
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/archiver"
-	"github.com/acronis/go-cti/metadata/collector"
 	"github.com/acronis/go-cti/metadata/ctipackage"
 )
 
@@ -71,7 +70,7 @@ func WithExtraFiles(files ...string) Option {
 }
 
 type AnnotationHandler func(baseDir string, writer archiver.Archiver,
-	key metadata.GJsonPath, entity *metadata.Entity, a metadata.Annotations) error
+	key metadata.GJsonPath, object *metadata.EntityInstance, a metadata.Annotations) error
 
 func New(opts ...Option) (*Packer, error) {
 	pkr := &Packer{}
@@ -167,7 +166,7 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 	// Allow callback to write file dependent to annotations
 	r := pkg.GlobalRegistry
 	for _, entity := range r.Instances {
-		if err := p.WriteEntity(pkg.BaseDir, r, entity); err != nil {
+		if err := p.WriteEntity(pkg.BaseDir, entity); err != nil {
 			return fmt.Errorf("write entity: %w", err)
 		}
 	}
@@ -175,16 +174,15 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 	return nil
 }
 
-func (p *Packer) WriteEntity(baseDir string, r *collector.MetadataRegistry, entity *metadata.Entity) error {
-	tID := metadata.GetParentCti(entity.Cti)
-	typ, ok := r.Types[tID]
-	if !ok {
-		return fmt.Errorf("parent type %s not found", tID)
+func (p *Packer) WriteEntity(baseDir string, object *metadata.EntityInstance) error {
+	typ := object.Parent()
+	if typ == nil {
+		return fmt.Errorf("%s has no parent type", object.Cti)
 	}
 	// TODO: Collect annotations from the entire chain of CTI types
 	for _, handler := range p.AnnotationHandlers {
 		for key, annotation := range typ.Annotations {
-			if err := handler(baseDir, p.arch, key, entity, annotation); err != nil {
+			if err := handler(baseDir, p.arch, key, object, annotation); err != nil {
 				return fmt.Errorf("handle annotation: %w", err)
 			}
 		}

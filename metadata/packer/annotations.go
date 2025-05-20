@@ -1,6 +1,7 @@
 package packer
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -9,11 +10,12 @@ import (
 )
 
 func defaultAnnotationHandler(
-	baseDir string, archiver archiver.Archiver, key metadata.GJsonPath, entity *metadata.Entity, a metadata.Annotations,
+	baseDir string, archiver archiver.Archiver, key metadata.GJsonPath, entity *metadata.EntityInstance, a metadata.Annotations,
 ) error {
 	// process asset annotation
 	if a.Asset != nil {
-		value := key.GetValue(entity.Values)
+		values, _ := json.Marshal(entity.Values)
+		value := key.GetValue(values)
 		assetPath := value.String()
 		if assetPath == "" {
 			slog.Warn("Empty asset path", slog.String("entity", entity.Cti), slog.String("key", value.Str))
