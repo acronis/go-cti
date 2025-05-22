@@ -58,13 +58,19 @@ type CompatibilityChecker struct {
 	ModifiedEntities []EntityDiff
 
 	Messages []Message
+	Pass     bool
 }
 
 // ValidationSummaryTemplate returns a template for when validation fails.
 // It provides a concise summary of why validation failed.
 func (cc *CompatibilityChecker) ValidationSummaryTemplate() string {
 	var sb strings.Builder
-	sb.WriteString("## Validation Failed\n\n")
+	if cc.Pass {
+		sb.WriteString("# Compatibility Check Passed ✔️\n\n")
+	} else {
+		sb.WriteString("# Compatibility Check Failed ❌\n\n")
+	}
+	sb.WriteString("## Validation summary\n\n")
 
 	// Count errors, warnings, and info messages
 	var errorCount, warningCount, infoCount int
@@ -207,20 +213,20 @@ func (cc *CompatibilityChecker) DiffReportTemplate() string {
 //   - As a comment
 // TODO: Make separate script for checking compatibility and making and sending report in CI
 
-func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipackage.Package) bool {
+func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipackage.Package) error {
 	if oldPkg == nil || newPkg == nil {
-		cc.addMessage(SeverityError, "packages cannot be nil")
-		return false
+		return errors.New("packages cannot be nil")
 	}
 	if !oldPkg.Parsed || !newPkg.Parsed {
-		cc.addMessage(SeverityError, "packages must be parsed")
-		return false
+		return errors.New("packages must be parsed before checking compatibility")
+	}
+	if oldPkg.Index.PackageID != newPkg.Index.PackageID {
+		return fmt.Errorf("package IDs do not match: %s vs %s", oldPkg.Index.PackageID, newPkg.Index.PackageID)
 	}
 
-	if oldPkg.Index.PackageID != newPkg.Index.PackageID {
-		cc.addMessage(SeverityError, fmt.Sprintf("package IDs do not match: %s vs %s", oldPkg.Index.PackageID, newPkg.Index.PackageID))
-		return false
-	}
+	// Set pass to true by default
+	// It will be set to false if any errors are found when checking compatibility
+	cc.Pass = true
 
 	// Check compatibility of entities that are present in both packages.
 	for _, oldObject := range oldPkg.LocalRegistry.Index {
@@ -230,7 +236,9 @@ func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipa
 			cc.RemovedEntities = append(cc.RemovedEntities, oldObject)
 			continue
 		}
-		cc.CheckEntitiesCompatibility(oldObject, newObject)
+		if err := cc.checkEntitiesCompatibility(oldObject, newObject); err != nil {
+			return fmt.Errorf("check entities compatibility: %w", err)
+		}
 	}
 
 	// Check compatibility of new versions that may not present in the old package.
@@ -247,61 +255,53 @@ func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipa
 		if previousMinorVersionObject == nil {
 			continue
 		}
-		cc.CheckEntitiesCompatibility(previousMinorVersionObject, newObject)
+		if err := cc.checkEntitiesCompatibility(previousMinorVersionObject, newObject); err != nil {
+			return fmt.Errorf("check entities compatibility: %w", err)
+		}
 	}
-	return len(cc.Messages) == 0
+	return nil
 }
 
-func (cc *CompatibilityChecker) CheckEntitiesCompatibility(oldObject, newObject metadata.Entity) bool {
+func (cc *CompatibilityChecker) checkEntitiesCompatibility(oldObject, newObject metadata.Entity) error {
 	if oldObject == nil || newObject == nil {
-		cc.addMessage(SeverityError, "objects cannot be nil")
-		return false
+		return errors.New("entities cannot be nil")
 	}
 	switch oldEntity := oldObject.(type) {
 	case *metadata.EntityType:
 		newEntity, ok := newObject.(*metadata.EntityType)
 		if !ok {
-			cc.addMessage(SeverityError, fmt.Sprintf("entity %s is not a valid EntityType", oldEntity.Cti))
-			return false
+			return fmt.Errorf("entity %s is not a valid EntityType", oldEntity.Cti)
 		}
-		if err := cc.CheckJsonSchemaCompatibility(oldEntity.Schema, newEntity.Schema); err != nil {
-			cc.addMessage(SeverityError, fmt.Sprintf("failed to check schema compatibility: %v", err))
-			return false
+		if err := cc.checkJsonSchemaCompatibility(oldEntity.Schema, newEntity.Schema); err != nil {
+			return fmt.Errorf("failed to check schema compatibility: %w", err)
 		}
-		if err := cc.CheckJsonSchemaCompatibility(oldEntity.TraitsSchema, newEntity.TraitsSchema); err != nil {
-			cc.addMessage(SeverityError, fmt.Sprintf("failed to check traits schema compatibility: %v", err))
-			return false
+		if err := cc.checkJsonSchemaCompatibility(oldEntity.TraitsSchema, newEntity.TraitsSchema); err != nil {
+			return fmt.Errorf("failed to check traits schema compatibility: %w", err)
 		}
-		if err := cc.CheckValuesCompatibility(oldEntity.Traits, newEntity.Traits); err != nil {
-			cc.addMessage(SeverityError, fmt.Sprintf("failed to check traits compatibility: %v", err))
-			return false
+		if err := cc.checkValuesCompatibility(oldEntity.Traits, newEntity.Traits); err != nil {
+			return fmt.Errorf("failed to check traits compatibility: %w", err)
 		}
-		if err := cc.CheckAnnotationsCompatibility(oldEntity.TraitsAnnotations, newEntity.TraitsAnnotations); err != nil {
-			cc.addMessage(SeverityError, fmt.Sprintf("failed to check traits annotations compatibility: %v", err))
-			return false
+		if err := cc.checkAnnotationsCompatibility(oldEntity.TraitsAnnotations, newEntity.TraitsAnnotations); err != nil {
+			return fmt.Errorf("failed to check traits annotations compatibility: %w", err)
 		}
 	case *metadata.EntityInstance:
 		newEntity, ok := newObject.(*metadata.EntityInstance)
 		if !ok {
-			cc.addMessage(SeverityError, fmt.Sprintf("entity %s is not a valid EntityInstance", oldEntity.Cti))
-			return false
+			return fmt.Errorf("entity %s is not a valid EntityInstance", oldEntity.Cti)
 		}
-		if err := cc.CheckValuesCompatibility(oldEntity.Values, newEntity.Values); err != nil {
-			cc.addMessage(SeverityError, fmt.Sprintf("failed to check values compatibility: %v", err))
-			return false
+		if err := cc.checkValuesCompatibility(oldEntity.Values, newEntity.Values); err != nil {
+			return fmt.Errorf("failed to check values compatibility: %w", err)
 		}
 	default:
-		cc.addMessage(SeverityError, fmt.Sprintf("invalid entity type: %T", oldEntity))
-		return false
+		return fmt.Errorf("invalid entity type: %T", oldEntity)
 	}
-	if err := cc.CheckAnnotationsCompatibility(oldObject.GetAnnotations(), newObject.GetAnnotations()); err != nil {
-		cc.addMessage(SeverityError, fmt.Sprintf("failed to check annotations compatibility: %v", err))
-		return false
+	if err := cc.checkAnnotationsCompatibility(oldObject.GetAnnotations(), newObject.GetAnnotations()); err != nil {
+		return fmt.Errorf("failed to check annotations compatibility: %w", err)
 	}
-	return true
+	return nil
 }
 
-func (cc *CompatibilityChecker) CheckAnnotationsCompatibility(oldAnnotations, newAnnotations map[metadata.GJsonPath]metadata.Annotations) error {
+func (cc *CompatibilityChecker) checkAnnotationsCompatibility(oldAnnotations, newAnnotations map[metadata.GJsonPath]metadata.Annotations) error {
 	if oldAnnotations != nil && newAnnotations == nil {
 		return errors.New("new values cannot be nil if old values are not nil")
 	} else if oldAnnotations == nil || newAnnotations == nil {
@@ -324,9 +324,7 @@ func (cc *CompatibilityChecker) CheckAnnotationsCompatibility(oldAnnotations, ne
 				newValue, ok := newAnnotation.PropertyNames[key]
 				if !ok {
 					cc.addMessage(SeverityError, fmt.Sprintf("property name %s not found in new annotation", key))
-					continue
-				}
-				if oldValue != newValue {
+				} else if oldValue != newValue {
 					cc.addMessage(SeverityError, fmt.Sprintf("property name mismatch for %s: %v vs %v", key, oldValue, newValue))
 				}
 			}
@@ -365,7 +363,7 @@ func (cc *CompatibilityChecker) CheckAnnotationsCompatibility(oldAnnotations, ne
 	return nil
 }
 
-func (cc *CompatibilityChecker) CheckValuesCompatibility(oldValues, newValues interface{}) error {
+func (cc *CompatibilityChecker) checkValuesCompatibility(oldValues, newValues interface{}) error {
 	if oldValues != nil && newValues == nil {
 		return errors.New("new values cannot be nil if old values are not nil")
 	} else if oldValues == nil || newValues == nil {
@@ -385,7 +383,7 @@ func (cc *CompatibilityChecker) CheckValuesCompatibility(oldValues, newValues in
 	return nil
 }
 
-func (cc *CompatibilityChecker) CheckJsonSchemaCompatibility(oldSchema, newSchema map[string]interface{}) error {
+func (cc *CompatibilityChecker) checkJsonSchemaCompatibility(oldSchema, newSchema map[string]interface{}) error {
 	if oldSchema != nil && newSchema == nil {
 		return errors.New("new schema cannot be nil if old schema is not nil")
 	} else if oldSchema == nil || newSchema == nil {
@@ -401,20 +399,24 @@ func (cc *CompatibilityChecker) CheckJsonSchemaCompatibility(oldSchema, newSchem
 		cc.addMessage(SeverityError, fmt.Sprintf("failed to extract old schema definition: %v", err))
 		return nil
 	}
-	cc.TraverseAndCheckSchemas(oldSchemaStart, newSchemaStart, "$")
+	cc.traverseAndCheckSchemas(oldSchemaStart, newSchemaStart, "$")
 	return nil
 }
 
 func (cc *CompatibilityChecker) addMessage(severity Severity, message string) {
+	if severity == SeverityError {
+		cc.Pass = false
+	}
+
 	cc.Messages = append(cc.Messages, Message{
 		Severity: severity,
 		Message:  message,
 	})
 }
 
-// CheckJsonSchemaCompatibility checks the compatibility of the changes between two JSON schemas.
+// checkJsonSchemaCompatibility checks the compatibility of the changes between two JSON schemas.
 // It returns an error if the schemas are not compatible.
-func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map[string]any, name string) {
+func (cc *CompatibilityChecker) traverseAndCheckSchemas(oldSchema, newSchema map[string]any, name string) {
 	oldTyp, oldExists := oldSchema["type"].(string)
 	newTyp, _ := newSchema["type"].(string)
 	if oldTyp != "" && oldTyp != newTyp {
@@ -424,7 +426,6 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 
 	if oldSchema["enum"] != nil && newSchema["enum"] == nil {
 		cc.addMessage(SeverityError, fmt.Sprintf("property %s, type mismatch: %s vs %s", name, oldTyp, newTyp))
-		return
 	} else if oldSchema["enum"] != nil && newSchema["enum"] != nil {
 		oldEnum, ok := oldSchema["enum"].([]any)
 		if !ok {
@@ -441,11 +442,15 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 			return
 		}
 		newEnumSet := ToSet(newEnum)
+		invalid := false
 		for _, v := range oldEnum {
 			if _, ok = newEnumSet[v]; !ok {
-				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type enum, has different values: %v vs %v", name, v, newEnumSet[v]))
-				return
+				invalid = true
+				break
 			}
+		}
+		if invalid {
+			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type enum, has different values: %v vs %v", name, oldEnum, newEnum))
 		}
 	}
 
@@ -455,7 +460,6 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 	case oldTyp == "object":
 		if oldSchema["required"] != nil && newSchema["required"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, is missing 'required' field", name))
-			return
 		} else if oldSchema["required"] != nil && newSchema["required"] != nil {
 			oldRequired, ok := oldSchema["required"].([]any)
 			if !ok {
@@ -473,17 +477,20 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 				return
 			}
 			newRequiredSet := ToSet(newRequired)
+			invalid := false
 			for _, v := range oldRequired {
 				if _, ok := newRequiredSet[v]; !ok {
-					cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, has different required properties: %v vs %v", name, v, newRequiredSet[v]))
-					return
+					invalid = true
+					break
 				}
+			}
+			if invalid {
+				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, has different required properties: %v vs %v", name, oldRequired, newRequired))
 			}
 		}
 
 		if oldSchema["maxProperties"] != nil && newSchema["maxProperties"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, is missing 'maxProperties' field", name))
-			return
 		} else if oldSchema["maxProperties"] != nil && newSchema["maxProperties"] != nil {
 			oldMaxProperties, ok := oldSchema["maxProperties"].(uint64)
 			if !ok {
@@ -497,13 +504,11 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 			}
 			if oldMaxProperties != newMaxProperties {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, has different maxProperties: %v vs %v", name, oldMaxProperties, newMaxProperties))
-				return
 			}
 		}
 
 		if oldSchema["minProperties"] != nil && newSchema["minProperties"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, is missing 'minProperties' field", name))
-			return
 		} else if oldSchema["minProperties"] != nil && newSchema["minProperties"] != nil {
 			oldMinProperties, ok := oldSchema["minProperties"].(uint64)
 			if !ok {
@@ -517,7 +522,6 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 			}
 			if oldMinProperties != newMinProperties {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, has different minProperties: %v vs %v", name, oldMinProperties, newMinProperties))
-				return
 			}
 		}
 
@@ -526,15 +530,14 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 		newProperties, newPropertiesOk := newSchema["properties"].(map[string]any)
 		if oldPropertiesOk && !newPropertiesOk {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, is missing 'patternProperties' field", name))
-			return
 		} else if oldPropertiesOk && newPropertiesOk {
 			for key, p := range oldProperties {
 				newP, ok := newProperties[key]
 				if !ok {
 					cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, is missing 'properties' field", name))
-					return
+					continue
 				}
-				cc.TraverseAndCheckSchemas(p.(map[string]any), newP.(map[string]any), fmt.Sprintf("%s.%s", name, key))
+				cc.traverseAndCheckSchemas(p.(map[string]any), newP.(map[string]any), fmt.Sprintf("%s.%s", name, key))
 			}
 		}
 
@@ -542,15 +545,14 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 		newPatternProperties, newPatternPropertiesOk := newSchema["patternProperties"].(map[string]any)
 		if oldPatternPropertiesOk && !newPatternPropertiesOk {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, is missing 'patternProperties' field", name))
-			return
 		} else if oldPatternPropertiesOk && newPatternPropertiesOk {
 			for key, p := range oldPatternProperties {
 				newP, ok := newPatternProperties[key]
 				if !ok {
 					cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type object, is missing 'patternProperties' field", name))
-					return
+					continue
 				}
-				cc.TraverseAndCheckSchemas(p.(map[string]any), newP.(map[string]any), fmt.Sprintf("%s.%s", name, key))
+				cc.traverseAndCheckSchemas(p.(map[string]any), newP.(map[string]any), fmt.Sprintf("%s.%s", name, key))
 			}
 		}
 	case oldTyp == "array":
@@ -560,76 +562,62 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type array, is missing 'items' field", name))
 			return
 		} else if oldItemsOk && newItemsOk {
-			cc.TraverseAndCheckSchemas(oldItems, newItems, fmt.Sprintf("%s.%s", name, "items"))
+			cc.traverseAndCheckSchemas(oldItems, newItems, fmt.Sprintf("%s.%s", name, "items"))
 		}
 
 		if oldSchema["minItems"] != nil && newSchema["minItems"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type array, is missing 'minItems' field", name))
-			return
 		} else if oldSchema["minItems"] != nil && newSchema["minItems"] != nil {
 			if oldSchema["minItems"] != newSchema["minItems"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type array, has different minItems: %v vs %v", name, oldSchema["minItems"], newSchema["minItems"]))
-				return
 			}
 		}
 
 		if oldSchema["maxItems"] != nil && newSchema["maxItems"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type array, is missing 'maxItems' field", name))
-			return
 		} else if oldSchema["maxItems"] != nil && newSchema["maxItems"] != nil {
 			if oldSchema["maxItems"] != newSchema["maxItems"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type array, has different maxItems: %v vs %v", name, oldSchema["maxItems"], newSchema["maxItems"]))
-				return
 			}
 		}
 
 		if oldSchema["uniqueItems"] != nil && newSchema["uniqueItems"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type array, is missing 'uniqueItems' field", name))
-			return
 		} else if oldSchema["uniqueItems"] != nil && newSchema["uniqueItems"] != nil {
 			if oldSchema["uniqueItems"] != newSchema["uniqueItems"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type array, has different uniqueItems: %v vs %v", name, oldSchema["uniqueItems"], newSchema["uniqueItems"]))
-				return
 			}
 		}
 	case oldTyp == "string":
 		if oldSchema["format"] != nil && newSchema["format"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type string, is missing 'format' field", name))
-			return
 		} else if oldSchema["format"] != nil && newSchema["format"] != nil {
 			if oldSchema["format"] != newSchema["format"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type string, has different formats: %v vs %v", name, oldSchema["format"], newSchema["format"]))
-				return
 			}
 		}
 
 		if oldSchema["pattern"] != nil && newSchema["pattern"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type string, is missing 'pattern' field", name))
-			return
 		} else if oldSchema["pattern"] != nil && newSchema["pattern"] != nil {
 			if oldSchema["pattern"] != newSchema["pattern"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type string, has different patterns: %v vs %v", name, oldSchema["pattern"], newSchema["pattern"]))
-				return
 			}
 		}
 
 		if oldSchema["minLength"] != nil && newSchema["minLength"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type string, is missing 'minLength' field", name))
-			return
 		} else if oldSchema["minLength"] != nil && newSchema["minLength"] != nil {
 			if oldSchema["minLength"] != newSchema["minLength"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type string, has different minLength: %v vs %v", name, oldSchema["minLength"], newSchema["minLength"]))
-				return
 			}
 		}
 
 		if oldSchema["maxLength"] != nil && newSchema["maxLength"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type string, is missing 'maxLength' field", name))
-			return
 		} else if oldSchema["maxLength"] != nil && newSchema["maxLength"] != nil {
 			if oldSchema["maxLength"] != newSchema["maxLength"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type string, has different maxLength: %v vs %v", name, oldSchema["maxLength"], newSchema["maxLength"]))
-				return
 			}
 		}
 
@@ -638,51 +626,41 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 	case oldTyp == "integer" || oldTyp == "number":
 		if oldSchema["minimum"] != nil && newSchema["minimum"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, is missing 'minimum' field", name))
-			return
 		} else if oldSchema["minimum"] != nil && newSchema["minimum"] != nil {
 			if oldSchema["minimum"] != newSchema["minimum"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, has different minimum: %v vs %v", name, oldSchema["minimum"], newSchema["minimum"]))
-				return
 			}
 		}
 
 		if oldSchema["maximum"] != nil && newSchema["maximum"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, is missing 'maximum' field", name))
-			return
 		} else if oldSchema["maximum"] != nil && newSchema["maximum"] != nil {
 			if oldSchema["maximum"] != newSchema["maximum"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, has different maximum: %v vs %v", name, oldSchema["maximum"], newSchema["maximum"]))
-				return
 			}
 		}
 
 		if oldSchema["multipleOf"] != nil && newSchema["multipleOf"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, is missing 'multipleOf' field", name))
-			return
 		} else if oldSchema["multipleOf"] != nil && newSchema["multipleOf"] != nil {
 			if oldSchema["multipleOf"] != newSchema["multipleOf"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, has different multipleOf: %v vs %v", name, oldSchema["multipleOf"], newSchema["multipleOf"]))
-				return
 			}
 		}
 
 		if oldSchema["exclusiveMinimum"] != nil && newSchema["exclusiveMinimum"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, is missing 'exclusiveMinimum' field", name))
-			return
 		} else if oldSchema["exclusiveMinimum"] != nil && newSchema["exclusiveMinimum"] != nil {
 			if oldSchema["exclusiveMinimum"] != newSchema["exclusiveMinimum"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, has different exclusiveMinimum: %v vs %v", name, oldSchema["exclusiveMinimum"], newSchema["exclusiveMinimum"]))
-				return
 			}
 		}
 
 		if oldSchema["exclusiveMaximum"] != nil && newSchema["exclusiveMaximum"] == nil {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, is missing 'exclusiveMaximum' field", name))
-			return
 		} else if oldSchema["exclusiveMaximum"] != nil && newSchema["exclusiveMaximum"] != nil {
 			if oldSchema["exclusiveMaximum"] != newSchema["exclusiveMaximum"] {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type number, has different exclusiveMaximum: %v vs %v", name, oldSchema["exclusiveMaximum"], newSchema["exclusiveMaximum"]))
-				return
 			}
 		}
 	case !oldExists:
@@ -691,7 +669,6 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 		newMembers, newMembersOk := newSchema["anyOf"].([]any)
 		if oldMembersOk && !newMembersOk {
 			cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type anyOf, is missing 'anyOf' field", name))
-			return
 		} else if oldMembersOk && newMembersOk {
 			if len(oldMembers) != len(newMembers) {
 				cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type anyOf, has different number of values: %d vs %d", name, len(oldMembers), len(newMembers)))
@@ -704,7 +681,7 @@ func (cc *CompatibilityChecker) TraverseAndCheckSchemas(oldSchema, newSchema map
 					cc.addMessage(SeverityError, fmt.Sprintf("property %s, of type anyOf, is missing 'anyOf' field", name))
 					return
 				}
-				cc.TraverseAndCheckSchemas(oldMember.(map[string]any), newMember, fmt.Sprintf("%s.%s", name, "anyOf"))
+				cc.traverseAndCheckSchemas(oldMember.(map[string]any), newMember, fmt.Sprintf("%s.%s", name, "anyOf"))
 			}
 		}
 	}
