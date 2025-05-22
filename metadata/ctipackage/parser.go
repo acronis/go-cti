@@ -104,17 +104,19 @@ func (pkg *Package) parse(c *collector.Collector, isLocal bool) error {
 	if err := c.Collect(isLocal); err != nil {
 		return fmt.Errorf("collect from package: %w", err)
 	}
+	pkg.Parsed = true
+
 	return nil
 }
 
 func (pkg *Package) DumpCache() error {
-	var items []*metadata.Entity
+	var items []metadata.Entity
 	for _, v := range pkg.LocalRegistry.Index {
 		items = append(items, v)
 	}
 	// Sort entities by CTI to make the cache deterministic
 	sort.Slice(items, func(a, b int) bool {
-		return items[a].Cti < items[b].Cti
+		return items[a].GetCti() < items[b].GetCti()
 	})
 
 	bytes, err := json.Marshal(items)

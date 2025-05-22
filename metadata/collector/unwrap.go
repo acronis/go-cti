@@ -93,8 +93,8 @@ func (c *Collector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, e
 		if errInherit != nil {
 			return nil, fmt.Errorf("merge shapes: %w", errInherit)
 		}
-		base.ShapeVisited = false
-		base.SetUnwrapped()
+		is.ShapeVisited = false
+		is.SetUnwrapped()
 		return is, nil
 	}
 	base.ShapeVisited = false

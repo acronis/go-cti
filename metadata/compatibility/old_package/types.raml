@@ -1,0 +1,12 @@
+#%RAML 1.0 Library
+
+uses:
+  cti: .ramlx/cti.raml
+
+types:
+  SampleEntity:
+    (cti.cti): cti.x.y.sample_entity.v1.0
+    properties:
+      val:
+        type: cti.CTI
+        (cti.reference): cti.x.y.sample_entity.v1.0

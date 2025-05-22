@@ -2,6 +2,7 @@ package collector
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,23 @@ type Collector struct {
 	// Global Registry holds all entities collected during the session. May include both local and external entities.
 	GlobalRegistry *MetadataRegistry
 
+	/*
+		CTI Trie is used to build a trie representation of CTI types.
+
+		Example:
+		cti.x.y.sample_entity.v1.0
+		cti.x.y.sample_entity.v1.1
+		cti.x.y.sample_entity.v1.1~x.y.test.v1.0
+
+		Will be represented as:
+		├── cti.x.y.sample_entity
+		│   ├── 1.0
+		│   └── 1.1
+		│       └── x.y.test
+		│           └── 1.0
+	*/
+	ctiTrie *TrieNode
+
 	localRamlCtiTypes  map[string]*raml.BaseShape
 	globalRamlCtiTypes map[string]*raml.BaseShape
 	unwrappedCtiTypes  map[string]*raml.BaseShape
@@ -42,6 +60,7 @@ func New() *Collector {
 		localRamlCtiTypes:    make(map[string]*raml.BaseShape),
 		globalRamlCtiTypes:   make(map[string]*raml.BaseShape),
 		unwrappedCtiTypes:    make(map[string]*raml.BaseShape),
+		ctiTrie:              NewTrieNode(),
 	}
 }
 
@@ -53,11 +72,11 @@ func (c *Collector) SetRaml(r *raml.RAML) {
 
 func (c *Collector) Collect(isLocal bool) error {
 	if c.raml == nil {
-		return fmt.Errorf("raml is not set")
+		return errors.New("raml is not set")
 	}
 	idx, ok := c.raml.EntryPoint().(*raml.Library)
 	if !ok {
-		return fmt.Errorf("entry point is not a library")
+		return errors.New("entry point is not a library")
 	}
 	for pair := idx.Uses.Oldest(); pair != nil; pair = pair.Next() {
 		ref := pair.Value
@@ -78,6 +97,10 @@ func (c *Collector) Collect(isLocal bool) error {
 	// NOTE: This is a custom pipeline for RAML-CTI types processing.
 	// Unwrap implemented in go-raml cannot be used since CTI types require special handling.
 	for k, shape := range c.localRamlCtiTypes {
+		expr, err := c.ctiParser.Parse(k)
+		if err != nil {
+			return fmt.Errorf("parse cti.cti: %w", err)
+		}
 		// Create a copy of CTI type and unwrap it using special rules.
 		//
 		// NOTE: Copy is required since CTI types may share some RAML types.
@@ -99,7 +122,7 @@ func (c *Collector) Collect(isLocal bool) error {
 		if err != nil {
 			return fmt.Errorf("find and insert cti schema: %w", err)
 		}
-		entity, err := c.MakeMetadataTypeFromShape(k, shape)
+		entity, err := c.MakeMetadataTypeFromShape(&expr, shape)
 		if err != nil {
 			return fmt.Errorf("make cti type: %w", err)
 		}
@@ -113,49 +136,97 @@ func (c *Collector) Collect(isLocal bool) error {
 				return fmt.Errorf("add cti entity: %w", err)
 			}
 		}
+		if err = InsertIdentifier(c.ctiTrie, &expr, entity); err != nil {
+			return fmt.Errorf("add cti %s to trie: %w", k, err)
+		}
+	}
+
+	if err := c.Link(); err != nil {
+		return fmt.Errorf("link cti types: %w", err)
 	}
 
 	return nil
 }
 
-func (c *Collector) MakeMetadataTypeFromShape(id string, shape *raml.BaseShape) (*metadata.Entity, error) {
-	displayName := shape.Name
-	if shape.DisplayName != nil {
-		displayName = *shape.DisplayName
+func (c *Collector) Link() error {
+	if c.GlobalRegistry == nil {
+		return errors.New("global registry is not set")
 	}
-	description := ""
-	if shape.Description != nil {
-		description = *shape.Description
-	}
-	final := true
-	if val, ok := shape.CustomDomainProperties.Get(metadata.Final); ok {
-		final = val.Extension.Value.(bool)
-	}
-	resilient := false
-	if val, ok := shape.CustomDomainProperties.Get(metadata.Resilient); ok {
-		resilient = val.Extension.Value.(bool)
-	}
-	var traitsBytes []byte
-	if shape.CustomShapeFacets != nil {
-		if t, ok := shape.CustomShapeFacets.Get(metadata.Traits); ok {
-			traitsBytes, _ = json.Marshal(t.Value)
+	for _, object := range c.GlobalRegistry.Index {
+		cti := object.GetCti()
+		parentID := metadata.GetParentCti(cti)
+		if parentID != cti {
+			parent, ok := c.GlobalRegistry.Types[parentID]
+			if !ok {
+				return fmt.Errorf("parent type %s not found", parentID)
+			}
+			if err := object.SetParent(parent); err != nil {
+				return fmt.Errorf("set parent %s for %s: %w", parentID, cti, err)
+			}
+			if err := parent.AddChild(object); err != nil {
+				return fmt.Errorf("add child %s to %s: %w", cti, parentID, err)
+			}
+		}
+		node, err := FindNode(c.ctiTrie, object.Expression())
+		if err != nil {
+			return fmt.Errorf("find node in trie: %w", err)
+		}
+		for _, child := range node.Children {
+			// Exclude self
+			if child.Value.GetCti() == cti {
+				continue
+			}
+			if err = object.AddObjectVersion(child.Value); err != nil {
+				return fmt.Errorf("add object version %s to %s: %w", child.Value.GetCti(), cti, err)
+			}
 		}
 	}
-	var traitsSchemaBytes []byte
-	var traitsAnnotations map[metadata.GJsonPath]metadata.Annotations
+	return nil
+}
+
+func (c *Collector) MakeMetadataTypeFromShape(expr *cti.Expression, shape *raml.BaseShape) (*metadata.EntityType, error) {
+	var commonOptions []metadata.EntityOption
+	var specificOptions []metadata.EntityTypeOption
+	if shape.DisplayName != nil {
+		commonOptions = append(commonOptions, metadata.WithDisplayName(*shape.DisplayName))
+	} else {
+		commonOptions = append(commonOptions, metadata.WithDisplayName(shape.Name))
+	}
+	if shape.Description != nil {
+		commonOptions = append(commonOptions, metadata.WithDescription(*shape.Description))
+	}
+	if val, ok := shape.CustomDomainProperties.Get(metadata.Final); ok {
+		commonOptions = append(commonOptions, metadata.WithFinal(val.Extension.Value.(bool)))
+	}
+	if val, ok := shape.CustomDomainProperties.Get(metadata.Resilient); ok {
+		commonOptions = append(commonOptions, metadata.WithResilient(val.Extension.Value.(bool)))
+	}
+	if shape.CustomShapeFacets != nil {
+		if t, ok := shape.CustomShapeFacets.Get(metadata.Traits); ok {
+			specificOptions = append(specificOptions, metadata.WithTraits(t.Value))
+		}
+	}
 	if t, ok := shape.CustomShapeFacetDefinitions.Get(metadata.Traits); ok {
-		traitsSchema, err := c.jsonSchemaConverter.Convert(t.Base.Shape)
+		traitsJsonSchema, err := c.jsonSchemaConverter.Convert(t.Base.Shape)
 		if err != nil {
 			return nil, fmt.Errorf("convert traits schema: %w", err)
 		}
-		traitsSchemaBytes, _ = json.Marshal(traitsSchema)
-		traitsAnnotations = c.annotationsCollector.Collect(t.Base.Shape)
+		// Required to convert *raml.JsonSchema to map[string]interface{}.
+		traitsSchemaBytes, _ := json.Marshal(traitsJsonSchema)
+		var traitsSchema map[string]interface{}
+		json.Unmarshal(traitsSchemaBytes, &traitsSchema)
+		traitsAnnotations := c.annotationsCollector.Collect(t.Base.Shape)
+
+		specificOptions = append(specificOptions, metadata.WithTraitsSchema(traitsSchema, traitsAnnotations))
 	}
-	schema, err := c.jsonSchemaConverter.Convert(shape.Shape)
+	jsonSchema, err := c.jsonSchemaConverter.Convert(shape.Shape)
 	if err != nil {
 		return nil, fmt.Errorf("convert schema: %w", err)
 	}
-	schemaBytes, _ := json.Marshal(schema)
+	jsonSchemaBytes, _ := json.Marshal(jsonSchema)
+	var schema map[string]interface{}
+	json.Unmarshal(jsonSchemaBytes, &schema)
+
 	annotations := c.annotationsCollector.Collect(shape.Shape)
 
 	originalPath, _ := filepath.Rel(c.baseDir, shape.Location)
@@ -166,71 +237,75 @@ func (c *Collector) MakeMetadataTypeFromShape(id string, shape *raml.BaseShape) 
 		sourcePath, _ = filepath.Rel(c.baseDir, shape.Inherits[0].Location)
 	}
 
-	entity := &metadata.Entity{
-		Cti:               id,
-		Final:             final,
-		Resilient:         resilient,
-		DisplayName:       displayName,
-		Description:       description,
-		Schema:            schemaBytes,
-		Traits:            traitsBytes,
-		TraitsSchema:      traitsSchemaBytes,
-		TraitsAnnotations: traitsAnnotations,
-		SourceMap: metadata.SourceMap{
-			TypeAnnotationReference: metadata.TypeAnnotationReference{
-				Name: shape.Name,
+	specificOptions = append(specificOptions, metadata.WithTypeSourceMap(
+		&metadata.EntityTypeSourceMap{
+			Name: shape.Name,
+			EntitySourceMap: metadata.EntitySourceMap{
+				OriginalPath: filepath.ToSlash(originalPath),
+				SourcePath:   filepath.ToSlash(sourcePath),
 			},
-			OriginalPath: filepath.ToSlash(originalPath),
-			SourcePath:   filepath.ToSlash(sourcePath),
 		},
-		Annotations: annotations,
-	}
+	))
 
-	return entity, nil
+	return metadata.NewEntityTypeFromExpr(
+		expr,
+		schema,
+		annotations,
+		commonOptions,
+		specificOptions,
+	)
 }
 
-func (c *Collector) MakeMetadataInstanceFromExtension(id string, definedBy *raml.ArrayShape, values map[string]interface{}, valuesLocation string) *metadata.Entity {
+func (c *Collector) MakeMetadataInstanceFromExtension(
+	expr *cti.Expression,
+	definedBy *raml.ArrayShape,
+	values map[string]interface{},
+	valuesLocation string,
+) (*metadata.EntityInstance, error) {
 	ctiType := definedBy.Items.Shape.(*raml.ObjectShape)
 
-	valuesBytes, _ := json.Marshal(values)
-	displayName := ""
+	commonOptions := []metadata.EntityOption{
+		metadata.WithFinal(true),
+		metadata.WithResilient(false), // TODO
+	}
+
 	displayNameProp := c.findPropertyWithAnnotation(ctiType, metadata.DisplayName)
 	if displayNameProp != nil {
 		if _, ok := values[displayNameProp.Name]; ok {
-			displayName = values[displayNameProp.Name].(string)
+			commonOptions = append(commonOptions, metadata.WithDisplayName(values[displayNameProp.Name].(string)))
 		}
 	}
 
-	description := ""
 	descriptionProp := c.findPropertyWithAnnotation(ctiType, metadata.Description)
 	if descriptionProp != nil {
 		if _, ok := values[descriptionProp.Name]; ok {
-			description = values[descriptionProp.Name].(string)
+			commonOptions = append(commonOptions, metadata.WithDescription(values[descriptionProp.Name].(string)))
 		}
 	}
 
 	originalPath, _ := filepath.Rel(c.baseDir, valuesLocation)
 	reference, _ := filepath.Rel(c.baseDir, definedBy.Location)
 
-	return &metadata.Entity{
-		Final:       true,
-		Cti:         id,
-		DisplayName: displayName,
-		Description: description,
-		Values:      valuesBytes,
-		SourceMap: metadata.SourceMap{
-			InstanceAnnotationReference: metadata.InstanceAnnotationReference{
-				AnnotationType: &metadata.AnnotationType{
-					Name:      definedBy.Name,
-					Type:      definedBy.Type,
-					Reference: filepath.ToSlash(reference),
+	return metadata.NewEntityInstanceFromExpr(
+		expr,
+		values,
+		commonOptions,
+		[]metadata.EntityInstanceOption{
+			metadata.WithInstanceSourceMap(
+				&metadata.EntityInstanceSourceMap{
+					AnnotationType: metadata.AnnotationType{
+						Name:      definedBy.Name,
+						Type:      definedBy.Type,
+						Reference: filepath.ToSlash(reference),
+					},
+					EntitySourceMap: metadata.EntitySourceMap{
+						OriginalPath: filepath.ToSlash(originalPath),
+						SourcePath:   filepath.ToSlash(originalPath),
+					},
 				},
-			},
-			OriginalPath: filepath.ToSlash(originalPath),
-			// SourcePath points to the same path since instance cannot be defined in another file.
-			SourcePath: filepath.ToSlash(originalPath),
+			),
 		},
-	}
+	)
 }
 
 func (c *Collector) findAndInsertCtiSchema(shape *raml.BaseShape, history []string) (*raml.BaseShape, error) {
@@ -473,9 +548,6 @@ func (c *Collector) readCtiType(base *raml.BaseShape) error {
 		if _, ok := c.localRamlCtiTypes[cti]; ok {
 			return fmt.Errorf("duplicate cti.cti: %s", cti)
 		}
-		if _, err := c.ctiParser.Parse(cti); err != nil {
-			return fmt.Errorf("parse cti.cti: %w", err)
-		}
 		c.globalRamlCtiTypes[cti] = base
 		c.localRamlCtiTypes[cti] = base
 	}
@@ -541,7 +613,10 @@ func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension, is
 			return fmt.Errorf("child cti doesn't match parent cti: %w", err)
 		}
 
-		entity := c.MakeMetadataInstanceFromExtension(id, s, obj, annotation.Extension.Location)
+		entity, err := c.MakeMetadataInstanceFromExtension(&childCtiExpr, s, obj, annotation.Extension.Location)
+		if err != nil {
+			return fmt.Errorf("make cti instance: %w", err)
+		}
 		err = c.GlobalRegistry.Add(entity.SourceMap.OriginalPath, entity)
 		if err != nil {
 			return fmt.Errorf("add cti entity: %w", err)
@@ -551,6 +626,9 @@ func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension, is
 			if err != nil {
 				return fmt.Errorf("add cti entity: %w", err)
 			}
+		}
+		if err = InsertIdentifier(c.ctiTrie, &childCtiExpr, entity); err != nil {
+			return fmt.Errorf("add cti %s to trie: %w", id, err)
 		}
 	}
 	return nil

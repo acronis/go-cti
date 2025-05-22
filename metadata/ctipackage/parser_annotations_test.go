@@ -72,6 +72,7 @@ uses:
 types:
   SampleEntity:
     (cti.cti): cti.x.y.sample_entity.v1.0
+    (cti.final): false
     properties:
       name: string
       age: number

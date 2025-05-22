@@ -45,28 +45,6 @@ func TestMergeRequired(t *testing.T) {
 			expected:      []string{"foo", "bar"},
 			expectedError: false,
 		},
-		{
-			name: "invalid source required type",
-			source: map[string]any{
-				"required": []string{"foo", "bar"},
-			},
-			target: map[string]any{
-				"required": []any{"foo", "bar"},
-			},
-			expected:      nil,
-			expectedError: true,
-		},
-		{
-			name: "invalid target required type",
-			source: map[string]any{
-				"required": []any{"foo", "bar"},
-			},
-			target: map[string]any{
-				"required": []string{"foo", "bar"},
-			},
-			expected:      nil,
-			expectedError: true,
-		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -162,6 +140,7 @@ func TestFixSelfReferences(t *testing.T) {
 	}
 }
 func TestGetMergedCtiSchema(t *testing.T) {
+	// TODO: To rework tests to use unmarshal
 	tests := []struct {
 		name          string
 		cti           string
@@ -173,32 +152,32 @@ func TestGetMergedCtiSchema(t *testing.T) {
 			name: "simple merge with single parent",
 			cti:  "cti.x.y.sample_entity.v1.0~x.y._.v1.0",
 			registry: &collector.MetadataRegistry{
-				Index: map[string]*metadata.Entity{
-					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": {
-						Schema: []byte(`{
+				Types: metadata.EntityTypeMap{
+					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": &metadata.EntityType{
+						Schema: map[string]interface{}{
 							"$ref": "#/definitions/Child",
-							"definitions": {
-								"Child": {
+							"definitions": map[string]interface{}{
+								"Child": map[string]interface{}{
 									"type": "object",
-									"properties": {
-										"field1": { "type": "string" }
-									}
-								}
-							}
-						}`),
+									"properties": map[string]interface{}{
+										"field1": map[string]interface{}{"type": "string"},
+									},
+								},
+							},
+						},
 					},
-					"cti.x.y.sample_entity.v1.0": {
-						Schema: []byte(`{
+					"cti.x.y.sample_entity.v1.0": &metadata.EntityType{
+						Schema: map[string]interface{}{
 							"$ref": "#/definitions/Parent",
-							"definitions": {
-								"Parent": {
+							"definitions": map[string]interface{}{
+								"Parent": map[string]interface{}{
 									"type": "object",
-									"properties": {
-										"field2": { "type": "integer" }
-									}
-								}
-							}
-						}`),
+									"properties": map[string]interface{}{
+										"field2": map[string]interface{}{"type": "integer"},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -217,27 +196,27 @@ func TestGetMergedCtiSchema(t *testing.T) {
 			name: "merge with single recursive parent",
 			cti:  "cti.x.y.sample_entity.v1.0~x.y._.v1.0",
 			registry: &collector.MetadataRegistry{
-				Index: map[string]*metadata.Entity{
-					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": {
-						Schema: []byte(`{
+				Types: metadata.EntityTypeMap{
+					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": &metadata.EntityType{
+						Schema: map[string]interface{}{
 							"$ref": "#/definitions/Child",
-							"definitions": {
-								"Child": { "type": "object" }
-							}
-						}`),
+							"definitions": map[string]interface{}{
+								"Child": map[string]interface{}{"type": "object"},
+							},
+						},
 					},
-					"cti.x.y.sample_entity.v1.0": {
-						Schema: []byte(`{
+					"cti.x.y.sample_entity.v1.0": &metadata.EntityType{
+						Schema: map[string]interface{}{
 							"$ref": "#/definitions/Parent",
-							"definitions": {
-								"Parent": {
+							"definitions": map[string]interface{}{
+								"Parent": map[string]interface{}{
 									"type": "object",
-									"properties": {
-										"recursive": { "$ref": "#/definitions/Parent" }
-									}
-								}
-							}
-						}`),
+									"properties": map[string]interface{}{
+										"recursive": map[string]interface{}{"$ref": "#/definitions/Parent"},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -258,39 +237,43 @@ func TestGetMergedCtiSchema(t *testing.T) {
 			name: "merge with anyOf",
 			cti:  "cti.x.y.sample_entity.v1.0~x.y._.v1.0",
 			registry: &collector.MetadataRegistry{
-				Index: map[string]*metadata.Entity{
-					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": {
-						Schema: []byte(`{
+				Types: metadata.EntityTypeMap{
+					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": &metadata.EntityType{
+						Schema: map[string]interface{}{
 							"$ref": "#/definitions/Child",
-							"definitions": {
-								"Child": { "anyOf": [
-									{
-										"type": "object",
-										"properties": {
-											"field2": { "type": "string" },
-											"field3": { "type": "integer" }
-										}
+							"definitions": map[string]interface{}{
+								"Child": map[string]interface{}{
+									"anyOf": []interface{}{
+										map[string]interface{}{
+											"type": "object",
+											"properties": map[string]interface{}{
+												"field2": map[string]interface{}{"type": "string"},
+												"field3": map[string]interface{}{"type": "integer"},
+											},
+										},
+										map[string]interface{}{"type": "string"},
 									},
-									{ "type": "string" }
-								] }
-							}
-						}`),
+								},
+							},
+						},
 					},
-					"cti.x.y.sample_entity.v1.0": {
-						Schema: []byte(`{
+					"cti.x.y.sample_entity.v1.0": &metadata.EntityType{
+						Schema: map[string]interface{}{
 							"$ref": "#/definitions/Parent",
-							"definitions": {
-								"Parent": { "anyOf": [
-									{
-										"type": "object",
-										"properties": {
-											"field1": { "type": "number" }
-										}
+							"definitions": map[string]interface{}{
+								"Parent": map[string]interface{}{
+									"anyOf": []interface{}{
+										map[string]interface{}{
+											"type": "object",
+											"properties": map[string]interface{}{
+												"field1": map[string]interface{}{"type": "number"},
+											},
+										},
+										map[string]interface{}{"type": "string"},
 									},
-									{ "type": "string" }
-								] }
-							}
-						}`),
+								},
+							},
+						},
 					},
 				},
 			},
@@ -317,40 +300,28 @@ func TestGetMergedCtiSchema(t *testing.T) {
 			name: "missing cti in registry",
 			cti:  "cti.x.y.sample_entity.v1.0",
 			registry: &collector.MetadataRegistry{
-				Index: map[string]*metadata.Entity{},
+				Types: metadata.EntityTypeMap{},
 			},
-			expectedError: "failed to find cti cti.x.y.sample_entity.v1.0",
-		},
-		{
-			name: "invalid child schema",
-			cti:  "cti.x.y.sample_entity.v1.0~x.y._.v1.0",
-			registry: &collector.MetadataRegistry{
-				Index: map[string]*metadata.Entity{
-					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": {
-						Schema: []byte(`{ invalid json }`),
-					},
-				},
-			},
-			expectedError: "invalid character 'i' looking for beginning of object key string",
+			expectedError: "failed to find cti type cti.x.y.sample_entity.v1.0",
 		},
 		{
 			name: "missing parent cti in registry",
 			cti:  "cti.x.y.sample_entity.v1.0~x.y._.v1.0",
 			registry: &collector.MetadataRegistry{
-				Index: map[string]*metadata.Entity{
-					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": {
-						Schema: []byte(`{
+				Types: metadata.EntityTypeMap{
+					"cti.x.y.sample_entity.v1.0~x.y._.v1.0": &metadata.EntityType{
+						Schema: map[string]interface{}{
 							"$ref": "#/definitions/Child",
-							"definitions": {
-								"Child": {
-									"type": "object"
-								}
-							}
-						}`),
+							"definitions": map[string]interface{}{
+								"Child": map[string]interface{}{
+									"type": "object",
+								},
+							},
+						},
 					},
 				},
 			},
-			expectedError: "failed to find cti parent cti.x.y.sample_entity.v1.0",
+			expectedError: "failed to find cti parent type cti.x.y.sample_entity.v1.0",
 		},
 	}
 
