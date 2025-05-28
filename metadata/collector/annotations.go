@@ -10,15 +10,15 @@ import (
 const MetadataPrefix = "cti."
 
 type AnnotationsCollector struct {
-	annotations map[metadata.GJsonPath]metadata.Annotations
+	annotations map[metadata.GJsonPath]*metadata.Annotations
 }
 
 func NewAnnotationsCollector() *AnnotationsCollector {
 	return &AnnotationsCollector{}
 }
 
-func (c *AnnotationsCollector) Collect(s raml.Shape) map[metadata.GJsonPath]metadata.Annotations {
-	c.annotations = make(map[metadata.GJsonPath]metadata.Annotations)
+func (c *AnnotationsCollector) Collect(s raml.Shape) map[metadata.GJsonPath]*metadata.Annotations {
+	c.annotations = make(map[metadata.GJsonPath]*metadata.Annotations)
 	c.Visit(".", s)
 	return c.annotations
 }
@@ -87,7 +87,12 @@ func (c *AnnotationsCollector) collectAnnotations(ctx string, s *raml.BaseShape)
 	if len(filtered) == 0 {
 		return
 	}
-	item := c.annotations[metadata.GJsonPath(ctx)]
+	key := metadata.GJsonPath(ctx)
+	item := c.annotations[key]
+	if item == nil {
+		item = &metadata.Annotations{}
+		c.annotations[key] = item
+	}
 	for _, annotation := range filtered {
 		switch annotation.Name {
 		case metadata.Cti:
@@ -95,6 +100,8 @@ func (c *AnnotationsCollector) collectAnnotations(ctx string, s *raml.BaseShape)
 		case metadata.Final:
 			v := annotation.Extension.Value.(bool)
 			item.Final = &v
+		case metadata.Access:
+			item.Access = annotation.Extension.Value.(metadata.AccessModifier)
 		case metadata.Resilient:
 			v := annotation.Extension.Value.(bool)
 			item.Resilient = &v

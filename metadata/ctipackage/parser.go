@@ -57,7 +57,7 @@ func (pkg *Package) Parse() error {
 	pkg.GlobalRegistry = c.GlobalRegistry
 
 	// TODO: Maybe need an option to parse without dumping cache?
-	if err := pkg.DumpCache(); err != nil {
+	if err = pkg.DumpCache(); err != nil {
 		return fmt.Errorf("dump cache: %w", err)
 	}
 
@@ -101,7 +101,7 @@ func (pkg *Package) parse(c *collector.Collector, isLocal bool) error {
 	}
 
 	c.SetRaml(r)
-	if err := c.Collect(isLocal); err != nil {
+	if err = c.Collect(isLocal); err != nil {
 		return fmt.Errorf("collect from package: %w", err)
 	}
 	pkg.Parsed = true

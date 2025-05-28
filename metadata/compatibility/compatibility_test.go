@@ -170,22 +170,22 @@ func TestValidationSummaryTemplate(t *testing.T) {
 
 func TestDiffReportTemplate(t *testing.T) {
 	// Create entity types for testing
-	newEntity1, err := metadata.NewEntityType("cti.vendor.package.new.entity.1.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]metadata.Annotations{}, nil, nil)
+	newEntity1, err := metadata.NewEntityType("cti.vendor.package.new.entity.1.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]*metadata.Annotations{})
 	if err != nil {
 		t.Fatalf("Failed to create new entity 1: %v", err)
 	}
 
-	newEntity2, err := metadata.NewEntityType("cti.vendor.package.new.entity.2.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]metadata.Annotations{}, nil, nil)
+	newEntity2, err := metadata.NewEntityType("cti.vendor.package.new.entity.2.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]*metadata.Annotations{})
 	if err != nil {
 		t.Fatalf("Failed to create new entity 2: %v", err)
 	}
 
-	removedEntity, err := metadata.NewEntityType("cti.vendor.package.removed.entity.1.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]metadata.Annotations{}, nil, nil)
+	removedEntity, err := metadata.NewEntityType("cti.vendor.package.removed.entity.1.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]*metadata.Annotations{})
 	if err != nil {
 		t.Fatalf("Failed to create removed entity: %v", err)
 	}
 
-	modifiedEntity, err := metadata.NewEntityType("cti.vendor.package.modified.entity.1.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]metadata.Annotations{}, nil, nil)
+	modifiedEntity, err := metadata.NewEntityType("cti.vendor.package.modified.entity.1.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]*metadata.Annotations{})
 	if err != nil {
 		t.Fatalf("Failed to create modified entity: %v", err)
 	}

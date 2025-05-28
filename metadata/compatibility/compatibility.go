@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/ctipackage"
 	"github.com/acronis/go-cti/metadata/merger"
@@ -208,10 +209,24 @@ func (cc *CompatibilityChecker) DiffReportTemplate() string {
 	return sb.String()
 }
 
-// TODO: To think how to attach the report to PR
-//   - With dedicated file
-//   - As a comment
-// TODO: Make separate script for checking compatibility and making and sending report in CI
+func cloneExpressionWithDecrement(expr *cti.Expression) *cti.Expression {
+	if expr == nil || expr.Head == nil {
+		return nil
+	}
+	root := *expr
+	h := *root.Head
+	root.Head = &h
+
+	n := root.Head
+	for n != nil && n.Child != nil {
+		val := *n.Child
+		n.Child = &val
+		n = n.Child
+	}
+	// TODO: Probably need to support jump by more than one minor version.
+	n.Version.Minor.Value--
+	return &root
+}
 
 func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipackage.Package) error {
 	if oldPkg == nil || newPkg == nil {
@@ -250,12 +265,25 @@ func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipa
 		cc.NewEntities = append(cc.NewEntities, newObject)
 
 		currentVersion := newObject.Version()
-		targetMinor := currentVersion.Minor - 1
-		previousMinorVersionObject := newObject.GetObjectVersion(currentVersion.Major, targetMinor)
+		if !currentVersion.Minor.Valid {
+			continue
+		}
+
+		expr, err := newObject.Expression()
+		if err != nil {
+			return fmt.Errorf("get expression for new object %s: %w", newCti, err)
+		}
+
+		clonedExpr := cloneExpressionWithDecrement(expr)
+		if clonedExpr == nil {
+			return fmt.Errorf("clone expression for new object %s", newCti)
+		}
+
+		previousMinorVersionObject := newPkg.LocalRegistry.Index[clonedExpr.String()]
 		if previousMinorVersionObject == nil {
 			continue
 		}
-		if err := cc.checkEntitiesCompatibility(previousMinorVersionObject, newObject); err != nil {
+		if err = cc.checkEntitiesCompatibility(previousMinorVersionObject, newObject); err != nil {
 			return fmt.Errorf("check entities compatibility: %w", err)
 		}
 	}
@@ -301,7 +329,7 @@ func (cc *CompatibilityChecker) checkEntitiesCompatibility(oldObject, newObject 
 	return nil
 }
 
-func (cc *CompatibilityChecker) checkAnnotationsCompatibility(oldAnnotations, newAnnotations map[metadata.GJsonPath]metadata.Annotations) error {
+func (cc *CompatibilityChecker) checkAnnotationsCompatibility(oldAnnotations, newAnnotations map[metadata.GJsonPath]*metadata.Annotations) error {
 	if oldAnnotations != nil && newAnnotations == nil {
 		return errors.New("new values cannot be nil if old values are not nil")
 	} else if oldAnnotations == nil || newAnnotations == nil {

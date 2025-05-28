@@ -1,10 +1,13 @@
 package metadata
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/acronis/go-cti"
+	"github.com/acronis/go-cti/metadata/merger"
 	"github.com/tidwall/gjson"
 )
 
@@ -13,47 +16,81 @@ type EntityTypeMap map[string]*EntityType
 type EntityInstanceMap map[string]*EntityInstance
 type EntityMap map[string]Entity
 
+// TODO: For future use
 type MContext struct{}
-
-type Version struct {
-	Major uint
-	Minor uint
-}
 
 // PtrReplacer is an interface for objects that can replace their pointers with another object of the same type.
 type PtrReplacer[T any] interface {
 	ReplacePointer(T) error
 }
 
+type NilChecker interface {
+	IsNil() bool
+}
+
 type Entity interface {
 	GetCti() string
+
+	SetFinal(final bool)
 	IsFinal() bool
+
+	GetAccess() AccessModifier
+	SetAccess(access AccessModifier)
+	IsSamePackage(other Entity) bool
+	IsSameVendor(other Entity) bool
+	IsAccessibleBy(other Entity) error
+
+	SetResilient(resilient bool)
+	SetDisplayName(displayName string)
+	SetDescription(description string)
+	SetDictionaries(dictionaries map[string]interface{})
 
 	Parent() *EntityType
 	SetParent(*EntityType) error
 
-	Children() Entities
-	GetChild(cti string) Entity
-	AddChild(Entity) error
+	Expression() (*cti.Expression, error)
+	Match(other Entity) (bool, error)
+	Vendor() string
+	Package() string
+	Name() string
+	Version() cti.Version
 
-	Version() Version
-	// TODO: Maybe it would make sense to move the object version into corresponding types
-	GetObjectMajorVersion(major uint) Entity
-	GetObjectVersion(major uint, minor uint) Entity
-	GetObjectVersions() map[Version]Entity
-	AddObjectVersion(Entity) error
-
-	Expression() *cti.Expression
 	Context() *MContext
 
-	GetAnnotations() map[GJsonPath]Annotations
-	FindAnnotationsInChain(predicate func(*Annotations) bool) *Annotations
-	FindAnnotationsKeyInChain(key GJsonPath) *Annotations
+	GetAnnotations() map[GJsonPath]*Annotations
+	FindAnnotationsByPredicateInChain(key GJsonPath, predicate func(*Annotations) bool) *Annotations
+	FindAnnotationsByKeyInChain(key GJsonPath) *Annotations
+
+	NilChecker
+}
+
+type AccessModifier string
+
+const (
+	AccessModifierPublic    AccessModifier = "public"
+	AccessModifierPrivate   AccessModifier = "private"
+	AccessModifierProtected AccessModifier = "protected"
+)
+
+func (a AccessModifier) Integer() int {
+	switch a {
+	case AccessModifierPublic:
+		return 0
+	case AccessModifierProtected:
+		return 1
+	case AccessModifierPrivate:
+		return 2
+	default:
+		return -1
+	}
 }
 
 type Annotations struct {
+	// TODO: Refactor Cti into CTI
 	Cti           interface{}            `json:"cti.cti,omitempty"` // string or []string
 	ID            *bool                  `json:"cti.id,omitempty"`  // bool?
+	Access        AccessModifier         `json:"cti.access,omitempty"`
+	AccessField   *bool                  `json:"cti.access_field,omitempty"`
 	DisplayName   *bool                  `json:"cti.display_name,omitempty"`
 	Description   *bool                  `json:"cti.description,omitempty"`
 	Reference     interface{}            `json:"cti.reference,omitempty"` // bool or string or []string
@@ -93,12 +130,22 @@ func (a Annotations) ReadCti() []string {
 	return a.Cti.([]string)
 }
 
+func (a Annotations) ReadCtiSchema() []string {
+	if a.Schema == nil {
+		return []string{}
+	}
+	if val, ok := a.Schema.(string); ok {
+		return []string{val}
+	}
+	return a.Schema.([]string)
+}
+
 func (a Annotations) ReadReference() string {
 	if a.Reference == nil {
 		return ""
 	}
 	if val, ok := a.Reference.(bool); ok {
-		return fmt.Sprintf("%t", val)
+		return strconv.FormatBool(val)
 	}
 	return a.Reference.(string)
 }
@@ -123,73 +170,24 @@ func (k GJsonPath) String() string {
 	return string(k)
 }
 
-type EntityOption func(*entity) error
-
-func WithFinal(final bool) EntityOption {
-	return func(obj *entity) error {
-		obj.Final = final
-		return nil
-	}
-}
-
-func WithResilient(resilient bool) EntityOption {
-	return func(obj *entity) error {
-		obj.Resilient = resilient
-		return nil
-	}
-}
-
-func WithDisplayName(displayName string) EntityOption {
-	return func(obj *entity) error {
-		obj.DisplayName = displayName
-		return nil
-	}
-}
-
-func WithDescription(description string) EntityOption {
-	return func(obj *entity) error {
-		obj.Description = description
-		return nil
-	}
-}
-
-func WithDictionaries(dictionaries map[string]interface{}) EntityOption {
-	return func(obj *entity) error {
-		obj.Dictionaries = dictionaries
-		return nil
-	}
-}
-
 // Base properties for all CTI entities.
 type entity struct {
 	// TODO: Add UUID (computable)
 	// TODO: Add IsAnonymous method
-	// TODO: Add Validate and GetMergedSchema methods with merged schema caching
+	// TODO: Implement Validate method
 
-	Final        bool                      `json:"final"`
-	Cti          string                    `json:"cti"`
-	Resilient    bool                      `json:"resilient"`
-	DisplayName  string                    `json:"display_name,omitempty"`
-	Description  string                    `json:"description,omitempty"`
-	Dictionaries map[string]interface{}    `json:"dictionaries,omitempty"`
-	Annotations  map[GJsonPath]Annotations `json:"annotations"`
+	Final        bool                       `json:"final"`
+	Access       AccessModifier             `json:"access"`
+	Cti          string                     `json:"cti"`
+	Resilient    bool                       `json:"resilient"`
+	DisplayName  string                     `json:"display_name,omitempty"`
+	Description  string                     `json:"description,omitempty"`
+	Dictionaries map[string]interface{}     `json:"dictionaries,omitempty"`
+	Annotations  map[GJsonPath]*Annotations `json:"annotations"`
 
-	// Form a doubly-linked list of Entities
-	parent   *EntityType `json:"-"`
-	children Entities    `json:"-"`
+	parent *EntityType `json:"-"`
 
-	// CTI Parser properties
-	// TODO: Probably move out to separate implementation
-	vendor     string          `json:"-"`
-	pkg        string          `json:"-"`
-	name       string          `json:"-"`
-	version    Version         `json:"-"`
 	expression *cti.Expression `json:"-"`
-
-	// Adjacent list of versions that are relevant to this object.
-	versions map[Version]Entity `json:"-"`
-
-	// TODO: Add extensible SourceMap interface
 
 	ctx *MContext `json:"-"` // For future reflection purposes
 }
@@ -206,44 +204,38 @@ func (e *entity) GetCti() string {
 	return e.Cti
 }
 
+func (e *entity) GetAccess() AccessModifier {
+	return e.Access
+}
+
 func (e *entity) Parent() *EntityType {
 	return e.parent
 }
 
-func (e *entity) Children() Entities {
-	return e.children
-}
-
-func (e *entity) GetObjectVersions() map[Version]Entity {
-	return e.versions
-}
-
-func (e *entity) GetAnnotations() map[GJsonPath]Annotations {
+func (e *entity) GetAnnotations() map[GJsonPath]*Annotations {
 	return e.Annotations
 }
 
-func (e *entity) FindAnnotationsInChain(predicate func(*Annotations) bool) *Annotations {
+func (e *entity) FindAnnotationsByPredicateInChain(key GJsonPath, predicate func(*Annotations) bool) *Annotations {
 	var root Entity = e
-	for root != nil {
+	for !root.IsNil() {
 		annotations := root.GetAnnotations()
-		for _, val := range annotations {
-			if predicate(&val) {
-				return &val
-			}
+		if val, ok := annotations[key]; ok && predicate(val) {
+			return val
 		}
-		root = e.parent
+		root = root.Parent()
 	}
 	return nil
 }
 
-func (e *entity) FindAnnotationsKeyInChain(key GJsonPath) *Annotations {
+func (e *entity) FindAnnotationsByKeyInChain(key GJsonPath) *Annotations {
 	var root Entity = e
-	for root != nil {
+	for !root.IsNil() {
 		annotations := root.GetAnnotations()
 		if val, ok := annotations[key]; ok {
-			return &val
+			return val
 		}
-		root = e.parent
+		root = root.Parent()
 	}
 	return nil
 }
@@ -252,55 +244,79 @@ func (e *entity) Context() *MContext {
 	return e.ctx
 }
 
-func (e *entity) GetChild(cti string) Entity {
-	// TODO: Implement FindChild
-	for _, child := range e.children {
-		if child.GetCti() == cti {
-			return child
-		}
+func (e *entity) IsAccessibleBy(other Entity) error {
+	if other == nil {
+		return errors.New("other entity is nil")
+	}
+	if !e.IsSameVendor(other) && e.Access != AccessModifierPublic {
+		return errors.New("cannot reference non-public entity of external vendor")
+	} else if !e.IsSamePackage(other) && e.Access == AccessModifierPrivate {
+		return errors.New("cannot reference private entity of the same vendor")
 	}
 	return nil
 }
 
-func (e *entity) Version() Version {
-	return e.version
+func (e *entity) IsSameVendor(other Entity) bool {
+	if other == nil {
+		return false
+	}
+	if e.Vendor() != other.Vendor() {
+		return false
+	}
+	return true
 }
 
-func (e *entity) GetObjectMajorVersion(_ uint) Entity {
-	// TODO: Implement
-	return nil
+func (e *entity) IsSamePackage(other Entity) bool {
+	if other == nil {
+		return false
+	}
+	if e.Vendor() != other.Vendor() {
+		return false
+	}
+	if e.Package() != other.Package() {
+		return false
+	}
+	return true
 }
 
-func (e *entity) GetObjectVersion(major uint, minor uint) Entity {
-	return e.versions[Version{Major: major, Minor: minor}]
+func (e *entity) Vendor() string {
+	expr, err := e.Expression()
+	if err != nil {
+		return ""
+	}
+	tail := expr.Tail()
+	return string(tail.Vendor)
 }
 
-func (e *entity) AddObjectVersion(object Entity) error {
-	// TODO: Implement more sophisticated checks
-	if object == nil {
-		return errors.New("object is nil")
+func (e *entity) Package() string {
+	expr, err := e.Expression()
+	if err != nil {
+		return ""
 	}
-	expr := object.Expression()
-	if expr == nil {
-		return errors.New("entity expression is nil")
+	tail := expr.Tail()
+	return string(tail.Package)
+}
+
+func (e *entity) Name() string {
+	expr, err := e.Expression()
+	if err != nil {
+		return ""
 	}
-	ver := object.Version()
-	if ver.Major == 0 && ver.Minor == 0 {
-		return errors.New("object version is not set")
+	tail := expr.Tail()
+	return string(tail.EntityName)
+}
+
+func (e *entity) Version() cti.Version {
+	expr, err := e.Expression()
+	if err != nil {
+		return cti.Version{}
 	}
-	if _, ok := e.versions[ver]; ok {
-		return errors.New("object with the same version already exists")
-	}
-	e.versions[ver] = object
-	return nil
+	tail := expr.Tail()
+	return tail.Version
 }
 
 func (e *entity) SetParent(_ *EntityType) error {
 	return errors.New("entity does not implement SetParent")
-}
-
-func (e *entity) AddChild(_ Entity) error {
-	return errors.New("entity does not implement AddChild")
 }
 
 func (e *entity) ReplacePointer(_ Entity) error {
@@ -311,98 +327,93 @@ func (e *entity) IsFinal() bool {
 	return e.Final
 }
 
-func (e *entity) Expression() *cti.Expression {
-	return e.expression
-}
-
-type EntityTypeOption func(*EntityType) error
-
-func WithTraitsSchema(schema map[string]interface{}, annotations map[GJsonPath]Annotations) EntityTypeOption {
-	return func(obj *EntityType) error {
-		obj.TraitsSchema = schema
-		obj.TraitsAnnotations = annotations
-		return nil
-	}
-}
-
-func WithTraits(traits interface{}) EntityTypeOption {
-	return func(obj *EntityType) error {
-		obj.Traits = traits
-		return nil
-	}
-}
-
-func WithTypeSourceMap(sourceMap *EntityTypeSourceMap) EntityTypeOption {
-	return func(obj *EntityType) error {
-		if sourceMap == nil {
-			return errors.New("source map is nil")
+func (e *entity) Expression() (*cti.Expression, error) {
+	if e.expression == nil {
+		if e.Cti == "" {
+			return nil, errors.New("entity CTI is empty")
 		}
-		obj.SourceMap = *sourceMap
-		return nil
+		expr, err := cti.Parse(e.Cti)
+		if err != nil {
+			return nil, fmt.Errorf("parse expression %s: %w", e.Cti, err)
+		}
+		e.expression = &expr
 	}
+	return e.expression, nil
+}
+
+func (e *entity) Match(other Entity) (bool, error) {
+	if other == nil {
+		return false, errors.New("other entity is nil")
+	}
+	expr, err := e.Expression()
+	if err != nil {
+		return false, fmt.Errorf("get entity expression: %w", err)
+	}
+	otherExpr, err := other.Expression()
+	if err != nil {
+		return false, fmt.Errorf("get other entity expression: %w", err)
+	}
+	ok, err := expr.MatchIgnoreQuery(*otherExpr)
+	if err != nil {
+		return false, fmt.Errorf("failed to match expression: %w", err)
+	} else if !ok {
+		return false, fmt.Errorf("expression %s does not match %s", expr, otherExpr)
+	}
+	return true, nil
+}
+
+func (e *entity) SetFinal(final bool) {
+	e.Final = final
+}
+
+func (e *entity) SetAccess(access AccessModifier) {
+	e.Access = access
+}
+
+func (e *entity) SetResilient(resilient bool) {
+	e.Resilient = resilient
+}
+
+func (e *entity) SetDisplayName(displayName string) {
+	e.DisplayName = displayName
+}
+
+func (e *entity) SetDescription(description string) {
+	e.Description = description
+}
+
+func (e *entity) SetDictionaries(dictionaries map[string]interface{}) {
+	e.Dictionaries = dictionaries
+}
+
+func (e *entity) SetAnnotations(annotations map[GJsonPath]*Annotations) {
+	e.Annotations = annotations
+}
+
+func (e *entity) IsNil() bool {
+	return e == nil
 }
 
 func NewEntityType(
 	id string,
 	schema map[string]interface{},
-	annotations map[GJsonPath]Annotations,
-	commonOptions []EntityOption,
-	specificOptions []EntityTypeOption,
-) (*EntityType, error) {
-	expr, err := cti.Parse(id)
-	if err != nil {
-		return nil, fmt.Errorf("parse cti: %w", err)
-	}
-	return NewEntityTypeFromExpr(&expr, schema, annotations, commonOptions, specificOptions)
-}
-
-func NewEntityTypeFromExpr(
-	expr *cti.Expression,
-	schema map[string]interface{},
-	annotations map[GJsonPath]Annotations,
-	commonOptions []EntityOption,
-	specificOptions []EntityTypeOption,
+	annotations map[GJsonPath]*Annotations,
 ) (*EntityType, error) {
 	switch {
-	case expr == nil:
-		return nil, errors.New("expression is nil")
 	case schema == nil:
 		return nil, errors.New("schema is nil")
 	case annotations == nil:
 		return nil, errors.New("annotations are nil")
 	}
 
-	tail := expr.Tail()
 	obj := &EntityType{
 		entity: entity{
-			Cti:         expr.String(), // TODO: This potentially introduces unwanted overhead since we are reconstructing already known string
-			Final:       true,          // All entities are final by default
+			Cti:         id,
+			Final:       true, // All entities are final by default
+			Access:      AccessModifierProtected,
 			Annotations: annotations,
-
-			vendor: string(tail.Vendor),
-			pkg:    string(tail.Package),
-			name:   string(tail.EntityName),
-			version: Version{
-				Major: tail.Version.Major.Value,
-				Minor: tail.Version.Minor.Value,
-			},
-			expression: expr,
-
-			versions: make(map[Version]Entity),
 		},
 		Schema: schema,
-	}
-
-	for _, option := range commonOptions {
-		if err := option(&obj.entity); err != nil {
-			return nil, fmt.Errorf("common option failed: %w", err)
-		}
-	}
-
-	for _, option := range specificOptions {
-		if err := option(obj); err != nil {
-			return nil, fmt.Errorf("specific option failed: %w", err)
-		}
 	}
 
 	return obj, nil
@@ -411,10 +422,12 @@ func NewEntityTypeFromExpr(
 type EntityType struct {
 	entity
 
-	Schema            map[string]interface{}    `json:"schema"`
-	TraitsSchema      map[string]interface{}    `json:"traits_schema,omitempty"`
-	TraitsAnnotations map[GJsonPath]Annotations `json:"traits_annotations,omitempty"`
-	Traits            interface{}               `json:"traits,omitempty"`
+	Schema            map[string]interface{}     `json:"schema"`
+	TraitsSchema      map[string]interface{}     `json:"traits_schema,omitempty"`
+	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty"`
+	Traits            interface{}                `json:"traits,omitempty"`
+
+	mergedSchema map[string]interface{} `json:"-"` // Cached merged schema, if any
 
 	SourceMap EntityTypeSourceMap `json:"source_map,omitempty"`
 }
@@ -425,23 +438,15 @@ type EntityTypeSourceMap struct {
 }
 
 func (e *EntityType) SetParent(entity *EntityType) error {
-	// TODO: Implement more sophisticated checks
 	if entity == nil {
 		e.parent = nil
 		return nil
 	}
-	ver := entity.Version()
-	if ver.Major == 0 && ver.Minor == 0 {
-		return errors.New("type version is not set")
-	}
-	if e.expression == nil {
-		return errors.New("entity expression is nil")
-	}
-	ok, err := entity.expression.MatchIgnoreQuery(*e.expression)
+	ok, err := entity.Match(e)
 	if err != nil {
-		return fmt.Errorf("failed to match expression: %w", err)
+		return fmt.Errorf("failed to match entity: %w", err)
 	} else if !ok {
-		return fmt.Errorf("expression %s does not match %s", e.expression, entity.expression)
+		return fmt.Errorf("entity %s does not match %s", e.Cti, entity.Cti)
 	}
 	if entity.IsFinal() {
 		return errors.New("cannot set parent to a final type")
@@ -450,8 +455,86 @@ func (e *EntityType) SetParent(entity *EntityType) error {
 	return nil
 }
 
-func (e *EntityType) MergeSchemaChain() map[string]interface{} {
-	return nil
+func (e *EntityType) GetMergedSchema() (map[string]interface{}, error) {
+	if e.Schema == nil {
+		return nil, errors.New("entity type schema is nil")
+	}
+	if e.parent == nil {
+		return e.Schema, nil
+	} else if e.mergedSchema != nil {
+		return e.mergedSchema, nil
+	}
+	childRootSchema := e.Schema
+
+	childSchema, refType, err := merger.ExtractSchemaDefinition(childRootSchema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract schema definition: %w", err)
+	}
+
+	definitions := map[string]any{}
+	for k, v := range childRootSchema["definitions"].(map[string]any) {
+		if k == refType {
+			continue
+		}
+		definitions[k] = v
+	}
+
+	origSelfRefType := "#/definitions/" + refType
+	refsToReplace := map[string]struct{}{}
+
+	// TODO: Maybe it would make more sense to reverse the order
+	// and store merged schema for each parent in chain.
+	parent := e.Parent()
+	for parent != nil {
+		parentRootSchema := parent.Schema
+
+		parentSchema, parentRefType, err := merger.ExtractSchemaDefinition(parentRootSchema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract parent schema definition: %w", err)
+		}
+		refsToReplace["#/definitions/"+parentRefType] = struct{}{}
+
+		childSchema, err = merger.MergeSchemas(childSchema, parentSchema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge schemas: %w", err)
+		}
+
+		for k, v := range parentRootSchema["definitions"].(map[string]any) {
+			if k == parentRefType {
+				continue
+			}
+			if definition, ok := definitions[k]; ok {
+				definition, err = merger.MergeSchemas(v.(map[string]any), definition.(map[string]any))
+				if err != nil {
+					return nil, fmt.Errorf("failed to merge definitions: %w", err)
+				}
+				definitions[k] = definition
+			} else {
+				definitions[k] = v
+			}
+		}
+		parent = parent.Parent()
+	}
+	definitions[refType] = childSchema
+	for _, someDefinition := range definitions {
+		definition, ok := someDefinition.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("definition is not a map: %v", someDefinition)
+		}
+		if err = merger.FixSelfReferences(definition, origSelfRefType, refsToReplace); err != nil {
+			return nil, fmt.Errorf("failed to fix self references: %w", err)
+		}
+	}
+
+	outSchema := map[string]any{
+		"$schema":     "http://json-schema.org/draft-07/schema",
+		"$ref":        origSelfRefType,
+		"definitions": definitions,
+	}
+
+	e.mergedSchema = outSchema
+
+	return e.mergedSchema, nil
 }
 
 func (e *EntityType) GetTraitsSchema() interface{} {
@@ -464,7 +547,7 @@ func (e *EntityType) FindTraitsSchemaInChain() map[string]interface{} {
 		if root.TraitsSchema != nil {
 			return root.TraitsSchema
 		}
-		root = e.parent
+		root = root.parent
 	}
 	return nil
 }
@@ -479,17 +562,13 @@ func (e *EntityType) FindTraitsInChain() interface{} {
 		if root.Traits != nil {
 			return root.Traits
 		}
-		root = e.parent
+		root = root.parent
 	}
 	return nil
 }
 
 func (e *EntityType) Validate() error {
-	return nil
-}
-
-func (e *EntityType) AddChild(object Entity) error {
-	e.children = append(e.children, object)
+	// TODO: Implement
 	return nil
 }
 
@@ -503,76 +582,40 @@ func (e *EntityType) ReplacePointer(src Entity) error {
 	return nil
 }
 
-// For EntityInstance
-type EntityInstanceOption func(*EntityInstance) error
-
-func WithInstanceSourceMap(sourceMap *EntityInstanceSourceMap) EntityInstanceOption {
-	return func(obj *EntityInstance) error {
-		if sourceMap == nil {
-			return errors.New("source map is nil")
-		}
-		obj.SourceMap = *sourceMap
-		return nil
-	}
+func (e *EntityType) SetSchema(schema map[string]interface{}) {
+	e.Schema = schema
 }
 
-func NewEntityInstance(
-	id string,
-	values interface{},
-	commonOptions []EntityOption,
-	specificOptions []EntityInstanceOption,
-) (*EntityInstance, error) {
-	expr, err := cti.Parse(id)
-	if err != nil {
-		return nil, fmt.Errorf("parse cti: %w", err)
-	}
-	return NewEntityInstanceFromExpr(&expr, values, commonOptions, specificOptions)
+func (e *EntityType) SetTraitsSchema(traitsSchema map[string]interface{}, traitsAnnotations map[GJsonPath]*Annotations) {
+	e.TraitsSchema = traitsSchema
+	e.TraitsAnnotations = traitsAnnotations
 }
 
-func NewEntityInstanceFromExpr(
-	expr *cti.Expression,
-	values interface{},
-	commonOptions []EntityOption,
-	specificOptions []EntityInstanceOption,
-) (*EntityInstance, error) {
-	switch {
-	case expr == nil:
-		return nil, errors.New("expression is nil")
-	case values == nil:
+func (e *EntityType) SetTraits(traits interface{}) {
+	e.Traits = traits
+}
+
+func (e *EntityType) SetSourceMap(sourceMap EntityTypeSourceMap) {
+	e.SourceMap = sourceMap
+}
+
+func (e *EntityType) IsNil() bool {
+	return e == nil
+}
+
+func NewEntityInstance(id string, values interface{}) (*EntityInstance, error) {
+	if values == nil {
 		return nil, errors.New("values is nil")
 	}
 
-	tail := expr.Tail()
 	obj := &EntityInstance{
 		entity: entity{
-			Cti:         expr.String(), // TODO: This potentially introduces unwanted overhead since we are reconstructing already known string
-			Final:       true,          // All instances are final by default
-			Annotations: make(map[GJsonPath]Annotations),
-
-			vendor: string(tail.Vendor),
-			pkg:    string(tail.Package),
-			name:   string(tail.EntityName),
-			version: Version{
-				Major: tail.Version.Major.Value,
-				Minor: tail.Version.Minor.Value,
-			},
-			expression: expr,
-
-			versions: make(map[Version]Entity),
+			Cti:         id,
+			Final:       true, // All entities are final by default
+			Access:      AccessModifierProtected,
+			Annotations: make(map[GJsonPath]*Annotations),
 		},
 		Values: values,
-	}
-
-	for _, option := range commonOptions {
-		if err := option(&obj.entity); err != nil {
-			return nil, fmt.Errorf("common option failed: %w", err)
-		}
-	}
-
-	for _, option := range specificOptions {
-		if err := option(obj); err != nil {
-			return nil, fmt.Errorf("specific option failed: %w", err)
-		}
 	}
 
 	return obj, nil
@@ -583,6 +626,8 @@ type EntityInstance struct {
 
 	Values interface{} `json:"values"`
 
+	rawValues []byte `json:"-"`
+
 	SourceMap EntityInstanceSourceMap `json:"source_map,omitempty"`
 }
 
@@ -592,23 +637,29 @@ type EntityInstanceSourceMap struct {
 }
 
 func (e *EntityInstance) SetParent(entity *EntityType) error {
-	// TODO: Implement more sophisticated checks
 	if entity == nil {
 		e.parent = nil
 		return nil
 	}
-	ver := entity.Version()
-	if ver.Major == 0 && ver.Minor == 0 {
-		return errors.New("type version is not set")
-	}
-	ok, err := entity.expression.MatchIgnoreQuery(*e.expression)
+	ok, err := entity.Match(e)
 	if err != nil {
-		return fmt.Errorf("failed to match expression: %w", err)
+		return fmt.Errorf("failed to match entity: %w", err)
 	} else if !ok {
-		return fmt.Errorf("expression %s does not match %s", e.expression, entity.expression)
+		return fmt.Errorf("entity %s does not match %s", e.Cti, entity.Cti)
 	}
 	e.parent = entity
 	return nil
+}
+
+func (e *EntityInstance) GetRawValues() ([]byte, error) {
+	if e.rawValues == nil {
+		if b, err := json.Marshal(e.Values); err == nil {
+			e.rawValues = b
+		} else {
+			return nil, fmt.Errorf("marshal values: %w", err)
+		}
+	}
+	return e.rawValues, nil
 }
 
 func (e *EntityInstance) Validate() error {
@@ -629,6 +680,10 @@ func (e *EntityInstance) ReplacePointer(src Entity) error {
 	return nil
 }
 
-func (e *EntityInstance) AddChild(_ Entity) error {
-	return errors.New("EntityInstance does not support children")
+func (e *EntityInstance) SetSourceMap(sourceMap EntityInstanceSourceMap) {
+	e.SourceMap = sourceMap
+}
+
+func (e *EntityInstance) IsNil() bool {
+	return e == nil
 }
