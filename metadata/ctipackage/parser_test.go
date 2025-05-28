@@ -14,13 +14,6 @@ import (
 	slogex "github.com/acronis/go-stacktrace/slogex"
 )
 
-type parserTestCase struct {
-	name     string
-	pkgId    string
-	entities []string
-	files    map[string]string
-}
-
 func Test_EmptyPackage(t *testing.T) {
 	testPath := "./testdata/valid/empty"
 
@@ -49,36 +42,21 @@ func Test_EmptyIndex(t *testing.T) {
 	require.ErrorContains(t, pkg.Read(), "read index file: check index file: package id is missing")
 }
 
-func initParseTest(t *testing.T, tc parserTestCase) string {
-	t.Helper()
-
-	testDir := filepath.Join("./testdata", strings.ReplaceAll(tc.name, " ", "_"))
-	require.NoError(t, os.RemoveAll(testDir))
-	require.NoError(t, os.MkdirAll(testDir, os.ModePerm))
-
-	for name, content := range tc.files {
-		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(testDir, name)), os.ModePerm))
-		require.NoError(t, os.WriteFile(filepath.Join(testDir, name), []byte(content), os.ModePerm))
-	}
-
-	return testDir
-}
-
 func Test_InvalidPackage(t *testing.T) {
 	testsupp.InitLog(t)
 
 	type testCase struct {
-		parserTestCase
+		testsupp.PackageTestCase
 		expectedError string
 	}
 
 	testCases := []testCase{
 		{
-			parserTestCase: parserTestCase{
-				name:     "duplicate type",
-				pkgId:    "x.y",
-				entities: []string{"entities.raml"},
-				files: map[string]string{"entities.raml": strings.TrimSpace(`
+			PackageTestCase: testsupp.PackageTestCase{
+				Name:     "duplicate type",
+				PkgId:    "x.y",
+				Entities: []string{"entities.raml"},
+				Files: map[string]string{"entities.raml": strings.TrimSpace(`
 #%RAML 1.0 Library
 
 uses:
@@ -97,11 +75,11 @@ types:
 			expectedError: "duplicate cti.cti: cti.x.y.unique_entity.v1.0",
 		},
 		{
-			parserTestCase: parserTestCase{
-				name:     "duplicate instance",
-				pkgId:    "x.y",
-				entities: []string{"entities.raml"},
-				files: map[string]string{"entities.raml": strings.TrimSpace(`
+			PackageTestCase: testsupp.PackageTestCase{
+				Name:     "duplicate instance",
+				PkgId:    "x.y",
+				Entities: []string{"entities.raml"},
+				Files: map[string]string{"entities.raml": strings.TrimSpace(`
 #%RAML 1.0 Library
 
 uses:
@@ -126,11 +104,11 @@ types:
 			expectedError: "duplicate cti entity cti.x.y.sample_entity.v1.0~x.y._.v1.0",
 		},
 		{
-			parserTestCase: parserTestCase{
-				name:     "duplicate type instance",
-				pkgId:    "x.y",
-				entities: []string{"entities.raml"},
-				files: map[string]string{"entities.raml": strings.TrimSpace(`
+			PackageTestCase: testsupp.PackageTestCase{
+				Name:     "duplicate type instance",
+				PkgId:    "x.y",
+				Entities: []string{"entities.raml"},
+				Files: map[string]string{"entities.raml": strings.TrimSpace(`
 #%RAML 1.0 Library
 
 uses:
@@ -158,10 +136,10 @@ types:
 			expectedError: "duplicate cti entity cti.x.y.sample_entity.v1.0~x.y._.v1.0",
 		},
 		{
-			parserTestCase: parserTestCase{
-				name:     "missing file",
-				pkgId:    "x.y",
-				entities: []string{"non_existent_file.raml"},
+			PackageTestCase: testsupp.PackageTestCase{
+				Name:     "missing file",
+				PkgId:    "x.y",
+				Entities: []string{"non_existent_file.raml"},
 			},
 			// Win error: non_existent_file.raml: no such file or directory
 			// POSIX error: non_existent_file.raml: The system cannot find the file specified.
@@ -170,12 +148,12 @@ types:
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.Name, func(t *testing.T) {
 
-			pkg, err := New(initParseTest(t, tc.parserTestCase),
+			pkg, err := New(testsupp.InitTestPackageFiles(t, tc.PackageTestCase),
 				WithRamlxVersion("1.0"),
-				WithID(tc.pkgId),
-				WithEntities(tc.entities))
+				WithID(tc.PkgId),
+				WithEntities(tc.Entities))
 
 			require.NoError(t, err)
 			require.NoError(t, pkg.Initialize())

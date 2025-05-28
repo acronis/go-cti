@@ -1,26 +1,78 @@
 package compatibility
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/ctipackage"
+	"github.com/acronis/go-cti/metadata/testsupp"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCheckPackagesCompatibility(t *testing.T) {
-	// Get absolute paths to the old and new package directories
-	oldPackagePath, err := filepath.Abs("old_package")
-	if err != nil {
-		t.Fatalf("Failed to get absolute path for old_package: %v", err)
-	}
+const oldPackageIndexJSON = `{
+    "package_id": "x.y",
+    "ramlx_version": "1.0",
+    "entities": [
+      "types.raml"
+    ]
+}`
 
-	newPackagePath, err := filepath.Abs("new_package")
-	if err != nil {
-		t.Fatalf("Failed to get absolute path for new_package: %v", err)
-	}
+const oldPackageTypesRAML = `#%RAML 1.0 Library
+
+uses:
+  cti: .ramlx/cti.raml
+
+types:
+  SampleEntity:
+    (cti.cti): cti.x.y.sample_entity.v1.0
+    properties:
+      val:
+        type: cti.CTI
+        (cti.reference): cti.x.y.sample_entity.v1.0
+`
+
+const newPackageIndexJSON = `{
+    "package_id": "x.y",
+    "ramlx_version": "1.0",
+    "entities": [
+      "types.raml"
+    ]
+}`
+
+const newPackageTypesRAML = `#%RAML 1.0 Library
+
+uses:
+  cti: .ramlx/cti.raml
+
+types:
+  SampleEntity:
+    (cti.cti): cti.x.y.sample_entity.v1.0
+    properties:
+      val:
+        type: cti.CTI
+        (cti.reference): cti.x.y.sample_entity.v1.1
+`
+
+func TestCheckPackagesCompatibility(t *testing.T) {
+	oldPackagePath := testsupp.InitTestPackageFiles(t, testsupp.PackageTestCase{
+		Name:     "old_package",
+		PkgId:    "x.y",
+		Entities: []string{"types.raml"},
+		Files: map[string]string{
+			"index.json": oldPackageIndexJSON,
+			"types.raml": oldPackageTypesRAML,
+		},
+	})
+	newPackagePath := testsupp.InitTestPackageFiles(t, testsupp.PackageTestCase{
+		Name:     "new_package",
+		PkgId:    "x.y",
+		Entities: []string{"types.raml"},
+		Files: map[string]string{
+			"index.json": newPackageIndexJSON,
+			"types.raml": newPackageTypesRAML,
+		},
+	})
 
 	// Create and parse the old package
 	oldPkg, err := ctipackage.New(oldPackagePath)
@@ -88,11 +140,15 @@ func TestCheckPackagesCompatibility(t *testing.T) {
 }
 
 func TestCheckPackagesCompatibilityWithSamePackages(t *testing.T) {
-	// Get absolute path to the old package directory
-	oldPackagePath, err := filepath.Abs("old_package")
-	if err != nil {
-		t.Fatalf("Failed to get absolute path for old_package: %v", err)
-	}
+	oldPackagePath := testsupp.InitTestPackageFiles(t, testsupp.PackageTestCase{
+		Name:     "old_package",
+		PkgId:    "x.y",
+		Entities: []string{"types.raml"},
+		Files: map[string]string{
+			"index.json": oldPackageIndexJSON,
+			"types.raml": oldPackageTypesRAML,
+		},
+	})
 
 	// Create and parse the old package twice
 	oldPkg1, err := ctipackage.New(oldPackagePath)

@@ -16,7 +16,7 @@ func Test_ParseAnnotations(t *testing.T) {
 	testsupp.InitLog(t)
 
 	type testCase struct {
-		parserTestCase
+		testsupp.PackageTestCase
 
 		total     int
 		types     int
@@ -25,10 +25,10 @@ func Test_ParseAnnotations(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			parserTestCase: parserTestCase{
-				name:  "annotations",
-				pkgId: "x.y",
-				entities: []string{
+			PackageTestCase: testsupp.PackageTestCase{
+				Name:  "annotations",
+				PkgId: "x.y",
+				Entities: []string{
 					"entities/cti.raml",
 					"entities/final.raml",
 					"entities/id.raml",
@@ -39,7 +39,7 @@ func Test_ParseAnnotations(t *testing.T) {
 					"entities/reference.raml",
 					"entities/schema.raml",
 				},
-				files: map[string]string{
+				Files: map[string]string{
 					"entities/asset.raml": strings.TrimSpace(`
 #%RAML 1.0 Library
 
@@ -263,11 +263,11 @@ types:
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			pkg, err := New(initParseTest(t, tc.parserTestCase),
+		t.Run(tc.Name, func(t *testing.T) {
+			pkg, err := New(testsupp.InitTestPackageFiles(t, tc.PackageTestCase),
 				WithRamlxVersion("1.0"),
-				WithID(tc.pkgId),
-				WithEntities(tc.entities))
+				WithID(tc.PkgId),
+				WithEntities(tc.Entities))
 
 			require.NoError(t, err)
 			require.NoError(t, pkg.Initialize())
