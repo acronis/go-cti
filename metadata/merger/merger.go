@@ -5,9 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/acronis/go-cti/metadata"
-	"github.com/acronis/go-cti/metadata/collector"
 )
 
 const (
@@ -341,7 +338,7 @@ func ValidateSchemaProperty(property map[string]any, name string) error {
 	return nil
 }
 
-func fixSelfReferences(schema map[string]any, sourceRefType string, refsToReplace map[string]struct{}) error {
+func FixSelfReferences(schema map[string]any, sourceRefType string, refsToReplace map[string]struct{}) error {
 	if ref, ok := schema[refKey].(string); ok {
 		if _, ok = refsToReplace[ref]; ok {
 			schema[refKey] = sourceRefType
@@ -353,7 +350,7 @@ func fixSelfReferences(schema map[string]any, sourceRefType string, refsToReplac
 		if !ok {
 			return fmt.Errorf("items is not a map: %v", schema[itemsKey])
 		}
-		if err := fixSelfReferences(items, sourceRefType, refsToReplace); err != nil {
+		if err := FixSelfReferences(items, sourceRefType, refsToReplace); err != nil {
 			return fmt.Errorf("failed to fix self references in items: %w", err)
 		}
 	case schema[propertiesKey] != nil:
@@ -366,7 +363,7 @@ func fixSelfReferences(schema map[string]any, sourceRefType string, refsToReplac
 			if !ok {
 				return fmt.Errorf("property is not a map: %v", property)
 			}
-			if err := fixSelfReferences(v, sourceRefType, refsToReplace); err != nil {
+			if err := FixSelfReferences(v, sourceRefType, refsToReplace); err != nil {
 				return fmt.Errorf("failed to fix self references in properties: %w", err)
 			}
 		}
@@ -380,94 +377,10 @@ func fixSelfReferences(schema map[string]any, sourceRefType string, refsToReplac
 			if !ok {
 				return fmt.Errorf("anyOf is not a map: %v", anyOf)
 			}
-			if err := fixSelfReferences(v, sourceRefType, refsToReplace); err != nil {
+			if err := FixSelfReferences(v, sourceRefType, refsToReplace); err != nil {
 				return fmt.Errorf("failed to fix self references in anyOf: %w", err)
 			}
 		}
 	}
 	return nil
-}
-
-func GetMergedCtiSchema(cti string, r *collector.MetadataRegistry) (map[string]any, error) {
-	root := cti
-
-	entity, ok := r.Types[root]
-	if !ok {
-		return nil, fmt.Errorf("failed to find cti type %s", root)
-	}
-	childRootSchema := entity.Schema
-
-	childSchema, refType, err := ExtractSchemaDefinition(childRootSchema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract schema definition: %w", err)
-	}
-
-	definitions := map[string]any{}
-	for k, v := range childRootSchema[definitionsKey].(map[string]any) {
-		if k == refType {
-			continue
-		}
-		definitions[k] = v
-	}
-
-	origSelfRefType := "#/definitions/" + refType
-	refsToReplace := map[string]struct{}{}
-
-	for {
-		parentCti := metadata.GetParentCti(root)
-		if parentCti == root {
-			break
-		}
-		root = parentCti
-
-		parentEntity, ok := r.Types[parentCti]
-		if !ok {
-			return nil, fmt.Errorf("failed to find cti parent type %s", parentCti)
-		}
-		parentRootSchema := parentEntity.Schema
-
-		parentSchema, parentRefType, err := ExtractSchemaDefinition(parentRootSchema)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract parent schema definition: %w", err)
-		}
-		refsToReplace["#/definitions/"+parentRefType] = struct{}{}
-
-		childSchema, err = MergeSchemas(childSchema, parentSchema)
-		if err != nil {
-			return nil, fmt.Errorf("failed to merge schemas: %w", err)
-		}
-
-		for k, v := range parentRootSchema[definitionsKey].(map[string]any) {
-			if k == parentRefType {
-				continue
-			}
-			if definition, ok := definitions[k]; ok {
-				definition, err = MergeSchemas(v.(map[string]any), definition.(map[string]any))
-				if err != nil {
-					return nil, fmt.Errorf("failed to merge definitions: %w", err)
-				}
-				definitions[k] = definition
-			} else {
-				definitions[k] = v
-			}
-		}
-	}
-	definitions[refType] = childSchema
-	for _, someDefinition := range definitions {
-		definition, ok := someDefinition.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("definition is not a map: %v", someDefinition)
-		}
-		if err = fixSelfReferences(definition, origSelfRefType, refsToReplace); err != nil {
-			return nil, fmt.Errorf("failed to fix self references: %w", err)
-		}
-	}
-
-	outSchema := map[string]any{
-		"$schema":     "http://json-schema.org/draft-07/schema",
-		"$ref":        origSelfRefType,
-		"definitions": definitions,
-	}
-
-	return outSchema, nil
 }

@@ -3,6 +3,8 @@ package metadata
 const (
 	Cti           = "cti.cti"
 	Final         = "cti.final"
+	Access        = "cti.access"
+	AccessField   = "cti.access_field"
 	Resilient     = "cti.resilient"
 	ID            = "cti.id"
 	L10n          = "cti.l10n"

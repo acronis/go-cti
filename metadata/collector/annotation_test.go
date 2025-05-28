@@ -42,7 +42,7 @@ func Test_AnnotationCollector(t *testing.T) {
 				obj := e.(*raml.ObjectShape)
 				return c.Collect(obj)
 			},
-			want: map[metadata.GJsonPath]metadata.Annotations{".": {
+			want: map[metadata.GJsonPath]*metadata.Annotations{".": {
 				Cti: "cti.vendor.app.test.v1.0",
 			}},
 		},

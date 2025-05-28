@@ -70,7 +70,7 @@ func WithExtraFiles(files ...string) Option {
 }
 
 type AnnotationHandler func(baseDir string, writer archiver.Archiver,
-	key metadata.GJsonPath, object *metadata.EntityInstance, a metadata.Annotations) error
+	key metadata.GJsonPath, object *metadata.EntityInstance, a *metadata.Annotations) error
 
 func New(opts ...Option) (*Packer, error) {
 	pkr := &Packer{}
