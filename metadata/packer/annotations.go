@@ -1,7 +1,6 @@
 package packer
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -14,7 +13,7 @@ func defaultAnnotationHandler(
 ) error {
 	// process asset annotation
 	if a.Asset != nil {
-		values, _ := json.Marshal(entity.Values)
+		values, _ := entity.GetRawValues()
 		value := key.GetValue(values)
 		assetPath := value.String()
 		if assetPath == "" {
