@@ -17,6 +17,16 @@ annotationTypes:
     type: boolean
     allowedTargets: TypeDeclaration
 
+  access:
+    type: AccessModifier
+    description: Applies an access rule to the CTI.
+    default: protected
+    allowedTargets: TypeDeclaration
+
+  access_field:
+    type: boolean
+    description: Marks a field that specifies the access control rule of the created CTI instance.
+
   display_name:
     type: boolean
     description: >-
@@ -252,3 +262,17 @@ types:
           is_active: true
         description: The information about the person
         display_name: The info of Kirill
+
+  AccessModifier:
+    type: string
+    description: |
+      Access modifier for CTI entity.
+      It defines the availability of the entity in the system as follows:
+
+      * Public - allowed to be referenced by anyone.
+      * Protected - allowed to be referenced only by the same vendor.
+      * Private - allowed to be referenced only by the same package.
+    enum:
+    - public
+    - protected
+    - private
