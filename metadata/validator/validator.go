@@ -64,6 +64,7 @@ func (v *MetadataValidator) Validate(object metadata.Entity) error {
 func (v *MetadataValidator) validateBaseProperties(object metadata.Entity) error {
 	currentCti := object.GetCti()
 	parent := object.Parent()
+	// TODO: Check presence of parents in chain according to expression.
 	if parent != nil {
 		parentCti := parent.GetCti()
 		ok, err := parent.Match(object)
