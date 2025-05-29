@@ -3,6 +3,7 @@ package compatibility
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/acronis/go-cti"
@@ -398,14 +399,47 @@ func (cc *CompatibilityChecker) checkValuesCompatibility(oldValues, newValues in
 		return nil
 	}
 
-	for key, oldValue := range oldValues.(map[string]any) {
-		newValue, ok := (newValues.(map[string]any))[key]
+	switch oldVal := oldValues.(type) {
+	case map[string]any:
+		newVal, ok := newValues.(map[string]any)
 		if !ok {
-			cc.addMessage(SeverityError, fmt.Sprintf("value %s not found in new values", key))
-			continue
+			cc.addMessage(SeverityError, fmt.Sprintf("value type mismatch for %s: %v vs %v", oldVal, oldValues, newValues))
+			return nil
 		}
-		if oldValue != newValue {
-			cc.addMessage(SeverityError, fmt.Sprintf("value mismatch for %s: %v vs %v", key, oldValue, newValue))
+		for key, oldValue := range oldVal {
+			newValue, ok := newVal[key]
+			if !ok {
+				cc.addMessage(SeverityError, fmt.Sprintf("key %s not found in new values", key))
+				continue
+			}
+			if err := cc.checkValuesCompatibility(oldValue, newValue); err != nil {
+				return fmt.Errorf("check values compatibility for key %s: %w", key, err)
+			}
+		}
+	case []any:
+		newVal, ok := newValues.([]any)
+		if !ok {
+			cc.addMessage(SeverityError, fmt.Sprintf("value type mismatch for %s: %v vs %v", oldVal, oldValues, newValues))
+			return nil
+		}
+		if len(oldVal) != len(newVal) {
+			cc.addMessage(SeverityError, fmt.Sprintf("length mismatch for array: %d vs %d", len(oldVal), len(newVal)))
+			return nil
+		}
+		for i, oldValue := range oldVal {
+			newValue := newVal[i]
+			if err := cc.checkValuesCompatibility(oldValue, newValue); err != nil {
+				return fmt.Errorf("check values compatibility for index %d: %w", i, err)
+			}
+		}
+	default:
+		// TODO: Better check for primitive types
+		if reflect.TypeOf(oldValues) != reflect.TypeOf(newValues) {
+			cc.addMessage(SeverityError, fmt.Sprintf("value type mismatch for %v: %T vs %T", oldValues, oldValues, newValues))
+			return nil
+		}
+		if oldValues != newValues {
+			cc.addMessage(SeverityError, fmt.Sprintf("value mismatch for %v: %v vs %v", oldValues, oldValues, newValues))
 		}
 	}
 	return nil
