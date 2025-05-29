@@ -442,12 +442,6 @@ func (e *EntityType) SetParent(entity *EntityType) error {
 		e.parent = nil
 		return nil
 	}
-	ok, err := entity.Match(e)
-	if err != nil {
-		return fmt.Errorf("failed to match entity: %w", err)
-	} else if !ok {
-		return fmt.Errorf("entity %s does not match %s", e.Cti, entity.Cti)
-	}
 	if entity.IsFinal() {
 		return errors.New("cannot set parent to a final type")
 	}
@@ -640,12 +634,6 @@ func (e *EntityInstance) SetParent(entity *EntityType) error {
 	if entity == nil {
 		e.parent = nil
 		return nil
-	}
-	ok, err := entity.Match(e)
-	if err != nil {
-		return fmt.Errorf("failed to match entity: %w", err)
-	} else if !ok {
-		return fmt.Errorf("entity %s does not match %s", e.Cti, entity.Cti)
 	}
 	e.parent = entity
 	return nil
