@@ -429,6 +429,9 @@ type EntityType struct {
 
 	mergedSchema map[string]interface{} `json:"-"` // Cached merged schema, if any
 
+	// NOTE: This field is kept for compatibility and subject to removal in the future.
+	RawSchema []byte `json:"-"` // Raw schema bytes, if any
+
 	SourceMap EntityTypeSourceMap `json:"source_map,omitempty"`
 }
 
