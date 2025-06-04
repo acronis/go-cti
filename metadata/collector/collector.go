@@ -171,6 +171,8 @@ func (c *Collector) MakeMetadataType(id string, shape *raml.BaseShape) (*metadat
 	if err != nil {
 		return nil, fmt.Errorf("make entity type: %w", err)
 	}
+	// TODO: To remove when go-cti supports raml.JSONSchema merging.
+	entity.RawSchema = jsonSchemaBytes
 
 	originalPath, _ := filepath.Rel(c.baseDir, shape.Location)
 	// FIXME: sourcePath points to itself or to next parent, if present.
