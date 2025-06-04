@@ -713,3 +713,85 @@ func Test_GJsonPathGetValue(t *testing.T) {
 		})
 	}
 }
+func TestAnnotations_ReadCtiSchema(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   interface{}
+		expected []string
+	}{
+		{
+			name:     "nil schema",
+			schema:   nil,
+			expected: []string{},
+		},
+		{
+			name:     "schema as string",
+			schema:   "cti.schema.value",
+			expected: []string{"cti.schema.value"},
+		},
+		{
+			name:     "schema as []interface{} with strings",
+			schema:   []interface{}{"cti.schema.one", "cti.schema.two"},
+			expected: []string{"cti.schema.one", "cti.schema.two"},
+		},
+		{
+			name:     "schema as []interface{} with mixed types",
+			schema:   []interface{}{"cti.schema.one", 123, "cti.schema.two"},
+			expected: []string{"cti.schema.one", "cti.schema.two"},
+		},
+		{
+			name:     "schema as []interface{} with no strings",
+			schema:   []interface{}{123, 456},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := Annotations{Schema: tt.schema}
+			result := a.ReadCtiSchema()
+			require.ElementsMatch(t, tt.expected, result)
+		})
+	}
+}
+func TestAnnotations_ReadCti(t *testing.T) {
+	tests := []struct {
+		name     string
+		cti      interface{}
+		expected []string
+	}{
+		{
+			name:     "nil Cti",
+			cti:      nil,
+			expected: []string{},
+		},
+		{
+			name:     "Cti as string",
+			cti:      "cti.vendor.app.test.v1.0",
+			expected: []string{"cti.vendor.app.test.v1.0"},
+		},
+		{
+			name:     "Cti as []interface{} with strings",
+			cti:      []interface{}{"cti.vendor.app.test.v1.0", "cti.vendor.app.test.v2.0"},
+			expected: []string{"cti.vendor.app.test.v1.0", "cti.vendor.app.test.v2.0"},
+		},
+		{
+			name:     "Cti as []interface{} with mixed types",
+			cti:      []interface{}{"cti.vendor.app.test.v1.0", 123, "cti.vendor.app.test.v2.0"},
+			expected: []string{"cti.vendor.app.test.v1.0", "cti.vendor.app.test.v2.0"},
+		},
+		{
+			name:     "Cti as []interface{} with no strings",
+			cti:      []interface{}{123, 456},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := Annotations{Cti: tt.cti}
+			result := a.ReadCti()
+			require.ElementsMatch(t, tt.expected, result)
+		})
+	}
+}

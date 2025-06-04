@@ -127,7 +127,13 @@ func (a Annotations) ReadCti() []string {
 	if val, ok := a.Cti.(string); ok {
 		return []string{val}
 	}
-	return a.Cti.([]string)
+	var vals []string
+	for _, val := range a.Cti.([]interface{}) {
+		if strVal, ok := val.(string); ok {
+			vals = append(vals, strVal)
+		}
+	}
+	return vals
 }
 
 func (a Annotations) ReadCtiSchema() []string {
@@ -137,7 +143,13 @@ func (a Annotations) ReadCtiSchema() []string {
 	if val, ok := a.Schema.(string); ok {
 		return []string{val}
 	}
-	return a.Schema.([]string)
+	var vals []string
+	for _, val := range a.Schema.([]interface{}) {
+		if strVal, ok := val.(string); ok {
+			vals = append(vals, strVal)
+		}
+	}
+	return vals
 }
 
 func (a Annotations) ReadReference() string {
