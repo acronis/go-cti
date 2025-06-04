@@ -205,7 +205,7 @@ types:
     description: |
       URI format compliant to [RFC 3986](https://tools.ietf.org/html/rfc3986).
     type: |
-      { 
+      {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "type": "string",
         "format": "uri"
@@ -226,7 +226,7 @@ types:
 
     type: string
     pattern: ^((\d+)(\.(\d+))?(ns|us|µs|ms|s|m|h|d|Y))+$
-    examples: 
+    examples:
       1: 72h3m0.5s
       2: 1h1m1s
       3: 1.5h
@@ -238,7 +238,7 @@ types:
 
     type: string
     pattern: ^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$
-    examples: 
+    examples:
       1: PT1S
       2: P2M
       3: P30D
@@ -266,3 +266,17 @@ types:
         - `zh-CN` - Simplified Chinese
 
       Prefer using `<region subtag>` over `<script subtag>` for language localization.
+
+  # Country code(s)
+
+  countryCode:
+    type: string8
+    pattern: "^[A-Z]{2}$"
+    description: |-
+      The country code defined using [ISO 3166-1 Alpha-2 code](https://www.iso.org/obp/ui/#search), refer [Wikipedia](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) for simple explanation.
+      e.g.
+      - `US` - USA
+      - `BR` - Brazil
+      - `PT` - Portugal
+      - `TW' - Taiwan
+      - `CN` - China
