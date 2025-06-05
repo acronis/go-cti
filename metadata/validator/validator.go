@@ -74,13 +74,12 @@ func (v *MetadataValidator) validateBaseProperties(object metadata.Entity) error
 		if !ok {
 			return fmt.Errorf("%s doesn't match %s", currentCti, parentCti)
 		}
-		// TODO: Probably move to entity.SetParent()
-		if parent.Access.Integer() > object.GetAccess().Integer() {
-			return fmt.Errorf("%s access is less restrictive than parent %s", currentCti, parentCti)
-		}
-		if err = parent.IsAccessibleBy(object); err != nil {
-			return fmt.Errorf("%s is not accessible by %s: %w", currentCti, parentCti, err)
-		}
+		// if parent.Access.Integer() > object.GetAccess().Integer() {
+		// 	return fmt.Errorf("%s access is less restrictive than parent %s", currentCti, parentCti)
+		// }
+		// if err = parent.IsAccessibleBy(object); err != nil {
+		// 	return fmt.Errorf("%s is not accessible by %s: %w", currentCti, parentCti, err)
+		// }
 	}
 	return nil
 }
@@ -154,9 +153,9 @@ func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *
 		if refObject == nil {
 			return fmt.Errorf("cti schema %s not found", currentRef)
 		}
-		if err := refObject.IsAccessibleBy(child); err != nil {
-			return fmt.Errorf("cti schema %s is not accessible by %s: %w", currentRef, child.GetCti(), err)
-		}
+		// if err := refObject.IsAccessibleBy(child); err != nil {
+		// 	return fmt.Errorf("cti schema %s is not accessible by %s: %w", currentRef, child.GetCti(), err)
+		// }
 	}
 	return nil
 }
@@ -200,9 +199,9 @@ func (v *MetadataValidator) validateTypeReference(key metadata.GJsonPath, annota
 	if refObject == nil {
 		return fmt.Errorf("reference %s not found", currentRef)
 	}
-	if err := refObject.IsAccessibleBy(child); err != nil {
-		return fmt.Errorf("reference %s is not accessible by %s: %w", currentRef, child.GetCti(), err)
-	}
+	// if err := refObject.IsAccessibleBy(child); err != nil {
+	// 	return fmt.Errorf("reference %s is not accessible by %s: %w", currentRef, child.GetCti(), err)
+	// }
 	return nil
 }
 
@@ -259,9 +258,9 @@ func (v *MetadataValidator) validateInstanceReference(key metadata.GJsonPath, ch
 	if refObject == nil {
 		return fmt.Errorf("reference %s not found", ref)
 	}
-	if err := refObject.IsAccessibleBy(child); err != nil {
-		return fmt.Errorf("reference %s is not accessible by %s: %w", ref, child.GetCti(), err)
-	}
+	// if err := refObject.IsAccessibleBy(child); err != nil {
+	// 	return fmt.Errorf("reference %s is not accessible by %s: %w", ref, child.Cti, err)
+	// }
 
 	expr, err := v.ctiParser.Parse(ref)
 	if err != nil {
