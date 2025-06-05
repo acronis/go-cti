@@ -23,18 +23,18 @@ func DeepCopyMap(input map[string]any) map[string]any {
 }
 
 func DeepCopySlice(input []any) []any {
-	output := make([]any, 0, len(input))
+	output := make([]any, len(input))
 	for i := range input {
 		item := input[i]
 		switch typedItem := item.(type) {
 		case map[string]any:
-			output = append(output, DeepCopyMap(typedItem))
+			output[i] = DeepCopyMap(typedItem)
 
 		case []any:
-			output = append(output, DeepCopySlice(typedItem))
+			output[i] = DeepCopySlice(typedItem)
 
 		default:
-			output = append(output, typedItem)
+			output[i] = typedItem
 		}
 	}
 
