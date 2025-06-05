@@ -235,13 +235,14 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 		name          string
 		root          *EntityType
 		expectedError string
-		validate      func(t *testing.T, schema map[string]interface{})
+		validate      func(t *testing.T, parentSchema, mergedSchema map[string]interface{})
 	}{
 		{
 			name: "simple merge with single parent",
 			root: &EntityType{
 				Schema: map[string]interface{}{
-					"$ref": "#/definitions/Child",
+					"$schema": "http://json-schema.org/draft-07/schema",
+					"$ref":    "#/definitions/Child",
 					"definitions": map[string]interface{}{
 						"Child": map[string]interface{}{
 							"type": "object",
@@ -254,7 +255,8 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 				entity: entity{
 					parent: &EntityType{
 						Schema: map[string]interface{}{
-							"$ref": "#/definitions/Parent",
+							"$schema": "http://json-schema.org/draft-07/schema",
+							"$ref":    "#/definitions/Parent",
 							"definitions": map[string]interface{}{
 								"Parent": map[string]interface{}{
 									"type": "object",
@@ -267,22 +269,37 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, schema map[string]interface{}) {
-				require.Equal(t, "http://json-schema.org/draft-07/schema", schema["$schema"])
-				require.Equal(t, "#/definitions/Child", schema["$ref"])
-				definitions := schema["definitions"].(map[string]interface{})
-				require.Contains(t, definitions, "Child")
-				child := definitions["Child"].(map[string]interface{})
-				props := child["properties"].(map[string]interface{})
-				require.Contains(t, props, "field1")
+			validate: func(t *testing.T, parentSchema, mergedSchema map[string]interface{}) {
+				// Verify parent schema
+				require.Equal(t, "#/definitions/Parent", parentSchema["$ref"])
+
+				definitions := parentSchema["definitions"].(map[string]interface{})
+				require.Contains(t, definitions, "Parent")
+
+				parent := definitions["Parent"].(map[string]interface{})
+				props := parent["properties"].(map[string]interface{})
+				require.NotContains(t, props, "field1") // Must be absent in parent but present in child
 				require.Contains(t, props, "field2")
+
+				// Verify merged schema
+				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema["$schema"])
+				require.Equal(t, "#/definitions/Child", mergedSchema["$ref"])
+
+				definitions = mergedSchema["definitions"].(map[string]interface{})
+				require.Contains(t, definitions, "Child")
+
+				child := definitions["Child"].(map[string]interface{})
+				props = child["properties"].(map[string]interface{})
+				require.Contains(t, props, "field1")
+				require.Contains(t, props, "field2") // Must be inherited from parent
 			},
 		},
 		{
 			name: "merge with single recursive parent",
 			root: &EntityType{
 				Schema: map[string]interface{}{
-					"$ref": "#/definitions/Child",
+					"$schema": "http://json-schema.org/draft-07/schema",
+					"$ref":    "#/definitions/Child",
 					"definitions": map[string]interface{}{
 						"Child": map[string]interface{}{"type": "object"},
 					},
@@ -290,7 +307,8 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 				entity: entity{
 					parent: &EntityType{
 						Schema: map[string]interface{}{
-							"$ref": "#/definitions/Parent",
+							"$schema": "http://json-schema.org/draft-07/schema",
+							"$ref":    "#/definitions/Parent",
 							"definitions": map[string]interface{}{
 								"Parent": map[string]interface{}{
 									"type": "object",
@@ -303,13 +321,16 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, schema map[string]interface{}) {
-				require.Equal(t, "http://json-schema.org/draft-07/schema", schema["$schema"])
-				require.Equal(t, "#/definitions/Child", schema["$ref"])
-				definitions := schema["definitions"].(map[string]interface{})
+			validate: func(t *testing.T, parentSchema, mergedSchema map[string]interface{}) {
+				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema["$schema"])
+				require.Equal(t, "#/definitions/Child", mergedSchema["$ref"])
+
+				definitions := mergedSchema["definitions"].(map[string]interface{})
 				require.Contains(t, definitions, "Child")
+
 				child := definitions["Child"].(map[string]interface{})
 				childProperties := child["properties"].(map[string]interface{})
+
 				require.Contains(t, childProperties, "recursive")
 				require.Equal(t, "#/definitions/Child", childProperties["recursive"].(map[string]interface{})["$ref"].(string))
 			},
@@ -318,7 +339,8 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 			name: "merge with anyOf",
 			root: &EntityType{
 				Schema: map[string]interface{}{
-					"$ref": "#/definitions/Child",
+					"$schema": "http://json-schema.org/draft-07/schema",
+					"$ref":    "#/definitions/Child",
 					"definitions": map[string]interface{}{
 						"Child": map[string]interface{}{
 							"anyOf": []interface{}{
@@ -337,7 +359,8 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 				entity: entity{
 					parent: &EntityType{
 						Schema: map[string]interface{}{
-							"$ref": "#/definitions/Parent",
+							"$schema": "http://json-schema.org/draft-07/schema",
+							"$ref":    "#/definitions/Parent",
 							"definitions": map[string]interface{}{
 								"Parent": map[string]interface{}{
 									"anyOf": []interface{}{
@@ -355,18 +378,39 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, schema map[string]interface{}) {
-				require.Equal(t, "http://json-schema.org/draft-07/schema", schema["$schema"])
-				require.Equal(t, "#/definitions/Child", schema["$ref"])
-				definitions := schema["definitions"].(map[string]interface{})
-				require.Contains(t, definitions, "Child")
-				child := definitions["Child"].(map[string]interface{})
+			validate: func(t *testing.T, parentSchema, mergedSchema map[string]interface{}) {
+				// Verify parent schema
+				require.Equal(t, "http://json-schema.org/draft-07/schema", parentSchema["$schema"])
+				require.Equal(t, "#/definitions/Parent", parentSchema["$ref"])
+
+				parentDefinitions := parentSchema["definitions"].(map[string]interface{})
+				require.Contains(t, parentDefinitions, "Parent")
+
+				parent := parentDefinitions["Parent"].(map[string]interface{})
+				parentAnyOf, ok := parent["anyOf"].([]interface{})
+				require.True(t, ok)
+				require.Len(t, parentAnyOf, 2)
+				firstMember := parentAnyOf[0].(map[string]interface{})
+				props := firstMember["properties"].(map[string]interface{})
+				require.Contains(t, props, "field1")
+				require.NotContains(t, props, "field2") // Must be absent in parent but present in child
+				require.NotContains(t, props, "field3") // Must be absent in parent but present in child
+
+				// Verify merged schema
+				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema["$schema"])
+				require.Equal(t, "#/definitions/Child", mergedSchema["$ref"])
+
+				mergedDefinitions := mergedSchema["definitions"].(map[string]interface{})
+				require.Contains(t, mergedDefinitions, "Child")
+
+				child := mergedDefinitions["Child"].(map[string]interface{})
 				childAnyOf, ok := child["anyOf"].([]interface{})
 				require.True(t, ok)
 				require.Len(t, childAnyOf, 2)
-				firstMember := childAnyOf[0].(map[string]interface{})
-				props := firstMember["properties"].(map[string]interface{})
-				require.Contains(t, props, "field1")
+
+				firstMember = childAnyOf[0].(map[string]interface{})
+				props = firstMember["properties"].(map[string]interface{})
+				require.Contains(t, props, "field1") // Must be inherited from parent
 				require.Contains(t, props, "field2")
 				require.Contains(t, props, "field3")
 			},
@@ -401,7 +445,7 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 				require.Contains(t, err.Error(), tc.expectedError)
 			} else {
 				require.NoError(t, err)
-				tc.validate(t, schema)
+				tc.validate(t, tc.root.parent.Schema, schema)
 			}
 		})
 	}
