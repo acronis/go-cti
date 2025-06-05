@@ -29,7 +29,20 @@ var propertiesToMerge = [...]string{
 
 // MergeSchemas merges a source schema onto a target one, applying various validations
 func MergeSchemas(source, target map[string]any) (map[string]any, error) {
-	mergedSchema, err := mergeObjects(source, target)
+	// Make a copy of the target schema to avoid modifying the original object.
+	// TODO: Need to reverse the merge order to avoid copy. The goal is to modify the child schema.
+	// Source must be parent schema, target must be child schema.
+	targetBytes, err := json.Marshal(target)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal target schema: %w", err)
+	}
+	var targetCopy map[string]any
+	err = json.Unmarshal(targetBytes, &targetCopy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal target schema: %w", err)
+	}
+
+	mergedSchema, err := mergeObjects(source, targetCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge schemas: %w", err)
 	}

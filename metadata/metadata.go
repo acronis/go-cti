@@ -491,8 +491,6 @@ func (e *EntityType) GetMergedSchema() (map[string]interface{}, error) {
 	origSelfRefType := "#/definitions/" + refType
 	refsToReplace := map[string]struct{}{}
 
-	// TODO: Maybe it would make more sense to reverse the order
-	// and store merged schema for each parent in chain.
 	parent := e.Parent()
 	for parent != nil {
 		parentRootSchema := parent.Schema
