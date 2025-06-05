@@ -368,7 +368,7 @@ func mergeSourceAnyOf(source, target map[string]any) (map[string]any, error) {
 				anyOfs = append(anyOfs, merged)
 			}
 		}
-		// In case source and target union do not intersect - throw an exception
+		// In case source and target union do not intersect - return an error.
 		if len(anyOfs) == 0 {
 			return nil, errors.New("failed to find compatible type in union")
 		}
