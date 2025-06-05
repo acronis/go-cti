@@ -473,7 +473,9 @@ func (e *EntityType) GetMergedSchema() (map[string]interface{}, error) {
 	} else if e.mergedSchema != nil {
 		return e.mergedSchema, nil
 	}
-	childRootSchema := e.Schema
+
+	// Copy the child schema since it will be modified during the merge process.
+	childRootSchema := merger.DeepCopyMap(e.Schema)
 
 	childSchema, refType, err := merger.ExtractSchemaDefinition(childRootSchema)
 	if err != nil {
@@ -501,23 +503,23 @@ func (e *EntityType) GetMergedSchema() (map[string]interface{}, error) {
 		}
 		refsToReplace["#/definitions/"+parentRefType] = struct{}{}
 
-		childSchema, err = merger.MergeSchemas(childSchema, parentSchema)
+		childSchema, err = merger.MergeSchemas(parentSchema, childSchema)
 		if err != nil {
 			return nil, fmt.Errorf("failed to merge schemas: %w", err)
 		}
 
-		for k, v := range parentRootSchema["definitions"].(map[string]any) {
-			if k == parentRefType {
+		for parentDefName, parentDef := range parentRootSchema["definitions"].(map[string]any) {
+			if parentDefName == parentRefType {
 				continue
 			}
-			if definition, ok := definitions[k]; ok {
-				definition, err = merger.MergeSchemas(v.(map[string]any), definition.(map[string]any))
+			if childDef, ok := definitions[parentDefName]; ok {
+				childDef, err = merger.MergeSchemas(parentDef.(map[string]any), childDef.(map[string]any))
 				if err != nil {
 					return nil, fmt.Errorf("failed to merge definitions: %w", err)
 				}
-				definitions[k] = definition
+				definitions[parentDefName] = childDef
 			} else {
-				definitions[k] = v
+				definitions[parentDefName] = parentDef
 			}
 		}
 		parent = parent.Parent()

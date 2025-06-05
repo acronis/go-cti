@@ -1,48 +1,51 @@
 package merger
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 )
 
 const (
-	anyOfKey       = "anyOf"
-	definitionsKey = "definitions"
-	itemsKey       = "items"
-	propertiesKey  = "properties"
-	refKey         = "$ref"
-	requiredKey    = "required"
-	typeKey        = "type"
+	anyOfKey             = "anyOf"
+	definitionsKey       = "definitions"
+	itemsKey             = "items"
+	propertiesKey        = "properties"
+	patternPropertiesKey = "patternProperties"
+	refKey               = "$ref"
+	requiredKey          = "required"
+	typeKey              = "type"
 )
 
 type merger func(source, target map[string]any) (map[string]any, error)
 
 var errInvalidSchemaError = errors.New("invalid schema")
 
-var propertiesToMerge = [...]string{
-	"title", "description", "default", "pattern", "format", "enum", "additionalProperties",
-	"minimum", "maximum", "multipleOf", "maxLength", "minLength", "minItems", "maxItems",
-	"uniqueItems", "minProperties", "maxProperties",
-}
+var (
+	commonProperties = [...]string{
+		"title", "description", "enum",
+	}
+	stringProperties = [...]string{
+		"format", "pattern", "contentMediaType", "contentEncoding",
+		"minLength", "maxLength",
+	}
+	numberProperties = [...]string{
+		"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
+		"multipleOf",
+	}
+	arrayProperties = [...]string{
+		"minItems", "maxItems", "uniqueItems",
+	}
+	objectProperties = [...]string{
+		"minProperties", "maxProperties", "additionalProperties",
+	}
+)
 
-// MergeSchemas merges a source schema onto a target one, applying various validations
+// MergeSchemas merges a source schema onto a target one in-place based on the rules of inheritance.
+// Source is parent, target is child.
+// Make a copy of the target schema if necessary.
 func MergeSchemas(source, target map[string]any) (map[string]any, error) {
-	// Make a copy of the target schema to avoid modifying the original object.
-	// TODO: Need to reverse the merge order to avoid copy. The goal is to modify the child schema.
-	// Source must be parent schema, target must be child schema.
-	targetBytes, err := json.Marshal(target)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal target schema: %w", err)
-	}
-	var targetCopy map[string]any
-	err = json.Unmarshal(targetBytes, &targetCopy)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal target schema: %w", err)
-	}
-
-	mergedSchema, err := mergeObjects(source, targetCopy)
+	mergedSchema, err := mergeSchemas(source, target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge schemas: %w", err)
 	}
@@ -50,75 +53,63 @@ func MergeSchemas(source, target map[string]any) (map[string]any, error) {
 	return mergedSchema, nil
 }
 
-func mergeObjects(source, target map[string]any) (map[string]any, error) {
-	isSourceAnyOf := isAnyOf(source)
-	isTargetAnyOf := isAnyOf(target)
-	if isSourceAnyOf && !isTargetAnyOf {
-		return nil, errors.New("cannot merge union into non-union type")
-	}
-	if !isSourceAnyOf && isTargetAnyOf {
-		// Override the same or any type.
-		var err error
-		target, err = overrideUnionType(source, target)
-		if err != nil {
-			return nil, err
-		}
-		isTargetAnyOf = isAnyOf(target)
-		if isTargetAnyOf {
-			return nil, errors.New("cannot specialize union of union")
-		}
+func isCompatibleType(source, target map[string]any) bool {
+	// If source is an "any" type, is "ref", or either of types is "anyOf", assume compatibility.
+	return isAny(source) || isAnyOf(source) || isAnyOf(target) || isRef(target) || source[typeKey] == target[typeKey]
+}
+
+func mergeSchemas(source, target map[string]any) (map[string]any, error) {
+	if !isCompatibleType(source, target) {
+		return nil, errors.New("attempting to merge incompatible types")
 	}
 
-	for _, key := range propertiesToMerge {
-		if source[key] != nil {
+	// TODO: Handle $ref properly.
+	// If target is a reference, return it as is without setting common properties.
+	if isRef(target) {
+		return target, nil
+	}
+
+	for _, key := range commonProperties {
+		if target[key] == nil && source[key] != nil {
 			target[key] = source[key]
 		}
 	}
 
-	// Insert source type only if target is any type.
-	isTargetAny := target[typeKey] == nil && !isTargetAnyOf
-	if source[typeKey] != nil && isTargetAny {
-		target[typeKey] = source[typeKey]
-	}
-	if source[typeKey] != target[typeKey] {
-		return nil, errors.New("attempting to merge incompatible types")
-	}
-
-	if required, err := mergeRequired(source, target); err != nil {
-		return nil, fmt.Errorf("failed to merge required fields: %w", err)
-	} else if len(required) > 0 {
-		target[requiredKey] = required
-	}
-
 	var mergerFn merger
+	// Check for special cases first.
+	// TODO: Need to consider "oneOf" and "allOf".
 	switch {
-	case source[itemsKey] != nil:
-		mergerFn = mergeItems
-	case source[propertiesKey] != nil:
-		mergerFn = mergeProperties
-	case source[anyOfKey] != nil:
-		mergerFn = mergeAnyOf
-	default:
-		// Nothing to merge
+	case isAny(source):
+		// If source is an "any" type, return target as is since it always fully overrides "any" type.
 		return target, nil
+	case isAnyOf(source):
+		mergerFn = mergeSourceAnyOf
+	case !isAnyOf(source) && isAnyOf(target):
+		mergerFn = mergeTargetAnyOf
+	default:
+		// TODO: Support for the list of types
+		typ, ok := source[typeKey].(string)
+		if !ok {
+			return nil, fmt.Errorf("source schema does not have a valid type: %v", source[typeKey])
+		}
+		switch typ {
+		case "array":
+			mergerFn = mergeArrays
+		case "object":
+			mergerFn = mergeObjects
+		case "string":
+			mergerFn = mergeString
+		case "number", "integer":
+			mergerFn = mergeNumeric
+		case "boolean", "null":
+			// Return target as is since these types do not have any properties to merge.
+			return target, nil
+		default:
+			return nil, fmt.Errorf("unsupported type for merging: %s", typ)
+		}
 	}
 
 	return mergerFn(source, target)
-}
-
-// overrideUnionType does what?
-func overrideUnionType(source, target map[string]any) (map[string]any, error) {
-	for _, val := range target[anyOfKey].([]any) {
-		object, ok := val.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("anyOf value is not a map: %v", val)
-		}
-		if object[typeKey] == source[typeKey] || (object[typeKey] == nil && object[anyOfKey] == nil) {
-			return object, nil
-		}
-	}
-
-	return nil, errors.New("failed to find compatible type in union")
 }
 
 // mergeRequired merges two "required" arrays
@@ -156,10 +147,37 @@ func mergeRequired(source, target map[string]any) ([]any, error) {
 	return targetRequired, nil
 }
 
-func mergeItems(source, target map[string]any) (map[string]any, error) {
-	if target[itemsKey] == nil {
+func mergeString(source, target map[string]any) (map[string]any, error) {
+	// TODO: Proper inheritance handling
+	for _, key := range stringProperties {
+		if target[key] == nil && source[key] != nil {
+			target[key] = source[key]
+		}
+	}
+	return target, nil
+}
+
+func mergeNumeric(source, target map[string]any) (map[string]any, error) {
+	// TODO: Proper inheritance handling
+	for _, key := range numberProperties {
+		if target[key] == nil && source[key] != nil {
+			target[key] = source[key]
+		}
+	}
+	return target, nil
+}
+
+func mergeArrays(source, target map[string]any) (map[string]any, error) {
+	// TODO: Proper inheritance handling
+	for _, key := range arrayProperties {
+		if target[key] == nil && source[key] != nil {
+			target[key] = source[key]
+		}
+	}
+
+	if target[itemsKey] == nil && source[itemsKey] != nil {
 		target[itemsKey] = source[itemsKey]
-	} else {
+	} else if source[itemsKey] != nil {
 		sourceItems, ok := source[itemsKey].(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("source items is not a map: %v", source[itemsKey])
@@ -169,7 +187,7 @@ func mergeItems(source, target map[string]any) (map[string]any, error) {
 			return nil, fmt.Errorf("target items is not a map: %v", target[itemsKey])
 		}
 
-		mergedItems, err := mergeObjects(sourceItems, targetItems)
+		mergedItems, err := mergeSchemas(sourceItems, targetItems)
 		if err != nil {
 			return nil, fmt.Errorf("failed to merge items: %w", err)
 		}
@@ -178,10 +196,55 @@ func mergeItems(source, target map[string]any) (map[string]any, error) {
 	return target, nil
 }
 
-func mergeProperties(source, target map[string]any) (map[string]any, error) {
-	if target[propertiesKey] == nil {
+func mergeObjects(source, target map[string]any) (map[string]any, error) {
+	// TODO: Proper inheritance handling
+	for _, key := range objectProperties {
+		if target[key] == nil && source[key] != nil {
+			target[key] = source[key]
+		}
+	}
+
+	if required, err := mergeRequired(source, target); err != nil {
+		return nil, fmt.Errorf("failed to merge required fields: %w", err)
+	} else if len(required) > 0 {
+		target[requiredKey] = required
+	}
+
+	if target[patternPropertiesKey] == nil && source[patternPropertiesKey] != nil {
+		target[patternPropertiesKey] = source[patternPropertiesKey]
+	} else if source[patternPropertiesKey] != nil {
+		sourcePatternProperties, ok := source[patternPropertiesKey].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("source patternProperties is not a map: %v", source[patternPropertiesKey])
+		}
+		targetPatternProperties, ok := target[patternPropertiesKey].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("target patternProperties is not a map: %v", target[patternPropertiesKey])
+		}
+		for key, someSourceProperty := range sourcePatternProperties {
+			sourceProperty, ok := someSourceProperty.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("source pattern property is not a map: %v", someSourceProperty)
+			}
+			if someTargetProperty, ok := targetPatternProperties[key]; !ok {
+				targetPatternProperties[key] = sourceProperty
+			} else {
+				targetProperty, ok := someTargetProperty.(map[string]any)
+				if !ok {
+					return nil, fmt.Errorf("target pattern property is not a map: %v", someTargetProperty)
+				}
+				mergedProperty, err := mergeSchemas(sourceProperty, targetProperty)
+				if err != nil {
+					return nil, fmt.Errorf("failed to merge pattern properties: %w", err)
+				}
+				targetPatternProperties[key] = mergedProperty
+			}
+		}
+	}
+
+	if target[propertiesKey] == nil && source[propertiesKey] != nil {
 		target[propertiesKey] = source[propertiesKey]
-	} else {
+	} else if source[propertiesKey] != nil {
 		sourceProperties, ok := source[propertiesKey].(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("source properties is not a map: %v", source[propertiesKey])
@@ -198,21 +261,13 @@ func mergeProperties(source, target map[string]any) (map[string]any, error) {
 			}
 
 			if someTargetProperty, ok := targetProperties[key]; !ok {
-				// If property not in target, make a copy through json.Marshal/Unmarshal
-				// to avoid modifying the original object.
-				propertyBytes, _ := json.Marshal(sourceProperty)
-				var newProperty map[string]any
-				err := json.Unmarshal(propertyBytes, &newProperty)
-				if err != nil {
-					return nil, fmt.Errorf("failed to unmarshal property: %w", err)
-				}
-				targetProperties[key] = newProperty
+				targetProperties[key] = sourceProperty
 			} else {
 				targetProperty, ok := someTargetProperty.(map[string]any)
 				if !ok {
 					return nil, fmt.Errorf("target property is not a map: %v", someTargetProperty)
 				}
-				mergedProperty, err := mergeObjects(sourceProperty, targetProperty)
+				mergedProperty, err := mergeSchemas(sourceProperty, targetProperty)
 				if err != nil {
 					return nil, fmt.Errorf("failed to merge properties: %w", err)
 				}
@@ -223,39 +278,99 @@ func mergeProperties(source, target map[string]any) (map[string]any, error) {
 	return target, nil
 }
 
-func mergeAnyOf(source, target map[string]any) (map[string]any, error) {
-	if target[anyOfKey] == nil {
-		target[anyOfKey] = source[anyOfKey]
-	} else {
-		sourceAnyOf, ok := source[anyOfKey].([]any)
-		if !ok {
-			return nil, fmt.Errorf("source anyOf is not a list: %v", source[anyOfKey])
-		}
-		targetAnyOf, ok := target[anyOfKey].([]any)
-		if !ok {
-			return nil, fmt.Errorf("target anyOf is not a list: %v", target[anyOfKey])
-		}
+func mergeTargetAnyOf(source, target map[string]any) (map[string]any, error) {
+	// Special case where parent is not a union but child is a union.
+	targetAnyOf, ok := target[anyOfKey].([]any)
+	if !ok {
+		return nil, fmt.Errorf("target anyOf is not a list: %v", target[anyOfKey])
+	}
 
-		anyOfs := make([]any, 0)
+	anyOfs := make([]any, 0)
+	for _, someTargetMember := range targetAnyOf {
+		targetMember, ok := someTargetMember.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("source anyOf member is not a map: %v", someTargetMember)
+		}
+		// All child members must comply with the source type.
+		merged, err := mergeSchemas(source, targetMember)
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge anyOf: %w", err)
+		}
+		anyOfs = append(anyOfs, merged)
+	}
+	target = map[string]any{anyOfKey: anyOfs}
+
+	return target, nil
+}
+
+func mergeSourceAnyOf(source, target map[string]any) (map[string]any, error) {
+	sourceAnyOf, ok := source[anyOfKey].([]any)
+	if !ok {
+		return nil, fmt.Errorf("source anyOf is not a list: %v", source[anyOfKey])
+	}
+
+	anyOfs := make([]any, 0)
+	if target[anyOfKey] == nil {
+		// Child schema is not a union and specifies concrete parent type(s).
 		for _, someSourceMember := range sourceAnyOf {
 			sourceMember, ok := someSourceMember.(map[string]any)
 			if !ok {
 				return nil, fmt.Errorf("source anyOf member is not a map: %v", someSourceMember)
 			}
+
+			if isAny(sourceMember) {
+				// If source member is an "any" type, we can just return the target as is.
+				return target, nil
+			}
+
+			// Copy is required to avoid modifying the child member schema since multiple parent members are merged into it.
+			merged, err := mergeSchemas(sourceMember, DeepCopyMap(target))
+			if err != nil {
+				// TODO: Accumulate errors
+				continue
+			}
+			anyOfs = append(anyOfs, merged)
+		}
+		if len(anyOfs) == 0 {
+			return nil, errors.New("failed to find compatible type in union")
+		}
+		if len(anyOfs) == 1 {
+			// If only one union member remains - simplify to target type
+			return anyOfs[0].(map[string]any), nil // Type assertion is safe here since we know anyOfs are all maps.
+		}
+		target = map[string]any{anyOfKey: anyOfs}
+	} else {
+		targetAnyOf, ok := target[anyOfKey].([]any)
+		if !ok {
+			return nil, fmt.Errorf("target anyOf is not a list: %v", target[anyOfKey])
+		}
+		for _, someSourceMember := range sourceAnyOf {
+			sourceMember, ok := someSourceMember.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("source anyOf member is not a map: %v", someSourceMember)
+			}
+
 			for _, someTargetMember := range targetAnyOf {
 				targetMember, ok := someTargetMember.(map[string]any)
 				if !ok {
 					return nil, fmt.Errorf("target anyOf member is not a map: %v", someTargetMember)
 				}
-				if sourceMember[typeKey] != targetMember[typeKey] {
+
+				if !isCompatibleType(sourceMember, targetMember) {
 					continue
 				}
-				merged, err := mergeObjects(sourceMember, targetMember)
+
+				// Copy is required to avoid modifying the original target member schema since parent members are merged into each child member.
+				merged, err := mergeSchemas(sourceMember, DeepCopyMap(targetMember))
 				if err != nil {
-					return nil, fmt.Errorf("failed to merge anyOf: %w", err)
+					return nil, fmt.Errorf("failed to merge anyOf members: %w", err)
 				}
 				anyOfs = append(anyOfs, merged)
 			}
+		}
+		// In case source and target union do not intersect - throw an exception
+		if len(anyOfs) == 0 {
+			return nil, errors.New("failed to find compatible type in union")
 		}
 		target[anyOfKey] = anyOfs
 	}
@@ -299,10 +414,21 @@ func ExtractSchemaDefinition(object map[string]any) (map[string]any, string, err
 	return schema, refType, nil
 }
 
-// isAnyOf tells whether the object is an anyOf property.
-func isAnyOf(obj map[string]any) bool {
-	_, ok := obj[anyOfKey]
+func isRef(schema map[string]any) bool {
+	// A schema is a reference if it has a $ref attribute.
+	_, ok := schema[refKey]
 	return ok
+}
+
+// isAnyOf tells whether the object is an anyOf property.
+func isAnyOf(schema map[string]any) bool {
+	_, ok := schema[anyOfKey]
+	return ok && schema[typeKey] == nil
+}
+
+func isAny(obj map[string]any) bool {
+	// An "any" type is one that has no type defined and is not an anyOf.
+	return obj[typeKey] == nil && !isAnyOf(obj)
 }
 
 // ValidateSchemaProperty recursively runs a minimal validation on schema property, which is not
