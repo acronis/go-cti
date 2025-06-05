@@ -5,7 +5,7 @@ func DeepCopyMap(input map[string]any) map[string]any {
 		return nil
 	}
 
-	output := make(map[string]any)
+	output := make(map[string]any, len(input))
 	for key, value := range input {
 		switch typedValue := value.(type) {
 		case map[string]any:
