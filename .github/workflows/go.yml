@@ -31,13 +31,16 @@ jobs:
         args: --timeout=5m -v
 
     - name: Test
-      run: go test -race ./...
+      run: go test -race -coverprofile "cover.out" ./...
 
-    - name: Update coverage report
-      uses: ncruces/go-coverage-report@v0
-      with:
-        coverage-file: cover.out
-      continue-on-error: true
+    - name: Print coverage
+      run: go tool cover -func cover.out | tail -n 1
+
+    # - name: Update coverage report
+    #   uses: ncruces/go-coverage-report@v0
+    #   with:
+    #     coverage-file: cover.out
+    #   continue-on-error: true
 
   testGo122:
     name: Test metadata module
@@ -57,10 +60,14 @@ jobs:
         args: --timeout=5m -v
 
     - name: Test
-      run: go test -race ./...
+      run: go test -race -coverprofile "cover.out" ./...
 
-    - name: Update coverage report
-      uses: ncruces/go-coverage-report@v0
-      with:
-        coverage-file: cover.out
-      continue-on-error: true
+    - name: Print coverage
+      run: go tool cover -func cover.out | tail -n 1
+
+    # TODO: ncruces/go-coverage-report doesn't seem to support nested modules coverage
+    # - name: Update coverage report
+    #   uses: ncruces/go-coverage-report@v0
+    #   with:
+    #     coverage-file: metadata/cover.out
+    #   continue-on-error: true
