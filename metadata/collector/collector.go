@@ -9,6 +9,7 @@ import (
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
+	"github.com/acronis/go-cti/metadata/attribute_selector"
 	"github.com/acronis/go-raml"
 )
 
@@ -366,8 +367,21 @@ func (c *Collector) findAndInsertCtiSchema(shape *raml.BaseShape, history []stri
 // getOrUnwrapCtiType returns cached unwrapped CTI type. If cache was found, returns it.
 // Otherwise, it unwraps the type, puts into cache and returns it.
 func (c *Collector) getOrUnwrapCtiType(id string) (*raml.BaseShape, error) {
+	expr, err := c.ctiParser.Parse(id)
+	if err != nil {
+		return nil, fmt.Errorf("parse cti type %s: %w", id, err)
+	}
+	attributeSelector := string(expr.AttributeSelector)
+	// Strip the attribute selector from the ID.
+	if attributeSelector != "" {
+		id = id[:len(id)-len(attributeSelector)-1]
+	}
+	as, err := attribute_selector.NewAttributeSelector(attributeSelector)
+	if err != nil {
+		return nil, fmt.Errorf("parse cti type %s attribute selector: %w", id, err)
+	}
 	if schema, ok := c.unwrappedCtiTypes[id]; ok {
-		return schema, nil
+		return as.WalkBaseShape(schema)
 	}
 	shape, ok := c.globalRamlCtiTypes[id]
 	if !ok {
@@ -382,7 +396,7 @@ func (c *Collector) getOrUnwrapCtiType(id string) (*raml.BaseShape, error) {
 		return nil, fmt.Errorf("find and mark recursion: %w", err)
 	}
 	c.unwrappedCtiTypes[id] = us
-	return us, nil
+	return as.WalkBaseShape(us)
 }
 
 func (c *Collector) preProcessCtiType(shape *raml.BaseShape) (*raml.BaseShape, error) {
@@ -452,9 +466,6 @@ func (c *Collector) getCtiSchema(base *raml.BaseShape, ctiSchema *raml.DomainExt
 	var shape *raml.BaseShape
 	switch v := ctiSchema.Extension.Value.(type) {
 	case string:
-		if _, err := c.ctiParser.Parse(v); err != nil {
-			return nil, fmt.Errorf("parse cti.schema: %w", err)
-		}
 		us, err := c.getOrUnwrapCtiType(v)
 		if err != nil {
 			return nil, fmt.Errorf("get or unwrap cti schema: %w", err)
@@ -471,16 +482,13 @@ func (c *Collector) getCtiSchema(base *raml.BaseShape, ctiSchema *raml.DomainExt
 		anyOf := make([]*raml.BaseShape, len(v))
 		for i, vv := range v {
 			id := vv.(string)
-			if _, err := c.ctiParser.Parse(id); err != nil {
-				return nil, fmt.Errorf("parse cti.schema[%d]: %w", i, err)
-			}
 			us, err := c.getOrUnwrapCtiType(id)
 			if err != nil {
-				return nil, fmt.Errorf("get or unwrap cti schema: %w", err)
+				return nil, fmt.Errorf("get or unwrap cti schema[%d]: %w", i, err)
 			}
 			us, err = c.findAndInsertCtiSchema(us, history)
 			if err != nil {
-				return nil, fmt.Errorf("find and insert cti schema: %w", err)
+				return nil, fmt.Errorf("find and insert cti schema[%d]: %w", i, err)
 			}
 			anyOf[i] = us
 		}
@@ -529,7 +537,7 @@ func (c *Collector) readCtiType(base *raml.BaseShape) error {
 		if _, ok := c.localRamlCtiTypes[cti]; ok {
 			return fmt.Errorf("duplicate cti.cti: %s", cti)
 		}
-		_, err = c.ctiParser.Parse(cti)
+		_, err = c.ctiParser.ParseIdentifier(cti)
 		if err != nil {
 			return fmt.Errorf("parse cti.cti: %w", err)
 		}
@@ -556,7 +564,7 @@ func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension, is
 	}
 
 	parentCti := ctiAnnotation.Extension.Value.(string)
-	parentCtiExpr, err := c.ctiParser.Parse(parentCti)
+	parentCtiExpr, err := c.ctiParser.ParseIdentifier(parentCti)
 	if err != nil {
 		return fmt.Errorf("parse parent cti: %w", err)
 	}
@@ -590,7 +598,7 @@ func (c *Collector) readAndMakeCtiInstances(annotation *raml.DomainExtension, is
 		obj := item.(map[string]interface{})
 		id := obj[idKey].(string)
 
-		childCtiExpr, err := c.ctiParser.Parse(id)
+		childCtiExpr, err := c.ctiParser.ParseIdentifier(id)
 		if err != nil {
 			return fmt.Errorf("parse child cti: %w", err)
 		}

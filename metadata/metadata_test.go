@@ -868,3 +868,167 @@ func TestAnnotations_ReadCti(t *testing.T) {
 		})
 	}
 }
+
+func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
+	// Helper for minimal JSON schema for testing
+	makeSchema := func(defName string, props map[string]any) map[string]any {
+		return map[string]any{
+			"$schema": "http://json-schema.org/draft-07/schema",
+			"$ref":    "#/definitions/" + defName,
+			"definitions": map[string]any{
+				defName: map[string]any{
+					"type":       "object",
+					"properties": props,
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name           string
+		entityType     *EntityType
+		selector       string
+		want           map[string]any
+		wantErr        bool
+		wantErrContain string
+	}{
+		{
+			name: "returns property schema for valid selector",
+			entityType: &EntityType{
+				Schema: makeSchema("Test", map[string]any{
+					"foo": map[string]any{"type": "string"},
+					"bar": map[string]any{"type": "integer"},
+				}),
+			},
+			selector: "foo",
+			want:     map[string]any{"type": "string"},
+			wantErr:  false,
+		},
+		{
+			name: "returns error for invalid selector",
+			entityType: &EntityType{
+				Schema: makeSchema("Test", map[string]any{
+					"foo": map[string]any{"type": "string"},
+				}),
+			},
+			selector:       ".foo",
+			wantErr:        true,
+			wantErrContain: "create attribute selector",
+		},
+		{
+			name:           "returns error if merged schema is missing",
+			entityType:     &EntityType{},
+			selector:       "foo",
+			wantErr:        true,
+			wantErrContain: "get merged schema",
+		},
+		{
+			name: "returns error if schema definition extraction fails",
+			entityType: &EntityType{
+				Schema: map[string]any{
+					"$schema": "http://json-schema.org/draft-07/schema",
+					"$ref":    "#/definitions/Test",
+				},
+			},
+			selector:       "foo",
+			wantErr:        true,
+			wantErrContain: "failed to extract schema definition",
+		},
+		{
+			name: "returns error if selector not found",
+			entityType: &EntityType{
+				Schema: makeSchema("Test", map[string]any{
+					"foo": map[string]any{"type": "string"},
+				}),
+			},
+			selector:       "notfound",
+			wantErr:        true,
+			wantErrContain: "not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.entityType.GetSchemaByAttributeSelectorInChain(tt.selector)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.wantErrContain != "" {
+					require.Contains(t, err.Error(), tt.wantErrContain)
+				}
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestEntityInstance_GetValueByAttributeSelector(t *testing.T) {
+	type testCase struct {
+		name             string
+		values           any
+		selector         string
+		expected         any
+		expectErr        bool
+		expectedErrMatch string
+	}
+
+	tests := []testCase{
+		{
+			name:     "simple string value",
+			values:   map[string]any{"foo": "bar"},
+			selector: "foo",
+			expected: "bar",
+		},
+		{
+			name:     "nested value",
+			values:   map[string]any{"foo": map[string]any{"bar": 42}},
+			selector: "foo.bar",
+			expected: 42,
+		},
+		{
+			name:     "array value",
+			values:   map[string]any{"arr": []any{1, 2, 3}},
+			selector: "arr",
+			expected: []any{1, 2, 3},
+		},
+		{
+			name:      "invalid selector",
+			values:    map[string]any{"foo": "bar"},
+			selector:  "foo[",
+			expectErr: true,
+		},
+		{
+			name:             "values not a map",
+			values:           []any{1, 2, 3},
+			selector:         "foo",
+			expectErr:        true,
+			expectedErrMatch: "values are not a map",
+		},
+		{
+			name:      "selector not found",
+			values:    map[string]any{"foo": "bar"},
+			selector:  "baz",
+			expected:  nil,
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			inst := &EntityInstance{
+				Values: tc.values,
+			}
+			got, err := inst.GetValueByAttributeSelector(tc.selector)
+			if tc.expectErr {
+				require.Error(t, err)
+				if tc.expectedErrMatch != "" {
+					require.Contains(t, err.Error(), tc.expectedErrMatch)
+				}
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, got)
+			}
+		})
+	}
+}

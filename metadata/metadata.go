@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/acronis/go-cti"
+	"github.com/acronis/go-cti/metadata/attribute_selector"
 	"github.com/acronis/go-cti/metadata/merger"
 	"github.com/tidwall/gjson"
 )
@@ -550,6 +551,23 @@ func (e *EntityType) GetTraitsSchema() interface{} {
 	return e.TraitsSchema
 }
 
+func (e *EntityType) GetSchemaByAttributeSelectorInChain(attributeSelector string) (map[string]any, error) {
+	as, err := attribute_selector.NewAttributeSelector(attributeSelector)
+	if err != nil {
+		return nil, fmt.Errorf("create attribute selector: %w", err)
+	}
+	// Use merged schema to ensure that we can get any property in the chain.
+	schema, err := e.GetMergedSchema()
+	if err != nil {
+		return nil, fmt.Errorf("get merged schema: %w", err)
+	}
+	schema, _, err = merger.ExtractSchemaDefinition(schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract schema definition: %w", err)
+	}
+	return as.WalkJSONSchema(schema)
+}
+
 func (e *EntityType) FindTraitsSchemaInChain() map[string]interface{} {
 	root := e
 	for root != nil {
@@ -663,6 +681,18 @@ func (e *EntityInstance) GetRawValues() ([]byte, error) {
 		}
 	}
 	return e.rawValues, nil
+}
+
+func (e *EntityInstance) GetValueByAttributeSelector(attributeSelector string) (any, error) {
+	as, err := attribute_selector.NewAttributeSelector(attributeSelector)
+	if err != nil {
+		return nil, fmt.Errorf("create attribute selector: %w", err)
+	}
+	v, ok := e.Values.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("values are not a map[string]any: %T", e.Values)
+	}
+	return as.WalkJSON(v)
 }
 
 func (e *EntityInstance) Validate() error {
