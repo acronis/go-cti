@@ -175,7 +175,7 @@ func (v *MetadataValidator) validateTypeReference(key metadata.GJsonPath, annota
 				return errors.New("parent cti.reference defines a specific CTI, but child specifies true")
 			}
 			if parentRef != TrueStr {
-				expr, err := v.ctiParser.Parse(parentRef)
+				expr, err := v.ctiParser.ParseReference(parentRef)
 				if err != nil {
 					return fmt.Errorf("failed to parse parent cti.reference %s: %w", parentRef, err)
 				}
@@ -191,7 +191,7 @@ func (v *MetadataValidator) validateTypeReference(key metadata.GJsonPath, annota
 		if currentRef == TrueStr {
 			return nil
 		}
-		if _, err := v.ctiParser.Parse(currentRef); err != nil {
+		if _, err := v.ctiParser.ParseReference(currentRef); err != nil {
 			return fmt.Errorf("failed to parse cti.reference %s: %w", currentRef, err)
 		}
 	}
@@ -262,7 +262,7 @@ func (v *MetadataValidator) validateInstanceReference(key metadata.GJsonPath, ch
 	// 	return fmt.Errorf("reference %s is not accessible by %s: %w", ref, child.Cti, err)
 	// }
 
-	expr, err := v.ctiParser.Parse(ref)
+	expr, err := v.ctiParser.ParseReference(ref)
 	if err != nil {
 		return fmt.Errorf("failed to parse cti.reference %s: %w", ref, err)
 	}
