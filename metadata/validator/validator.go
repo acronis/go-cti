@@ -147,11 +147,23 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 }
 
 func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *metadata.Annotations, child, _ *metadata.EntityType) error {
-	currentRefs := annotation.ReadCtiSchema()
-	for _, currentRef := range currentRefs {
-		refObject := v.registry.Index[currentRef]
+	schemaRefs := annotation.ReadCtiSchema()
+	for _, schemaRef := range schemaRefs {
+		expr, err := v.ctiParser.Parse(schemaRef)
+		if err != nil {
+			return fmt.Errorf("failed to parse parent cti.schema %s: %w", schemaRef, err)
+		}
+		attributeSelector := string(expr.AttributeSelector)
+		// Strip the attribute selector from the ID.
+		if attributeSelector != "" {
+			schemaRef = schemaRef[:len(schemaRef)-len(attributeSelector)-1]
+		}
+		refObject := v.registry.Types[schemaRef]
 		if refObject == nil {
-			return fmt.Errorf("cti schema %s not found", currentRef)
+			return fmt.Errorf("cti schema %s not found", schemaRef)
+		}
+		if _, err = refObject.GetSchemaByAttributeSelectorInChain(attributeSelector); err != nil {
+			return fmt.Errorf("cti schema %s does not contain attribute %s: %w", schemaRef, attributeSelector, err)
 		}
 		// if err := refObject.IsAccessibleBy(child); err != nil {
 		// 	return fmt.Errorf("cti schema %s is not accessible by %s: %w", currentRef, child.GetCti(), err)
