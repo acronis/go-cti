@@ -111,7 +111,7 @@ The CTI identifiers can be considered as `address` or `name` of the data types o
 The CTI identifier consists of two logical parts:
 
 1. Base part that begins with `cti.` and helps to identify the string as a CTI. For example, a fully qualified name of a CTI will be `cti.<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>`.
-1. Extension part (CTX) that is appended to CTI using the `~` character and extends (through inheritance or instantiation) the preceding identifier. For example, a fully qualified name of a CTI with CTX will be `cti.<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>~<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>`.
+1. Cross-domain Typed Identifiers Extension (CTX) part that is appended to CTI using the `~` character and extends (through inheritance or instantiation) the preceding identifier. For example, a fully qualified name of a CTI with CTX will be `cti.<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>~<vendor>.<package_name>.<entity_name>.v<major_version>.<minor_version>`.
 
 Each segment in these parts is dot-separated, where:
 
@@ -801,7 +801,7 @@ types:
 ### Annotations overview
 
 > [!NOTE]
-> You can find the list of annotations and their descriptions [here](https://github.com/acronis/go-cti/blob/main/pkg/ramlx/spec_v1/cti.raml).
+> You can find the list of annotations and their descriptions [here](https://github.com/acronis/go-cti/blob/main/metadata/ramlx/spec_v1/cti.raml).
 
 > [!WARNING]
 > CTI annotations have no effect on non-CTI types, unless a non-CTI type is used in a CTI type.
