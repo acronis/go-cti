@@ -8,8 +8,8 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/acronis/go-cti/metadata/collector"
 	"github.com/acronis/go-cti/metadata/filesys"
+	"github.com/acronis/go-cti/metadata/registry"
 )
 
 const (
@@ -20,8 +20,8 @@ type Package struct {
 	Index     *Index
 	IndexLock *IndexLock
 
-	LocalRegistry  *collector.MetadataRegistry
-	GlobalRegistry *collector.MetadataRegistry
+	LocalRegistry  *registry.MetadataRegistry
+	GlobalRegistry *registry.MetadataRegistry
 
 	Parsed bool
 

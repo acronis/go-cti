@@ -12,9 +12,9 @@ func (pkg *Package) Validate() error {
 	if err != nil {
 		return fmt.Errorf("parse with cache: %w", err)
 	}
-	validator := validator.MakeMetadataValidator(pkg.GlobalRegistry)
 
-	if err := validator.ValidateAll(); err != nil {
+	validator := validator.MakeMetadataValidator(pkg.GlobalRegistry, pkg.LocalRegistry)
+	if err = validator.ValidateAll(); err != nil {
 		return fmt.Errorf("validate all: %w", err)
 	}
 
