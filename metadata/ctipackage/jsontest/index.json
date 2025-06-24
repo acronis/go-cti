@@ -1,0 +1,8 @@
+{
+    "package_id": "x.y",
+    "apis": [],
+    "entities": [
+        "simple_type.yaml",
+        "instance.yaml"
+    ]
+}

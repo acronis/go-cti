@@ -2,12 +2,12 @@ package ctipackage
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/acronis/go-cti/metadata/filesys"
 )
@@ -15,6 +15,7 @@ import (
 const (
 	IndexFileName = "index.json"
 	RAMLExt       = ".raml"
+	YAMLExt       = ".yaml"
 )
 
 type Index struct {
@@ -63,6 +64,9 @@ func DecodeIndex(input io.Reader) (*Index, error) {
 }
 
 func (idx *Index) Check() error {
+	if idx.PackageID == "" {
+		return errors.New("package id is missing")
+	}
 	for i, p := range idx.Apis {
 		if p == "" {
 			return fmt.Errorf("$.apis[%d]: api path cannot be empty", i)
@@ -75,7 +79,7 @@ func (idx *Index) Check() error {
 		if p == "" {
 			return fmt.Errorf("$.entities[%d]: entity path cannot be empty", i)
 		}
-		if ext := filepath.Ext(p); ext != RAMLExt {
+		if ext := filepath.Ext(p); ext != RAMLExt && ext != YAMLExt {
 			return fmt.Errorf("$.entities[%d]: invalid entity extension: %s", i, ext)
 		}
 	}
@@ -83,31 +87,11 @@ func (idx *Index) Check() error {
 		if p == "" {
 			return fmt.Errorf("$.examples[%d]: example path cannot be empty", i)
 		}
-		if ext := filepath.Ext(p); ext != RAMLExt {
+		if ext := filepath.Ext(p); ext != RAMLExt && ext != YAMLExt {
 			return fmt.Errorf("$.examples[%d]: invalid example extension: %s", i, ext)
 		}
 	}
-	if idx.PackageID == "" {
-		return fmt.Errorf("package id is missing")
-	}
 	return nil
-}
-
-func (idx *Index) GenerateIndexRaml(includeExamples bool) string {
-	// TODO: Maybe it is possible to avoid index.raml generation and reuse RAML parser instance to parse each entity file instead.
-	// Could have something like PackageParser.Initialize(path string) (maybe even in go-raml itself).
-	// This would also allow employing per-fragment cache strategy based on project configuration.
-	var sb strings.Builder
-	sb.WriteString("#%RAML 1.0 Library\nuses:")
-	for i, entity := range idx.Entities {
-		sb.WriteString(fmt.Sprintf("\n  e%d: %s", i+1, entity))
-	}
-	if includeExamples {
-		for i, example := range idx.Examples {
-			sb.WriteString(fmt.Sprintf("\n  x%d: %s", i+1, example))
-		}
-	}
-	return sb.String()
 }
 
 func (idx *Index) Clone() *Index {

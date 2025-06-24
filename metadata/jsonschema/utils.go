@@ -1,4 +1,4 @@
-package merger
+package jsonschema
 
 func DeepCopyMap(input map[string]any) map[string]any {
 	if input == nil {
