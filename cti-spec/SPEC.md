@@ -139,12 +139,12 @@ associated with this identifier.
 
 Query language, similar to XPath language, allows the developers to narrow scope by specific attributes. Query syntax can be applied to a CTI by appending a list of attribute name and attribute value parameters in square brackets. For example: `<cti>[ <attribute name>="<attribute value>", <attribute name2>="<attribute value>", ... ]`.
 
-Both common values and values in CTI format could be referenced with CTI queries, e.g.
+Both common values and values in CTI format could be referenced with CTI queries, e.g.:
 
 * cti.a.p.message.v1.0[ topic_id="cti.a.p.topic.v1.0" ]
 * cti.a.p.topic.v1.0[ type="informational" ]
 
-It's possible to filter by multiple query parameters:
+It's possible to use multiple query parameters to limit the resulting scope by logical 'AND' of individual filters:
 
 * cti.a.p.topic.v1.0[ type="informational", organization="b5a19f80-f68e-41bc-bbf4-cc6fd106a8a4" ]
 
