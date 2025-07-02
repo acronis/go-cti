@@ -42,6 +42,45 @@ func Test_EmptyIndex(t *testing.T) {
 	require.ErrorContains(t, pkg.Read(), "read index file: check index file: package id is missing")
 }
 
+func Test_GenerateIndexRaml(t *testing.T) {
+	tests := []struct {
+		name            string
+		pkg             Package
+		includeExamples bool
+		expectedOutput  string
+	}{
+		{
+			name: "WithoutExamples",
+			pkg: Package{
+				Index: &Index{
+					Entities: []string{"entity1.raml", "entity2.raml"},
+					Examples: []string{"example1.raml"},
+				},
+			},
+			includeExamples: false,
+			expectedOutput:  "#%RAML 1.0 Library\nuses:\n  e1: entity1.raml\n  e2: entity2.raml",
+		},
+		{
+			name: "WithExamples",
+			pkg: Package{
+				Index: &Index{
+					Entities: []string{"entity1.raml"},
+					Examples: []string{"example1.raml", "example2.raml"},
+				},
+			},
+			includeExamples: true,
+			expectedOutput:  "#%RAML 1.0 Library\nuses:\n  e1: entity1.raml\n  x1: example1.raml\n  x2: example2.raml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := tt.pkg.generateRAML(tt.includeExamples)
+			require.Equal(t, tt.expectedOutput, output)
+		})
+	}
+}
+
 func Test_InvalidPackage(t *testing.T) {
 	testsupp.InitLog(t)
 

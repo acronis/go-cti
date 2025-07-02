@@ -1,4 +1,21 @@
-package merger
+package jsonschema
+
+func DeepCopy(input any) any {
+	if input == nil {
+		return nil
+	}
+
+	switch typedValue := input.(type) {
+	case map[string]any:
+		return DeepCopyMap(typedValue)
+
+	case []any:
+		return DeepCopySlice(typedValue)
+
+	default:
+		return typedValue
+	}
+}
 
 func DeepCopyMap(input map[string]any) map[string]any {
 	if input == nil {

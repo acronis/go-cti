@@ -19,5 +19,23 @@ const (
 )
 
 const (
+	XCti           = "x-" + Cti
+	XFinal         = "x-" + Final
+	XAccess        = "x-" + Access
+	XAccessField   = "x-" + AccessField
+	XResilient     = "x-" + Resilient
+	XID            = "x-" + ID
+	XL10n          = "x-" + L10n
+	XDisplayName   = "x-" + DisplayName
+	XDescription   = "x-" + Description
+	XAsset         = "x-" + Asset
+	XOverridable   = "x-" + Overridable
+	XReference     = "x-" + Reference
+	XSchema        = "x-" + Schema
+	XMeta          = "x-" + Meta
+	XPropertyNames = "x-" + PropertyNames
+)
+
+const (
 	Traits = "cti-traits"
 )

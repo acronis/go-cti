@@ -1,0 +1,29 @@
+#%CTI Type v1.0
+
+cti: cti.x.y.type.v1.0
+final: true
+access: protected
+resilient: false
+display_name: My Type
+schema:
+  $schema: 'https://json-schema.org/draft-07/schema#'
+  $ref: "#/definitions/cti.x.y.type.v1.0"
+  definitions:
+    cti.x.y.type.v1.0:
+      type: object
+      additionalProperties: false
+      properties:
+        val:
+          type: string
+          x-cti.overridable: true
+traits_schema:
+  $schema: 'https://json-schema.org/draft-07/schema#'
+  $ref: "#/definitions/cti-traits"
+  definitions:
+    cti-traits:
+      type: object
+      additionalProperties: false
+      properties:
+        val:
+          type: string
+          x-cti.overridable: true

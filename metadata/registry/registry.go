@@ -1,4 +1,4 @@
-package collector
+package registry
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ type MetadataRegistry struct {
 	Index     metadata.EntityMap
 }
 
-func (r *MetadataRegistry) Add(_ string, entity metadata.Entity) error {
+func (r *MetadataRegistry) Add(entity metadata.Entity) error {
 	cti := entity.GetCti()
 	if _, ok := r.Index[cti]; ok {
 		return fmt.Errorf("duplicate cti entity %s", cti)
@@ -32,12 +32,32 @@ func (r *MetadataRegistry) Add(_ string, entity metadata.Entity) error {
 	return nil
 }
 
+func (r *MetadataRegistry) CopyFrom(registry *MetadataRegistry) error {
+	for _, entity := range registry.Types {
+		cti := entity.GetCti()
+		if _, ok := r.Index[cti]; ok {
+			return fmt.Errorf("duplicate cti entity %s", cti)
+		}
+		r.Types[cti] = entity
+		r.Index[cti] = entity
+	}
+	for _, entity := range registry.Instances {
+		cti := entity.GetCti()
+		if _, ok := r.Index[cti]; ok {
+			return fmt.Errorf("duplicate cti entity %s", cti)
+		}
+		r.Instances[cti] = entity
+		r.Index[cti] = entity
+	}
+	return nil
+}
+
 func (r *MetadataRegistry) Clone() *MetadataRegistry {
 	c := *r
 	return &c
 }
 
-func NewMetadataRegistry() *MetadataRegistry {
+func New() *MetadataRegistry {
 	return &MetadataRegistry{
 		Types:     make(metadata.EntityTypeMap),
 		Instances: make(metadata.EntityInstanceMap),

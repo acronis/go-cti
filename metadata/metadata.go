@@ -8,6 +8,7 @@ import (
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata/attribute_selector"
+	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/merger"
 	"github.com/tidwall/gjson"
 )
@@ -44,7 +45,7 @@ type Entity interface {
 	SetResilient(resilient bool)
 	SetDisplayName(displayName string)
 	SetDescription(description string)
-	SetDictionaries(dictionaries map[string]interface{})
+	SetDictionaries(dictionaries map[string]any)
 
 	Parent() *EntityType
 	SetParent(*EntityType) error
@@ -88,21 +89,21 @@ func (a AccessModifier) Integer() int {
 
 type Annotations struct {
 	// TODO: Refactor Cti into CTI
-	Cti           interface{}            `json:"cti.cti,omitempty"` // string or []string
-	ID            *bool                  `json:"cti.id,omitempty"`  // bool?
-	Access        AccessModifier         `json:"cti.access,omitempty"`
-	AccessField   *bool                  `json:"cti.access_field,omitempty"`
-	DisplayName   *bool                  `json:"cti.display_name,omitempty"`
-	Description   *bool                  `json:"cti.description,omitempty"`
-	Reference     interface{}            `json:"cti.reference,omitempty"` // bool or string or []string
-	Overridable   *bool                  `json:"cti.overridable,omitempty"`
-	Final         *bool                  `json:"cti.final,omitempty"`
-	Resilient     *bool                  `json:"cti.resilient,omitempty"`
-	Asset         *bool                  `json:"cti.asset,omitempty"`
-	L10N          *bool                  `json:"cti.l10n,omitempty"`
-	Schema        interface{}            `json:"cti.schema,omitempty"` // string or []string
-	Meta          string                 `json:"cti.meta,omitempty"`
-	PropertyNames map[string]interface{} `json:"cti.propertyNames,omitempty"`
+	Cti           any            `json:"cti.cti,omitempty" yaml:"cti.cti,omitempty"` // string or []string
+	ID            *bool          `json:"cti.id,omitempty" yaml:"cti.id,omitempty"`   // bool?
+	Access        AccessModifier `json:"cti.access,omitempty" yaml:"cti.access,omitempty"`
+	AccessField   *bool          `json:"cti.access_field,omitempty" yaml:"cti.access_field,omitempty"`
+	DisplayName   *bool          `json:"cti.display_name,omitempty" yaml:"cti.display_name,omitempty"`
+	Description   *bool          `json:"cti.description,omitempty" yaml:"cti.description,omitempty"`
+	Reference     any            `json:"cti.reference,omitempty" yaml:"cti.reference,omitempty"` // bool or string or []string
+	Overridable   *bool          `json:"cti.overridable,omitempty" yaml:"cti.overridable,omitempty"`
+	Final         *bool          `json:"cti.final,omitempty" yaml:"cti.final,omitempty"`
+	Resilient     *bool          `json:"cti.resilient,omitempty" yaml:"cti.resilient,omitempty"`
+	Asset         *bool          `json:"cti.asset,omitempty" yaml:"cti.asset,omitempty"`
+	L10N          *bool          `json:"cti.l10n,omitempty" yaml:"cti.l10n,omitempty"`
+	Schema        any            `json:"cti.schema,omitempty" yaml:"cti.schema,omitempty"` // string or []string
+	Meta          string         `json:"cti.meta,omitempty" yaml:"cti.meta,omitempty"`     // string
+	PropertyNames map[string]any `json:"cti.propertyNames,omitempty" yaml:"cti.propertyNames,omitempty"`
 }
 
 type AnnotationType struct {
@@ -129,7 +130,7 @@ func (a Annotations) ReadCti() []string {
 		return []string{val}
 	}
 	var vals []string
-	for _, val := range a.Cti.([]interface{}) {
+	for _, val := range a.Cti.([]any) {
 		if strVal, ok := val.(string); ok {
 			vals = append(vals, strVal)
 		}
@@ -145,7 +146,7 @@ func (a Annotations) ReadCtiSchema() []string {
 		return []string{val}
 	}
 	var vals []string
-	for _, val := range a.Schema.([]interface{}) {
+	for _, val := range a.Schema.([]any) {
 		if strVal, ok := val.(string); ok {
 			vals = append(vals, strVal)
 		}
@@ -189,28 +190,28 @@ type entity struct {
 	// TODO: Add IsAnonymous method
 	// TODO: Implement Validate method
 
-	Final        bool                       `json:"final"`
-	Access       AccessModifier             `json:"access"`
-	Cti          string                     `json:"cti"`
-	Resilient    bool                       `json:"resilient"`
-	DisplayName  string                     `json:"display_name,omitempty"`
-	Description  string                     `json:"description,omitempty"`
-	Dictionaries map[string]interface{}     `json:"dictionaries,omitempty"`
-	Annotations  map[GJsonPath]*Annotations `json:"annotations"`
+	Final        bool                       `json:"final" yaml:"final"`
+	Access       AccessModifier             `json:"access" yaml:"access"`
+	Cti          string                     `json:"cti" yaml:"cti"`
+	Resilient    bool                       `json:"resilient" yaml:"resilient"`
+	DisplayName  string                     `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Description  string                     `json:"description,omitempty" yaml:"description,omitempty"`
+	Dictionaries map[string]any             `json:"dictionaries,omitempty" yaml:"dictionaries,omitempty"`
+	Annotations  map[GJsonPath]*Annotations `json:"annotations" yaml:"annotations"`
 
-	parent *EntityType `json:"-"`
+	parent *EntityType `json:"-" yaml:"-"` // Parent entity type, if any
 
-	expression *cti.Expression `json:"-"`
+	expression *cti.Expression `json:"-" yaml:"-"` // Parsed CTI expression, if any
 
-	ctx *MContext `json:"-"` // For future reflection purposes
+	ctx *MContext `json:"-" yaml:"-"` // For future reflection purposes
 }
 
 type EntitySourceMap struct {
 	// SourcePath is a relative path to the RAML file where the CTI parent is defined.
-	SourcePath string `json:"$sourcePath,omitempty"`
+	SourcePath string `json:"$sourcePath,omitempty" yaml:"$sourcePath,omitempty"`
 
 	// OriginalPath is a relative path to RAML fragment where the CTI entity is defined.
-	OriginalPath string `json:"$originalPath,omitempty"`
+	OriginalPath string `json:"$originalPath,omitempty" yaml:"$originalPath,omitempty"`
 }
 
 func (e *entity) GetCti() string {
@@ -395,7 +396,7 @@ func (e *entity) SetDescription(description string) {
 	e.Description = description
 }
 
-func (e *entity) SetDictionaries(dictionaries map[string]interface{}) {
+func (e *entity) SetDictionaries(dictionaries map[string]any) {
 	e.Dictionaries = dictionaries
 }
 
@@ -409,7 +410,7 @@ func (e *entity) IsNil() bool {
 
 func NewEntityType(
 	id string,
-	schema map[string]interface{},
+	schema map[string]any,
 	annotations map[GJsonPath]*Annotations,
 ) (*EntityType, error) {
 	switch {
@@ -433,24 +434,24 @@ func NewEntityType(
 }
 
 type EntityType struct {
-	entity
+	entity `yaml:",inline"`
 
-	Schema            map[string]interface{}     `json:"schema"`
-	TraitsSchema      map[string]interface{}     `json:"traits_schema,omitempty"`
-	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty"`
-	Traits            interface{}                `json:"traits,omitempty"`
+	Schema            map[string]any             `json:"schema" yaml:"schema"`
+	TraitsSchema      map[string]any             `json:"traits_schema,omitempty" yaml:"traits_schema,omitempty"`
+	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty" yaml:"traits_annotations,omitempty"`
+	Traits            any                        `json:"traits,omitempty" yaml:"traits,omitempty"`
 
-	mergedSchema map[string]interface{} `json:"-"` // Cached merged schema, if any
+	mergedSchema map[string]any `json:"-" yaml:"-"` // Cached merged schema, if any
 
 	// NOTE: This field is kept for compatibility and subject to removal in the future.
-	RawSchema []byte `json:"-"` // Raw schema bytes, if any
+	RawSchema []byte `json:"-" yaml:"-"` // Raw schema bytes, if any
 
-	SourceMap EntityTypeSourceMap `json:"source_map,omitempty"`
+	SourceMap EntityTypeSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
 
 type EntityTypeSourceMap struct {
-	Name string `json:"$name,omitempty"`
-	EntitySourceMap
+	Name            string `json:"$name,omitempty" yaml:"$name,omitempty"`
+	EntitySourceMap `yaml:",inline"`
 }
 
 func (e *EntityType) SetParent(entity *EntityType) error {
@@ -465,7 +466,7 @@ func (e *EntityType) SetParent(entity *EntityType) error {
 	return nil
 }
 
-func (e *EntityType) GetMergedSchema() (map[string]interface{}, error) {
+func (e *EntityType) GetMergedSchema() (map[string]any, error) {
 	if e.Schema == nil {
 		return nil, errors.New("entity type schema is nil")
 	}
@@ -476,9 +477,9 @@ func (e *EntityType) GetMergedSchema() (map[string]interface{}, error) {
 	}
 
 	// Copy the child schema since it will be modified during the merge process.
-	childRootSchema := merger.DeepCopyMap(e.Schema)
+	childRootSchema := jsonschema.DeepCopyMap(e.Schema)
 
-	childSchema, refType, err := merger.ExtractSchemaDefinition(childRootSchema)
+	childSchema, refType, err := jsonschema.ExtractSchemaDefinition(childRootSchema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract schema definition: %w", err)
 	}
@@ -498,7 +499,7 @@ func (e *EntityType) GetMergedSchema() (map[string]interface{}, error) {
 	for parent != nil {
 		parentRootSchema := parent.Schema
 
-		parentSchema, parentRefType, err := merger.ExtractSchemaDefinition(parentRootSchema)
+		parentSchema, parentRefType, err := jsonschema.ExtractSchemaDefinition(parentRootSchema)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract parent schema definition: %w", err)
 		}
@@ -547,7 +548,7 @@ func (e *EntityType) GetMergedSchema() (map[string]interface{}, error) {
 	return e.mergedSchema, nil
 }
 
-func (e *EntityType) GetTraitsSchema() interface{} {
+func (e *EntityType) GetTraitsSchema() any {
 	return e.TraitsSchema
 }
 
@@ -561,14 +562,14 @@ func (e *EntityType) GetSchemaByAttributeSelectorInChain(attributeSelector strin
 	if err != nil {
 		return nil, fmt.Errorf("get merged schema: %w", err)
 	}
-	schema, _, err = merger.ExtractSchemaDefinition(schema)
+	schema, _, err = jsonschema.ExtractSchemaDefinition(schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract schema definition: %w", err)
 	}
 	return as.WalkJSONSchema(schema)
 }
 
-func (e *EntityType) FindTraitsSchemaInChain() map[string]interface{} {
+func (e *EntityType) FindTraitsSchemaInChain() map[string]any {
 	root := e
 	for root != nil {
 		if root.TraitsSchema != nil {
@@ -579,11 +580,11 @@ func (e *EntityType) FindTraitsSchemaInChain() map[string]interface{} {
 	return nil
 }
 
-func (e *EntityType) GetTraits() interface{} {
+func (e *EntityType) GetTraits() any {
 	return e.Traits
 }
 
-func (e *EntityType) FindTraitsInChain() interface{} {
+func (e *EntityType) FindTraitsInChain() any {
 	root := e
 	for root != nil {
 		if root.Traits != nil {
@@ -609,16 +610,16 @@ func (e *EntityType) ReplacePointer(src Entity) error {
 	return nil
 }
 
-func (e *EntityType) SetSchema(schema map[string]interface{}) {
+func (e *EntityType) SetSchema(schema map[string]any) {
 	e.Schema = schema
 }
 
-func (e *EntityType) SetTraitsSchema(traitsSchema map[string]interface{}, traitsAnnotations map[GJsonPath]*Annotations) {
+func (e *EntityType) SetTraitsSchema(traitsSchema map[string]any, traitsAnnotations map[GJsonPath]*Annotations) {
 	e.TraitsSchema = traitsSchema
 	e.TraitsAnnotations = traitsAnnotations
 }
 
-func (e *EntityType) SetTraits(traits interface{}) {
+func (e *EntityType) SetTraits(traits any) {
 	e.Traits = traits
 }
 
@@ -630,7 +631,7 @@ func (e *EntityType) IsNil() bool {
 	return e == nil
 }
 
-func NewEntityInstance(id string, values interface{}) (*EntityInstance, error) {
+func NewEntityInstance(id string, values any) (*EntityInstance, error) {
 	if values == nil {
 		return nil, errors.New("values is nil")
 	}
@@ -649,18 +650,17 @@ func NewEntityInstance(id string, values interface{}) (*EntityInstance, error) {
 }
 
 type EntityInstance struct {
-	entity
+	entity `yaml:",inline"`
 
-	Values interface{} `json:"values"`
+	Values any `json:"values" yaml:"values"`
 
-	rawValues []byte `json:"-"`
-
-	SourceMap EntityInstanceSourceMap `json:"source_map,omitempty"`
+	rawValues []byte                  `json:"-" yaml:"-"`
+	SourceMap EntityInstanceSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
 
 type EntityInstanceSourceMap struct {
-	AnnotationType AnnotationType `json:"$annotationType,omitempty"`
-	EntitySourceMap
+	AnnotationType  AnnotationType `json:"$annotationType,omitempty" yaml:"$annotationType,omitempty"`
+	EntitySourceMap `yaml:",inline"`
 }
 
 func (e *EntityInstance) SetParent(entity *EntityType) error {

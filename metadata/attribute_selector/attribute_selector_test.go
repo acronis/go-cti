@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/acronis/go-raml"
+	"github.com/acronis/go-raml/v2"
 	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
