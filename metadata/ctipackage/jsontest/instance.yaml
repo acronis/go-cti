@@ -1,0 +1,9 @@
+#%CTI Instance v1.0
+
+cti: cti.x.y.type.v1.0~x.y.instance.v1.0
+final: true
+access: protected
+resilient: false
+display_name: My Instance
+values:
+  val: my_value

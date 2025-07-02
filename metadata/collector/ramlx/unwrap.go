@@ -1,20 +1,21 @@
 package collector
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/acronis/go-cti/metadata"
-	"github.com/acronis/go-raml"
+	"github.com/acronis/go-raml/v2"
 )
 
-func (c *Collector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, error) {
+func (c *RAMLXCollector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, error) {
 	s := base.Shape
 	if s == nil {
-		return nil, fmt.Errorf("shape is nil")
+		return nil, errors.New("shape is nil")
 	}
 	objShape, ok := s.(*raml.ObjectShape)
 	if !ok {
-		return nil, fmt.Errorf("CTI type must be object shape")
+		return nil, errors.New("CTI type must be object shape")
 	}
 
 	if base.ShapeVisited {
@@ -55,7 +56,7 @@ func (c *Collector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, e
 		inherits := base.Inherits
 		ctiInherits, ramlInherits := c.splitMultipleInherits(inherits)
 		if len(ctiInherits) > 1 {
-			return nil, fmt.Errorf("multiple CTI inheritance is not supported")
+			return nil, errors.New("multiple CTI inheritance is not supported")
 		}
 		if len(ramlInherits) > 0 {
 			ss, err := c.inheritMultipleRamlParents(ramlInherits)
@@ -102,7 +103,7 @@ func (c *Collector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, e
 	return base, nil
 }
 
-func (c *Collector) inheritMultipleRamlParents(inherits []*raml.BaseShape) (*raml.BaseShape, error) {
+func (c *RAMLXCollector) inheritMultipleRamlParents(inherits []*raml.BaseShape) (*raml.BaseShape, error) {
 	ss, err := c.unwrapMetadataType(inherits[0])
 	if err != nil {
 		return nil, fmt.Errorf("parent unwrap: %w", err)
@@ -120,7 +121,7 @@ func (c *Collector) inheritMultipleRamlParents(inherits []*raml.BaseShape) (*ram
 	return ss, nil
 }
 
-func (c *Collector) splitMultipleInherits(inherits []*raml.BaseShape) ([]*raml.BaseShape, []*raml.BaseShape) {
+func (c *RAMLXCollector) splitMultipleInherits(inherits []*raml.BaseShape) ([]*raml.BaseShape, []*raml.BaseShape) {
 	ramlInherits := make([]*raml.BaseShape, 0, len(inherits))
 	ctiInherits := make([]*raml.BaseShape, 0, len(inherits))
 	// Multiple parents are aliased

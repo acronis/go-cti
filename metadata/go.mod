@@ -5,7 +5,7 @@ go 1.22.6
 require (
 	github.com/acronis/go-cti v1.0.0
 	github.com/acronis/go-cti/metadata/ramlx v1.7.0
-	github.com/acronis/go-raml v1.22.0
+	github.com/acronis/go-raml/v2 v2.0.1
 	github.com/acronis/go-stacktrace v0.4.0
 	github.com/acronis/go-stacktrace/slogex v0.3.0
 	github.com/blang/semver/v4 v4.0.0
@@ -18,6 +18,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/zeebo/xxh3 v1.0.2
 	golang.org/x/mod v0.21.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -40,5 +41,4 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

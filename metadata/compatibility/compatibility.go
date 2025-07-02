@@ -9,7 +9,7 @@ import (
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/ctipackage"
-	"github.com/acronis/go-cti/metadata/merger"
+	"github.com/acronis/go-cti/metadata/jsonschema"
 )
 
 func ToSet[K comparable](src []K) map[K]struct{} {
@@ -451,12 +451,12 @@ func (cc *CompatibilityChecker) checkJsonSchemaCompatibility(oldSchema, newSchem
 	} else if oldSchema == nil || newSchema == nil {
 		return nil
 	}
-	oldSchemaStart, _, err := merger.ExtractSchemaDefinition(oldSchema)
+	oldSchemaStart, _, err := jsonschema.ExtractSchemaDefinition(oldSchema)
 	if err != nil {
 		cc.addMessage(SeverityError, fmt.Sprintf("failed to extract old schema definition: %v", err))
 		return nil
 	}
-	newSchemaStart, _, err := merger.ExtractSchemaDefinition(newSchema)
+	newSchemaStart, _, err := jsonschema.ExtractSchemaDefinition(newSchema)
 	if err != nil {
 		cc.addMessage(SeverityError, fmt.Sprintf("failed to extract old schema definition: %v", err))
 		return nil

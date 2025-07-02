@@ -7,7 +7,7 @@ import (
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
-	"github.com/acronis/go-cti/metadata/collector"
+	"github.com/acronis/go-cti/metadata/registry"
 	"github.com/acronis/go-stacktrace"
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -17,20 +17,23 @@ const (
 )
 
 type MetadataValidator struct {
-	registry  *collector.MetadataRegistry
-	ctiParser *cti.Parser
+	localRegistry  *registry.MetadataRegistry
+	globalRegistry *registry.MetadataRegistry
+	ctiParser      *cti.Parser
 }
 
-func MakeMetadataValidator(r *collector.MetadataRegistry) *MetadataValidator {
+func MakeMetadataValidator(gr, lr *registry.MetadataRegistry) *MetadataValidator {
+	// TODO: Add hooks by CTI for custom validations. Possibly by query.
 	return &MetadataValidator{
-		ctiParser: cti.NewParser(),
-		registry:  r,
+		ctiParser:      cti.NewParser(),
+		globalRegistry: gr,
+		localRegistry:  lr,
 	}
 }
 
 func (v *MetadataValidator) ValidateAll() error {
 	st := stacktrace.StackTrace{}
-	for _, object := range v.registry.Index {
+	for _, object := range v.localRegistry.Index {
 		if err := v.Validate(object); err != nil {
 			_ = st.Append(stacktrace.NewWrapped("validation failed", err, stacktrace.WithInfo("cti", object.GetCti()), stacktrace.WithType("validation")))
 		}
@@ -158,8 +161,8 @@ func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *
 		if attributeSelector != "" {
 			schemaRef = schemaRef[:len(schemaRef)-len(attributeSelector)-1]
 		}
-		refObject := v.registry.Types[schemaRef]
-		if refObject == nil {
+		refObject, ok := v.globalRegistry.Types[schemaRef]
+		if !ok {
 			return fmt.Errorf("cti schema %s not found", schemaRef)
 		}
 		if _, err = refObject.GetSchemaByAttributeSelectorInChain(attributeSelector); err != nil {
@@ -207,8 +210,8 @@ func (v *MetadataValidator) validateTypeReference(key metadata.GJsonPath, annota
 			return fmt.Errorf("failed to parse cti.reference %s: %w", currentRef, err)
 		}
 	}
-	refObject := v.registry.Index[currentRef]
-	if refObject == nil {
+	_, ok := v.globalRegistry.Index[currentRef]
+	if !ok {
 		return fmt.Errorf("reference %s not found", currentRef)
 	}
 	// if err := refObject.IsAccessibleBy(child); err != nil {
@@ -266,8 +269,8 @@ func (v *MetadataValidator) validateInstanceReference(key metadata.GJsonPath, ch
 		return nil
 	}
 
-	refObject := v.registry.Index[ref]
-	if refObject == nil {
+	_, ok := v.globalRegistry.Index[ref]
+	if !ok {
 		return fmt.Errorf("reference %s not found", ref)
 	}
 	// if err := refObject.IsAccessibleBy(child); err != nil {

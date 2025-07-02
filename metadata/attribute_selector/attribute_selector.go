@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/acronis/go-raml"
+	"github.com/acronis/go-raml/v2"
 )
 
 type AttributeSelector struct {

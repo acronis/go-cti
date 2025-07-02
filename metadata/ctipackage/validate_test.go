@@ -19,13 +19,7 @@ func TestValidateManual(t *testing.T) {
 	if err = pkg.Read(); err != nil {
 		t.Fatalf("Failed to read package: %v", err)
 	}
-	if err = pkg.Parse(); err != nil {
-		t.Fatalf("Failed to parse package: %v", err)
-	}
-
-	// Create a validator
-	err = pkg.Validate()
-	if err != nil {
+	if err = pkg.Validate(); err != nil {
 		t.Fatalf("Failed to validate package: %v", err)
 	}
 }
