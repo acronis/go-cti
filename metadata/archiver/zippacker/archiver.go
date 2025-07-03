@@ -117,6 +117,7 @@ func (zipWriter *zipWriter) WriteDirectory(baseDir string, excludeFn func(fsPath
 		if err != nil {
 			return fmt.Errorf("open index: %w", err)
 		}
+		defer f.Close()
 		w, err := zipWriter.Writer.Create(rel)
 		if err != nil {
 			return fmt.Errorf("create file in archive: %w", err)
