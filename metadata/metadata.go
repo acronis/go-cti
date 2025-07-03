@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata/attribute_selector"
@@ -41,6 +42,8 @@ type Entity interface {
 	IsSamePackage(other Entity) bool
 	IsSameVendor(other Entity) bool
 	IsAccessibleBy(other Entity) error
+
+	IsA(other *EntityType) bool
 
 	SetResilient(resilient bool)
 	SetDisplayName(displayName string)
@@ -353,6 +356,13 @@ func (e *entity) Expression() (*cti.Expression, error) {
 		e.expression = &expr
 	}
 	return e.expression, nil
+}
+
+func (e *entity) IsA(entity *EntityType) bool {
+	if entity == nil {
+		return false
+	}
+	return strings.HasPrefix(e.Cti, entity.Cti)
 }
 
 func (e *entity) Match(other Entity) (bool, error) {

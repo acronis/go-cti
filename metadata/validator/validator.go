@@ -70,11 +70,7 @@ func (v *MetadataValidator) validateBaseProperties(object metadata.Entity) error
 	// TODO: Check presence of parents in chain according to expression.
 	if parent != nil {
 		parentCti := parent.GetCti()
-		ok, err := parent.Match(object)
-		if err != nil {
-			return fmt.Errorf("failed to match %s with parent %s: %w", currentCti, parentCti, err)
-		}
-		if !ok {
+		if !object.IsA(parent) {
 			return fmt.Errorf("%s doesn't match %s", currentCti, parentCti)
 		}
 		// if parent.Access.Integer() > object.GetAccess().Integer() {
