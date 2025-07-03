@@ -16,10 +16,19 @@ const (
 	TrueStr = "true"
 )
 
+type TypeHook func(v *MetadataValidator, e *metadata.EntityType) error
+type InstanceHook func(v *MetadataValidator, e *metadata.EntityInstance) error
+
 type MetadataValidator struct {
 	localRegistry  *registry.MetadataRegistry
 	globalRegistry *registry.MetadataRegistry
 	ctiParser      *cti.Parser
+
+	typeHooks     map[string][]TypeHook
+	instanceHooks map[string][]InstanceHook
+
+	typeCache     map[string][]TypeHook
+	instanceCache map[string][]InstanceHook
 }
 
 func MakeMetadataValidator(gr, lr *registry.MetadataRegistry) *MetadataValidator {
@@ -28,6 +37,12 @@ func MakeMetadataValidator(gr, lr *registry.MetadataRegistry) *MetadataValidator
 		ctiParser:      cti.NewParser(),
 		globalRegistry: gr,
 		localRegistry:  lr,
+
+		typeHooks:     make(map[string][]TypeHook),
+		instanceHooks: make(map[string][]InstanceHook),
+
+		typeCache:     make(map[string][]TypeHook),
+		instanceCache: make(map[string][]InstanceHook),
 	}
 }
 
@@ -43,6 +58,50 @@ func (v *MetadataValidator) ValidateAll() error {
 	}
 
 	return nil
+}
+
+func (v *MetadataValidator) OnType(id string, h TypeHook) error {
+	if _, ok := v.localRegistry.Types[id]; !ok {
+		return fmt.Errorf("type %s not found in local registry", id)
+	}
+	v.typeHooks[id] = append(v.typeHooks[id], h)
+	delete(v.typeCache, id)
+	return nil
+}
+
+func (v *MetadataValidator) OnInstanceOfType(id string, h InstanceHook) error {
+	if _, ok := v.localRegistry.Instances[id]; !ok {
+		return fmt.Errorf("instance %s not found in local registry", id)
+	}
+	v.instanceHooks[id] = append(v.instanceHooks[id], h)
+	delete(v.instanceCache, id)
+	return nil
+}
+
+func (v *MetadataValidator) collectTypeHooks(entity *metadata.EntityType) []TypeHook {
+	if hs, ok := v.typeCache[entity.Cti]; ok {
+		return hs
+	}
+	var out []TypeHook
+	for root := entity; root != nil; root = root.Parent() {
+		out = append(out, v.typeHooks[root.Cti]...)
+	}
+	v.typeCache[entity.Cti] = out
+	return out
+}
+
+func (v *MetadataValidator) collectInstanceHooks(entity *metadata.EntityInstance) []InstanceHook {
+	if hs, ok := v.instanceCache[entity.Cti]; ok {
+		return hs
+	}
+	var out []InstanceHook
+	// TODO: This means we cannot put a hook directly on an instance.
+	// But maybe it's not required anyway.
+	for root := entity.Parent(); root != nil; root = root.Parent() {
+		out = append(out, v.instanceHooks[root.Cti]...)
+	}
+	v.instanceCache[entity.Cti] = out
+	return out
 }
 
 func (v *MetadataValidator) Validate(object metadata.Entity) error {
@@ -90,6 +149,12 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 
 	if entity.Schema == nil {
 		return fmt.Errorf("%s type has no schema", entity.Cti)
+	}
+
+	for _, h := range v.collectTypeHooks(entity) {
+		if err := h(v, entity); err != nil {
+			return err
+		}
 	}
 
 	currentCti := entity.GetCti()
@@ -223,6 +288,12 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 
 	if entity.Values == nil {
 		return fmt.Errorf("%s instance has no values", entity.Cti)
+	}
+
+	for _, h := range v.collectInstanceHooks(entity) {
+		if err := h(v, entity); err != nil {
+			return err
+		}
 	}
 
 	currentCti := entity.GetCti()
