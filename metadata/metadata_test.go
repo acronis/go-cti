@@ -1032,3 +1032,69 @@ func TestEntityInstance_GetValueByAttributeSelector(t *testing.T) {
 		})
 	}
 }
+
+func TestEntity_IsA(t *testing.T) {
+	tests := []struct {
+		name       string
+		entityCti  string
+		parentCti  string
+		parentNil  bool
+		wantResult bool
+	}{
+		{
+			name:       "parent is nil",
+			entityCti:  "cti.v.a.parent.v1.0",
+			parentCti:  "",
+			parentNil:  true,
+			wantResult: false,
+		},
+		{
+			name:       "entity is direct child of parent",
+			entityCti:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCti:  "cti.v.a.parent.v1.0",
+			parentNil:  false,
+			wantResult: true,
+		},
+		{
+			name:       "entity is same as parent",
+			entityCti:  "cti.v.a.parent.v1.0",
+			parentCti:  "cti.v.a.parent.v1.0",
+			parentNil:  false,
+			wantResult: true,
+		},
+		{
+			name:       "entity is not child of parent",
+			entityCti:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCti:  "cti.v.b.parent.v1.0",
+			parentNil:  false,
+			wantResult: false,
+		},
+		{
+			name:       "entity Cti is empty",
+			entityCti:  "",
+			parentCti:  "cti.v.a.parent.v1.0",
+			parentNil:  false,
+			wantResult: false,
+		},
+		{
+			name:       "parent Cti is empty",
+			entityCti:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCti:  "",
+			parentNil:  false,
+			wantResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &entity{Cti: tt.entityCti}
+			var parent *EntityType
+			if !tt.parentNil {
+				parent = &EntityType{}
+				parent.Cti = tt.parentCti
+			}
+			got := e.IsA(parent)
+			require.Equal(t, tt.wantResult, got)
+		})
+	}
+}
