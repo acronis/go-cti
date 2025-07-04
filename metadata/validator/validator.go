@@ -24,11 +24,11 @@ type MetadataValidator struct {
 	globalRegistry *registry.MetadataRegistry
 	ctiParser      *cti.Parser
 
-	typeHooks     map[string][]TypeHook
-	instanceHooks map[string][]InstanceHook
+	typeHooks     map[int64][]TypeHook
+	instanceHooks map[int64][]InstanceHook
 
-	typeCache     map[string][]TypeHook
-	instanceCache map[string][]InstanceHook
+	typeCache     map[int64][]TypeHook
+	instanceCache map[int64][]InstanceHook
 }
 
 func MakeMetadataValidator(gr, lr *registry.MetadataRegistry) *MetadataValidator {
@@ -38,11 +38,11 @@ func MakeMetadataValidator(gr, lr *registry.MetadataRegistry) *MetadataValidator
 		globalRegistry: gr,
 		localRegistry:  lr,
 
-		typeHooks:     make(map[string][]TypeHook),
-		instanceHooks: make(map[string][]InstanceHook),
+		typeHooks:     make(map[int64][]TypeHook),
+		instanceHooks: make(map[int64][]InstanceHook),
 
-		typeCache:     make(map[string][]TypeHook),
-		instanceCache: make(map[string][]InstanceHook),
+		typeCache:     make(map[int64][]TypeHook),
+		instanceCache: make(map[int64][]InstanceHook),
 	}
 }
 
@@ -61,46 +61,58 @@ func (v *MetadataValidator) ValidateAll() error {
 }
 
 func (v *MetadataValidator) OnType(id string, h TypeHook) error {
-	if _, ok := v.localRegistry.Types[id]; !ok {
+	entityID, ok := metadata.GlobalCTITable.Lookup(id)
+	if !ok {
+		return fmt.Errorf("entity %s not found in global CTI table", id)
+	}
+	if _, ok = v.localRegistry.Types[entityID]; !ok {
 		return fmt.Errorf("type %s not found in local registry", id)
 	}
-	v.typeHooks[id] = append(v.typeHooks[id], h)
-	delete(v.typeCache, id)
+	v.typeHooks[entityID] = append(v.typeHooks[entityID], h)
+	// TODO: This will invalidate only parent type but not the entire chain.
+	delete(v.typeCache, entityID)
 	return nil
 }
 
 func (v *MetadataValidator) OnInstanceOfType(id string, h InstanceHook) error {
-	if _, ok := v.localRegistry.Instances[id]; !ok {
-		return fmt.Errorf("instance %s not found in local registry", id)
+	entityID, ok := metadata.GlobalCTITable.Lookup(id)
+	if !ok {
+		return fmt.Errorf("entity %s not found in global CTI table", id)
 	}
-	v.instanceHooks[id] = append(v.instanceHooks[id], h)
-	delete(v.instanceCache, id)
+	if _, ok = v.localRegistry.Instances[entityID]; !ok {
+		return fmt.Errorf("type %s not found in local registry", id)
+	}
+	v.instanceHooks[entityID] = append(v.instanceHooks[entityID], h)
+	// TODO: This will invalidate only parent type but not the entire chain.
+	delete(v.instanceCache, entityID)
 	return nil
 }
 
 func (v *MetadataValidator) collectTypeHooks(entity *metadata.EntityType) []TypeHook {
-	if hs, ok := v.typeCache[entity.Cti]; ok {
+	entityID := entity.GetEntityID()
+	if hs, ok := v.typeCache[entityID]; ok {
 		return hs
 	}
 	var out []TypeHook
 	for root := entity; root != nil; root = root.Parent() {
-		out = append(out, v.typeHooks[root.Cti]...)
+		out = append(out, v.typeHooks[root.GetEntityID()]...)
 	}
-	v.typeCache[entity.Cti] = out
+	v.typeCache[entityID] = out
 	return out
 }
 
 func (v *MetadataValidator) collectInstanceHooks(entity *metadata.EntityInstance) []InstanceHook {
-	if hs, ok := v.instanceCache[entity.Cti]; ok {
+	entityID := entity.GetEntityID()
+	if hs, ok := v.instanceCache[entityID]; ok {
 		return hs
 	}
 	var out []InstanceHook
 	// TODO: This means we cannot put a hook directly on an instance.
 	// But maybe it's not required anyway.
 	for root := entity.Parent(); root != nil; root = root.Parent() {
-		out = append(out, v.instanceHooks[root.Cti]...)
+		out = append(out, v.instanceHooks[root.GetEntityID()]...)
 	}
-	v.instanceCache[entity.Cti] = out
+	v.instanceCache[entityID] = out
 	return out
 }
 
@@ -222,7 +234,11 @@ func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *
 		if attributeSelector != "" {
 			schemaRef = schemaRef[:len(schemaRef)-len(attributeSelector)-1]
 		}
-		refObject, ok := v.globalRegistry.Types[schemaRef]
+		entityID, ok := metadata.GlobalCTITable.Lookup(schemaRef)
+		if !ok {
+			return fmt.Errorf("entity %s not found in global CTI table", schemaRef)
+		}
+		refObject, ok := v.globalRegistry.Types[entityID]
 		if !ok {
 			return fmt.Errorf("cti schema %s not found", schemaRef)
 		}
@@ -271,8 +287,11 @@ func (v *MetadataValidator) validateTypeReference(key metadata.GJsonPath, annota
 			return fmt.Errorf("failed to parse cti.reference %s: %w", currentRef, err)
 		}
 	}
-	_, ok := v.globalRegistry.Index[currentRef]
+	entityID, ok := metadata.GlobalCTITable.Lookup(currentRef)
 	if !ok {
+		return fmt.Errorf("entity %s not found in global CTI table", currentRef)
+	}
+	if _, ok = v.globalRegistry.Index[entityID]; !ok {
 		return fmt.Errorf("reference %s not found", currentRef)
 	}
 	// if err := refObject.IsAccessibleBy(child); err != nil {
@@ -336,8 +355,11 @@ func (v *MetadataValidator) validateInstanceReference(key metadata.GJsonPath, ch
 		return nil
 	}
 
-	_, ok := v.globalRegistry.Index[ref]
+	entityID, ok := metadata.GlobalCTITable.Lookup(ref)
 	if !ok {
+		return fmt.Errorf("entity %s not found in global CTI table", ref)
+	}
+	if _, ok = v.globalRegistry.Index[entityID]; !ok {
 		return fmt.Errorf("reference %s not found", ref)
 	}
 	// if err := refObject.IsAccessibleBy(child); err != nil {

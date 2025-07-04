@@ -162,6 +162,7 @@ annotationTypes:
 types:
   SampleEntity:
     (cti.cti): cti.x.y.sample_entity.v1.0
+    (cti.final): false
     properties:
       id:
         type: cti.CTI

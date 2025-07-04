@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata/attribute_selector"
@@ -15,9 +14,9 @@ import (
 )
 
 type Entities []Entity
-type EntityTypeMap map[string]*EntityType
-type EntityInstanceMap map[string]*EntityInstance
-type EntityMap map[string]Entity
+type EntityTypeMap map[int64]*EntityType
+type EntityInstanceMap map[int64]*EntityInstance
+type EntityMap map[int64]Entity
 
 // TODO: For future use
 type MContext struct{}
@@ -32,6 +31,7 @@ type NilChecker interface {
 }
 
 type Entity interface {
+	GetEntityID() int64
 	GetCti() string
 
 	SetFinal(final bool)
@@ -43,7 +43,7 @@ type Entity interface {
 	IsSameVendor(other Entity) bool
 	IsAccessibleBy(other Entity) error
 
-	IsA(other *EntityType) bool
+	IsA(other Entity) bool
 
 	SetResilient(resilient bool)
 	SetDisplayName(displayName string)
@@ -206,6 +206,8 @@ type entity struct {
 
 	expression *cti.Expression `json:"-" yaml:"-"` // Parsed CTI expression, if any
 
+	entityID int64 // Unique identifier of the entity
+
 	ctx *MContext `json:"-" yaml:"-"` // For future reflection purposes
 }
 
@@ -215,6 +217,10 @@ type EntitySourceMap struct {
 
 	// OriginalPath is a relative path to RAML fragment where the CTI entity is defined.
 	OriginalPath string `json:"$originalPath,omitempty" yaml:"$originalPath,omitempty"`
+}
+
+func (e *entity) GetEntityID() int64 {
+	return e.entityID
 }
 
 func (e *entity) GetCti() string {
@@ -346,9 +352,6 @@ func (e *entity) IsFinal() bool {
 
 func (e *entity) Expression() (*cti.Expression, error) {
 	if e.expression == nil {
-		if e.Cti == "" {
-			return nil, errors.New("entity CTI is empty")
-		}
 		expr, err := cti.Parse(e.Cti)
 		if err != nil {
 			return nil, fmt.Errorf("parse expression %s: %w", e.Cti, err)
@@ -358,11 +361,18 @@ func (e *entity) Expression() (*cti.Expression, error) {
 	return e.expression, nil
 }
 
-func (e *entity) IsA(entity *EntityType) bool {
+func (e *entity) IsA(entity Entity) bool {
 	if entity == nil {
 		return false
 	}
-	return strings.HasPrefix(e.Cti, entity.Cti)
+	var root Entity = e
+	for !root.IsNil() {
+		if root.GetEntityID() == entity.GetEntityID() {
+			return true
+		}
+		root = root.Parent()
+	}
+	return false
 }
 
 func (e *entity) Match(other Entity) (bool, error) {
@@ -430,12 +440,15 @@ func NewEntityType(
 		return nil, errors.New("annotations are nil")
 	}
 
+	entityID := GlobalCTITable.Add(id)
+
 	obj := &EntityType{
 		entity: entity{
 			Cti:         id,
 			Final:       true, // All entities are final by default
 			Access:      AccessModifierProtected,
 			Annotations: annotations,
+			entityID:    entityID,
 		},
 		Schema: schema,
 	}
@@ -646,12 +659,15 @@ func NewEntityInstance(id string, values any) (*EntityInstance, error) {
 		return nil, errors.New("values is nil")
 	}
 
+	entityID := GlobalCTITable.Add(id)
+
 	obj := &EntityInstance{
 		entity: entity{
 			Cti:         id,
 			Final:       true, // All entities are final by default
 			Access:      AccessModifierProtected,
 			Annotations: make(map[GJsonPath]*Annotations),
+			entityID:    entityID,
 		},
 		Values: values,
 	}

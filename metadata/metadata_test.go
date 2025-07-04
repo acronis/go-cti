@@ -963,138 +963,81 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 	}
 }
 
-func TestEntityInstance_GetValueByAttributeSelector(t *testing.T) {
-	type testCase struct {
-		name             string
-		values           any
-		selector         string
-		expected         any
-		expectErr        bool
-		expectedErrMatch string
-	}
-
-	tests := []testCase{
-		{
-			name:     "simple string value",
-			values:   map[string]any{"foo": "bar"},
-			selector: "foo",
-			expected: "bar",
-		},
-		{
-			name:     "nested value",
-			values:   map[string]any{"foo": map[string]any{"bar": 42}},
-			selector: "foo.bar",
-			expected: 42,
-		},
-		{
-			name:     "array value",
-			values:   map[string]any{"arr": []any{1, 2, 3}},
-			selector: "arr",
-			expected: []any{1, 2, 3},
-		},
-		{
-			name:      "invalid selector",
-			values:    map[string]any{"foo": "bar"},
-			selector:  "foo[",
-			expectErr: true,
-		},
-		{
-			name:             "values not a map",
-			values:           []any{1, 2, 3},
-			selector:         "foo",
-			expectErr:        true,
-			expectedErrMatch: "values are not a map",
-		},
-		{
-			name:      "selector not found",
-			values:    map[string]any{"foo": "bar"},
-			selector:  "baz",
-			expected:  nil,
-			expectErr: true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			inst := &EntityInstance{
-				Values: tc.values,
-			}
-			got, err := inst.GetValueByAttributeSelector(tc.selector)
-			if tc.expectErr {
-				require.Error(t, err)
-				if tc.expectedErrMatch != "" {
-					require.Contains(t, err.Error(), tc.expectedErrMatch)
-				}
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.expected, got)
-			}
-		})
-	}
-}
-
 func TestEntity_IsA(t *testing.T) {
+	makeEntity := func(id int64, parent *EntityType) *entity {
+		return &entity{
+			entityID: id,
+			parent:   parent,
+		}
+	}
+
 	tests := []struct {
-		name       string
-		entityCti  string
-		parentCti  string
-		parentNil  bool
-		wantResult bool
+		name     string
+		entity   *entity
+		other    Entity
+		expected bool
 	}{
 		{
-			name:       "parent is nil",
-			entityCti:  "cti.v.a.parent.v1.0",
-			parentCti:  "",
-			parentNil:  true,
-			wantResult: false,
+			name:     "returns false if entity is nil",
+			entity:   makeEntity(1, nil),
+			other:    nil,
+			expected: false,
 		},
 		{
-			name:       "entity is direct child of parent",
-			entityCti:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCti:  "cti.v.a.parent.v1.0",
-			parentNil:  false,
-			wantResult: true,
+			name:     "returns true if same entity",
+			entity:   makeEntity(1, nil),
+			other:    nil, // will set to entity in test
+			expected: true,
 		},
 		{
-			name:       "entity is same as parent",
-			entityCti:  "cti.v.a.parent.v1.0",
-			parentCti:  "cti.v.a.parent.v1.0",
-			parentNil:  false,
-			wantResult: true,
+			name: "returns true if entity is in parent chain",
+			entity: func() *entity {
+				parent := &EntityType{entity: *makeEntity(2, nil)}
+				return makeEntity(1, parent)
+			}(),
+			other: func() Entity {
+				parent := &EntityType{entity: *makeEntity(2, nil)}
+				return parent
+			}(),
+			expected: true,
 		},
 		{
-			name:       "entity is not child of parent",
-			entityCti:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCti:  "cti.v.b.parent.v1.0",
-			parentNil:  false,
-			wantResult: false,
+			name: "returns false if entity is not in parent chain",
+			entity: func() *entity {
+				parent := &EntityType{entity: *makeEntity(2, nil)}
+				return makeEntity(1, parent)
+			}(),
+			other:    makeEntity(3, nil),
+			expected: false,
 		},
 		{
-			name:       "entity Cti is empty",
-			entityCti:  "",
-			parentCti:  "cti.v.a.parent.v1.0",
-			parentNil:  false,
-			wantResult: false,
+			name: "returns true if entity is itself in a chain",
+			entity: func() *entity {
+				parent := &EntityType{entity: *makeEntity(2, nil)}
+				return makeEntity(2, parent)
+			}(),
+			other: func() Entity {
+				parent := &EntityType{entity: *makeEntity(2, nil)}
+				return parent
+			}(),
+			expected: true,
 		},
 		{
-			name:       "parent Cti is empty",
-			entityCti:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCti:  "",
-			parentNil:  false,
-			wantResult: true,
+			name:     "returns false if parent is nil",
+			entity:   makeEntity(1, nil),
+			other:    makeEntity(2, nil),
+			expected: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := &entity{Cti: tt.entityCti}
-			var parent *EntityType
-			if !tt.parentNil {
-				parent = &EntityType{}
-				parent.Cti = tt.parentCti
+			other := tt.other
+			// For "same entity" test, set other to entity itself
+			if tt.name == "returns true if same entity" {
+				other = tt.entity
 			}
-			got := e.IsA(parent)
-			require.Equal(t, tt.wantResult, got)
+			require.Equal(t, tt.expected, tt.entity.IsA(other))
 		})
 	}
 }

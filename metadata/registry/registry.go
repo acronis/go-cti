@@ -14,40 +14,40 @@ type MetadataRegistry struct {
 }
 
 func (r *MetadataRegistry) Add(entity metadata.Entity) error {
-	cti := entity.GetCti()
-	if _, ok := r.Index[cti]; ok {
-		return fmt.Errorf("duplicate cti entity %s", cti)
+	entityID := entity.GetEntityID()
+	if _, ok := r.Index[entityID]; ok {
+		return fmt.Errorf("duplicate cti entity %s", entity.GetCti())
 	}
 
 	switch e := entity.(type) {
 	case *metadata.EntityInstance:
-		r.Instances[cti] = e
+		r.Instances[entityID] = e
 	case *metadata.EntityType:
-		r.Types[cti] = e
+		r.Types[entityID] = e
 	default:
-		return fmt.Errorf("invalid entity: %s", cti)
+		return fmt.Errorf("invalid entity: %s", entity.GetCti())
 	}
 
-	r.Index[cti] = entity
+	r.Index[entityID] = entity
 	return nil
 }
 
 func (r *MetadataRegistry) CopyFrom(registry *MetadataRegistry) error {
 	for _, entity := range registry.Types {
-		cti := entity.GetCti()
-		if _, ok := r.Index[cti]; ok {
-			return fmt.Errorf("duplicate cti entity %s", cti)
+		entityID := entity.GetEntityID()
+		if _, ok := r.Index[entityID]; ok {
+			return fmt.Errorf("duplicate cti entity %s", entity.GetCti())
 		}
-		r.Types[cti] = entity
-		r.Index[cti] = entity
+		r.Types[entityID] = entity
+		r.Index[entityID] = entity
 	}
 	for _, entity := range registry.Instances {
-		cti := entity.GetCti()
-		if _, ok := r.Index[cti]; ok {
-			return fmt.Errorf("duplicate cti entity %s", cti)
+		entityID := entity.GetEntityID()
+		if _, ok := r.Index[entityID]; ok {
+			return fmt.Errorf("duplicate cti entity %s", entity.GetCti())
 		}
-		r.Instances[cti] = entity
-		r.Index[cti] = entity
+		r.Instances[entityID] = entity
+		r.Index[entityID] = entity
 	}
 	return nil
 }

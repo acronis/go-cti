@@ -68,20 +68,21 @@ func (t *Transformer) Transform() error {
 }
 
 func (t *Transformer) replaceRefNameWithRefCti() error {
-	for cti, entity := range t.registry.Types {
+	for _, entity := range t.registry.Types {
+		cti := entity.GetCti()
 		if entity.Schema == nil {
-			return fmt.Errorf("entity %s has no schema", entity.GetCti())
+			return fmt.Errorf("entity %s has no schema", cti)
 		}
 		_, ref, err := jsonschema.ExtractSchemaDefinition(entity.Schema)
 		if ref == entity.Cti {
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("extract schema definition for %s: %w", entity.GetCti(), err)
+			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
 		}
 		definitions, ok := entity.Schema["definitions"].(map[string]any)
 		if !ok {
-			return fmt.Errorf("definitions not found in schema of %s", entity.GetCti())
+			return fmt.Errorf("definitions not found in schema of %s", cti)
 		}
 		entity.Schema["$ref"] = "#/definitions/" + cti
 		definitions[cti] = definitions[ref]
@@ -106,7 +107,11 @@ func (t *Transformer) linkEntities() error {
 		if parentID == cti {
 			continue
 		}
-		parent, ok := t.registry.Types[parentID]
+		entityID, ok := metadata.GlobalCTITable.Lookup(parentID)
+		if !ok {
+			return fmt.Errorf("entity %s not found in global CTI table", parentID)
+		}
+		parent, ok := t.registry.Types[entityID]
 		if !ok {
 			return fmt.Errorf("parent type %s not found", parentID)
 		}
@@ -122,13 +127,13 @@ func (t *Transformer) linkEntities() error {
 
 func (t *Transformer) collectAnnotations() error {
 	annotationsCollector := NewAnnotationsCollector()
-	for cti, entity := range t.registry.Types {
+	for _, entity := range t.registry.Types {
 		if entity.Schema == nil {
-			return fmt.Errorf("entity %s has no schema", cti)
+			return fmt.Errorf("entity %s has no schema", entity.GetCti())
 		}
 		schema, _, err := jsonschema.ExtractSchemaDefinition(entity.Schema)
 		if err != nil {
-			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
+			return fmt.Errorf("extract schema definition for %s: %w", entity.GetCti(), err)
 		}
 		entity.Annotations = annotationsCollector.Collect(schema)
 		if entity.TraitsSchema == nil {
@@ -136,7 +141,7 @@ func (t *Transformer) collectAnnotations() error {
 		}
 		schema, _, err = jsonschema.ExtractSchemaDefinition(entity.TraitsSchema)
 		if err != nil {
-			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
+			return fmt.Errorf("extract schema definition for %s: %w", entity.GetCti(), err)
 		}
 		entity.TraitsAnnotations = annotationsCollector.Collect(schema)
 	}
@@ -144,17 +149,17 @@ func (t *Transformer) collectAnnotations() error {
 }
 
 func (t *Transformer) findAndInsertCtiSchemas() error {
-	for cti, entity := range t.registry.Types {
+	for _, entity := range t.registry.Types {
 		if entity.Schema == nil {
 			continue
 		}
 		ctx := context{entity: entity}
 		schema, _, err := jsonschema.ExtractSchemaDefinition(entity.Schema)
 		if err != nil {
-			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
+			return fmt.Errorf("extract schema definition for %s: %w", entity.GetCti(), err)
 		}
 		if _, err = t.findAndInsertCtiSchema(ctx, schema); err != nil {
-			return fmt.Errorf("visit schema for %s: %w", cti, err)
+			return fmt.Errorf("visit schema for %s: %w", entity.GetCti(), err)
 		}
 	}
 	return nil

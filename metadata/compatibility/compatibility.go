@@ -246,8 +246,8 @@ func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipa
 
 	// Check compatibility of entities that are present in both packages.
 	for _, oldObject := range oldPkg.LocalRegistry.Index {
-		oldCti := oldObject.GetCti()
-		newObject, ok := newPkg.LocalRegistry.Index[oldCti]
+		oldEntityID := oldObject.GetEntityID()
+		newObject, ok := newPkg.LocalRegistry.Index[oldEntityID]
 		if !ok {
 			cc.RemovedEntities = append(cc.RemovedEntities, oldObject)
 			continue
@@ -260,7 +260,7 @@ func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipa
 	// Check compatibility of new versions that may not present in the old package.
 	for _, newObject := range newPkg.LocalRegistry.Index {
 		newCti := newObject.GetCti()
-		if _, ok := oldPkg.LocalRegistry.Index[newCti]; ok {
+		if _, ok := oldPkg.LocalRegistry.Index[newObject.GetEntityID()]; ok {
 			continue
 		}
 		cc.NewEntities = append(cc.NewEntities, newObject)
@@ -280,7 +280,11 @@ func (cc *CompatibilityChecker) CheckPackagesCompatibility(oldPkg, newPkg *ctipa
 			return fmt.Errorf("clone expression for new object %s", newCti)
 		}
 
-		previousMinorVersionObject := newPkg.LocalRegistry.Index[clonedExpr.String()]
+		lookupEntityID, ok := metadata.GlobalCTITable.Lookup(clonedExpr.String())
+		if !ok {
+			continue
+		}
+		previousMinorVersionObject := newPkg.LocalRegistry.Index[lookupEntityID]
 		if previousMinorVersionObject == nil {
 			continue
 		}
