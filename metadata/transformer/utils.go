@@ -54,7 +54,11 @@ func (t *Transformer) resolveCtiSchema(ref string) (map[string]any, error) {
 	if attributeSelector != "" {
 		ref = ref[:len(ref)-len(attributeSelector)-1]
 	}
-	entity, ok := t.registry.Types[ref]
+	entityID, ok := metadata.GlobalCTITable.Lookup(ref)
+	if !ok {
+		return nil, fmt.Errorf("entity %s not found in global CTI table", ref)
+	}
+	entity, ok := t.registry.Types[entityID]
 	if !ok {
 		return nil, fmt.Errorf("cti type %s not found in registry", ref)
 	}

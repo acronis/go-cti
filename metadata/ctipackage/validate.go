@@ -7,7 +7,6 @@ import (
 )
 
 func (pkg *Package) Validate() error {
-	// TODO: Validate must use cache.
 	err := pkg.Parse()
 	if err != nil {
 		return fmt.Errorf("parse with cache: %w", err)
