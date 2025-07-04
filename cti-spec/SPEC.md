@@ -1,16 +1,15 @@
-# Cross-domain Typed Identifiers (CTI) version 1.0 Specification
+# Cross-domain Typed Identifiers (CTI) version 1.0 Specification  <!-- omit in toc -->
 
 ## Abstract
 
-This document provides a specification for **Cross-domain Typed Identifiers (CTI) version 1.0**.
+**Cross-domain Typed Identifiers (CTI) version 1.0** specification (this document) defines a standardized approach for uniquely identifying data types, instances and their relationships in multi-service, multi-vendor, multi-platform and multi-application environments. By encoding essential information about vendor, package, and version, CTI ensures consistent, scalable identification of data types and instances in shared data storage, API objects, and documentation.
 
-## Table of Content
+## Table of Content <!-- omit in toc -->
 
 - [Abstract](#abstract)
-- [Table of Content](#table-of-content)
 - [Problem Statement](#problem-statement)
 - [Introduction](#introduction)
-  - [The CTI syntax](#the-cti-syntax)
+  - [The CTI notation syntax](#the-cti-notation-syntax)
   - [Versioning](#versioning)
   - [Query language](#query-language)
   - [Attribute query](#attribute-query)
@@ -32,7 +31,7 @@ This document provides a specification for **Cross-domain Typed Identifiers (CTI
   - [Extensible object types through type inheritance](#extensible-object-types-through-type-inheritance)
   - [Controlling the type behavior](#controlling-the-type-behavior)
     - [Expressing a relationship without an intermediate mapping](#expressing-a-relationship-without-an-intermediate-mapping)
-  - [Access scoping](#access-scoping)
+  - [Using CTI for data objects access control](#using-cti-for-data-objects-access-control)
 - [Types and instances definition with RAMLx 1.0](#types-and-instances-definition-with-ramlx-10)
   - [Typed annotations](#typed-annotations)
   - [User-defined facets](#user-defined-facets)
@@ -55,7 +54,6 @@ This document provides a specification for **Cross-domain Typed Identifiers (CTI
     - [Caching](#caching)
     - [Dependency directory](#dependency-directory)
     - [Dependencies resolution](#dependencies-resolution)
-
 
 ## Problem Statement
 
@@ -141,12 +139,12 @@ associated with this identifier.
 
 Query language, similar to XPath language, allows the developers to narrow scope by specific attributes. Query syntax can be applied to a CTI by appending a list of attribute name and attribute value parameters in square brackets. For example: `<cti>[ <attribute name>="<attribute value>", <attribute name2>="<attribute value>", ... ]`.
 
-Both common values and values in CTI format could be referenced with CTI queries, e.g.
+Both common values and values in CTI format could be referenced with CTI queries, e.g.:
 
 * cti.a.p.message.v1.0[ topic_id="cti.a.p.topic.v1.0" ]
 * cti.a.p.topic.v1.0[ type="informational" ]
 
-It's possible to filter by multiple query parameters:
+It's possible to use multiple query parameters to limit the resulting scope by logical 'AND' of individual filters:
 
 * cti.a.p.topic.v1.0[ type="informational", organization="b5a19f80-f68e-41bc-bbf4-cc6fd106a8a4" ]
 
@@ -333,31 +331,6 @@ A complete syntax of CTI is represented using the following Extended Backus-Naur
 
   wildcard = "*";
 ```
-
-#### Using CTI for data objects access control
-
-The CTI identifier notation is a powerful tool for managing data access control and performing access checks at runtime. It can be effectively utilized for implementing **Attribute-Based Access Control** (ABAC) as well as defining roles for **Role-Based Access Control** (RBAC). Services implementing APIs can leverage CTI identifiers to grant or deny access to specific objects or categories of objects based on their types. For example [self-encoded JWT tokens] (https://auth0.com/docs/secure/tokens/json-web-tokens) might have the list of granted `scopes` in form of CTIs, with support for wildcard shortcuts. Here’s a sample API JWT token:
-
-```
-{
-  "iss": "cti.vendor.platform.auth.v1.0",           // Token issuer identifier is Vendor's Platform
-  "sub": "e0d31952-f46f-4e2a-9327-ee04a0eef544",    // Subject: API client (or user) identifier
-  "exp": 1700000000,                                // Expiration time (Unix timestamp)
-  "iat": 1690000000,                                // Issued at time (Unix timestamp)
-  "scope": [                                        // ABAC example
-    "cti.vendor.platform.task.v1.0~*:read",         // Grant access to read all the objects with type inherited from cti.vendor.platform.task.v1.0
-    "cti.partner_vendor.integration_app.*:read"     // Read-only access to all the objects introduced by 'Integration App' from 'Partner Vendor'
-    "cti.vendor.platform.alert.v1.0~2181ab50-a526-4507-901a-64af98b3be53:admin", // Admin access to specific alert object with given UUID
-    "cti.vendor.platform.alert.v1.0~vendor.platform.license_expired.v1.0:admin", // Additional Admin access to all alerts with ~vendor.platform.license_expired.v1.0 type
-  ],
-  "roles": [                                        // RBAC example
-     "cti.vendor.platform.role.v1.0~vendor.platform.read_only_admin.v1.0", // The API client (or user) gets the read-only admin permissions for Platform services
-     "cti.vendor.platform.role.v1.0~partner_vendor.integration_app.support_engineer.v1.0" // Additionally, it gets some 'support engineer' permissions in the 'Integration App'
-  ]
-}
-```
-
-Similarly, access control rules can be applied to database tables, events, configuration files, and other objects for enforcing appropriate access checks.
 
 ## CTI Metadata
 
@@ -625,7 +598,30 @@ traits:
   topic_id: cti.a.p.topic.v1.0~a.p.user.v1.0
 ```
 
-### Access scoping
+### Using CTI for data objects access control
+
+The CTI identifier notation is a powerful tool for managing data access control and performing access checks at runtime. It can be effectively utilized for implementing **Attribute-Based Access Control** (ABAC) as well as defining roles for **Role-Based Access Control** (RBAC). Services implementing APIs can leverage CTI identifiers to grant or deny access to specific objects or categories of objects based on their types. For example [self-encoded JWT tokens](https://auth0.com/docs/secure/tokens/json-web-tokens) might have the list of granted `scopes` in form of CTIs, with support for wildcard shortcuts. Here’s a sample API JWT token:
+
+```json
+{
+  "iss": "cti.vendor.platform.auth.v1.0",           // Token issuer identifier is Vendor's Platform
+  "sub": "e0d31952-f46f-4e2a-9327-ee04a0eef544",    // Subject: API client (or user) identifier
+  "exp": 1700000000,                                // Expiration time (Unix timestamp)
+  "iat": 1690000000,                                // Issued at time (Unix timestamp)
+  "scope": [                                        // ABAC example
+    "cti.vendor.platform.task.v1.0~*:read",         // Grant access to read all the objects with type inherited from cti.vendor.platform.task.v1.0
+    "cti.partner_vendor.integration_app.*:read"     // Read-only access to all the objects introduced by 'Integration App' from 'Partner Vendor'
+    "cti.vendor.platform.alert.v1.0~2181ab50-a526-4507-901a-64af98b3be53:admin", // Admin access to specific alert object with given UUID
+    "cti.vendor.platform.alert.v1.0~vendor.platform.license_expired.v1.0:admin", // Additional Admin access to all alerts with ~vendor.platform.license_expired.v1.0 type
+  ],
+  "roles": [                                        // RBAC example
+     "cti.vendor.platform.role.v1.0~vendor.platform.read_only_admin.v1.0", // The API client (or user) gets the read-only admin permissions for Platform services
+     "cti.vendor.platform.role.v1.0~partner_vendor.integration_app.support_engineer.v1.0" // Additionally, it gets some 'support engineer' permissions in the 'Integration App'
+  ]
+}
+```
+
+Similarly, access control rules can be applied to database tables, events, configuration files, and other objects for enforcing appropriate access checks.
 
 With the query language and CTI collection syntax, it is possible to grant access to a specific CTI entity or a list of CTIs
 that an identity may have access to. The following table shows of claims and their scope of access:
