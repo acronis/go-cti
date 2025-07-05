@@ -14,7 +14,7 @@ type MetadataRegistry struct {
 }
 
 func (r *MetadataRegistry) Add(entity metadata.Entity) error {
-	cti := entity.GetCti()
+	cti := entity.GetCTI()
 	if _, ok := r.Index[cti]; ok {
 		return fmt.Errorf("duplicate cti entity %s", cti)
 	}
@@ -34,7 +34,7 @@ func (r *MetadataRegistry) Add(entity metadata.Entity) error {
 
 func (r *MetadataRegistry) CopyFrom(registry *MetadataRegistry) error {
 	for _, entity := range registry.Types {
-		cti := entity.GetCti()
+		cti := entity.GetCTI()
 		if _, ok := r.Index[cti]; ok {
 			return fmt.Errorf("duplicate cti entity %s", cti)
 		}
@@ -42,7 +42,7 @@ func (r *MetadataRegistry) CopyFrom(registry *MetadataRegistry) error {
 		r.Index[cti] = entity
 	}
 	for _, entity := range registry.Instances {
-		cti := entity.GetCti()
+		cti := entity.GetCTI()
 		if _, ok := r.Index[cti]; ok {
 			return fmt.Errorf("duplicate cti entity %s", cti)
 		}

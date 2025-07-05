@@ -3,35 +3,16 @@ package transformer
 import (
 	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/attribute_selector"
 	"github.com/acronis/go-cti/metadata/jsonschema"
 )
 
-func shallowCopy(input map[string]any) map[string]any {
-	if input == nil {
-		return nil
-	}
-	output := make(map[string]any, len(input))
-	for key, value := range input {
-		if strings.HasPrefix(key, annotationPrefix) {
-			output[key] = jsonschema.DeepCopy(value)
-		} else {
-			output[key] = value
-		}
-	}
-	return output
-}
-
-func (t *Transformer) readMetadataCti(s map[string]any) ([]string, error) {
-	// If schema has no reference to CTI schema, return it as is.
-	val, ok := s[metadata.XCti]
-	if !ok {
+func (t *Transformer) readMetadataCti(s *jsonschema.JSONSchemaCTI) ([]string, error) {
+	if s.Annotations == nil || s.CTICTI == nil {
 		return nil, nil
 	}
-	switch v := val.(type) {
+	switch v := s.CTICTI.(type) {
 	case string:
 		return []string{v}, nil
 	case []any:
@@ -44,7 +25,7 @@ func (t *Transformer) readMetadataCti(s map[string]any) ([]string, error) {
 	return nil, errors.New("cti.cti must be string or array of strings")
 }
 
-func (t *Transformer) resolveCtiSchema(ref string) (map[string]any, error) {
+func (t *Transformer) resolveCtiSchema(ref string) (*jsonschema.JSONSchemaCTI, error) {
 	expr, err := t.ctiParser.Parse(ref)
 	if err != nil {
 		return nil, fmt.Errorf("parse cti type %s: %w", ref, err)
@@ -66,7 +47,7 @@ func (t *Transformer) resolveCtiSchema(ref string) (map[string]any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get merged schema for cti type %s: %w", ref, err)
 	}
-	schema, _, err = jsonschema.ExtractSchemaDefinition(schema)
+	schema, _, err = schema.GetRefSchema()
 	if err != nil {
 		return nil, fmt.Errorf("extract schema definition for cti type %s: %w", ref, err)
 	}

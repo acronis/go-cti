@@ -1,7 +1,6 @@
 package collector
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -9,6 +8,8 @@ import (
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/collector"
+	"github.com/acronis/go-cti/metadata/consts"
+	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/registry"
 	"github.com/acronis/go-raml/v2"
 )
@@ -18,7 +19,7 @@ type RAMLXCollector struct {
 	Entry *raml.Library
 
 	raml                *raml.RAML
-	jsonSchemaConverter *raml.JSONSchemaConverter[*metadata.JSONSchemaCTI]
+	jsonSchemaConverter *raml.JSONSchemaConverter[*jsonschema.JSONSchemaCTI]
 
 	ramlCtiTypes      map[string]*raml.BaseShape
 	unwrappedCtiTypes map[string]*raml.BaseShape
@@ -32,7 +33,7 @@ func NewRAMLXCollector(r *raml.RAML) (*RAMLXCollector, error) {
 	if !ok {
 		return nil, errors.New("entry point is not a library")
 	}
-	conv, err := raml.NewJSONSchemaConverter(raml.WithWrapper(metadata.JSONSchemaWrapper))
+	conv, err := raml.NewJSONSchemaConverter(raml.WithWrapper(jsonschema.JSONSchemaWrapper))
 	if err != nil {
 		return nil, fmt.Errorf("create json schema converter: %w", err)
 	}
@@ -111,26 +112,15 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 	if err != nil {
 		return nil, fmt.Errorf("convert schema: %w", err)
 	}
-	jsonSchemaBytes, err := json.Marshal(jsonSchema)
-	if err != nil {
-		return nil, fmt.Errorf("marshal json schema: %w", err)
-	}
-	var schema map[string]any
-	err = json.Unmarshal(jsonSchemaBytes, &schema)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal json schema: %w", err)
-	}
 
 	entity, err := metadata.NewEntityType(
 		id,
-		schema,
+		jsonSchema,
 		map[metadata.GJsonPath]*metadata.Annotations{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("make entity type: %w", err)
 	}
-	// TODO: To remove when go-cti supports raml.JSONSchema merging.
-	entity.RawSchema = jsonSchemaBytes
 
 	originalPath, _ := filepath.Rel(c.BaseDir, shape.Location)
 	// FIXME: sourcePath points to itself or to next parent, if present.
@@ -148,37 +138,27 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 	if shape.Description != nil {
 		entity.SetDescription(*shape.Description)
 	}
-	if val, ok := shape.CustomDomainProperties.Get(metadata.Final); ok {
+	if val, ok := shape.CustomDomainProperties.Get(consts.Final); ok {
 		entity.SetFinal(val.Extension.Value.(bool))
 	}
-	if val, ok := shape.CustomDomainProperties.Get(metadata.Resilient); ok {
+	if val, ok := shape.CustomDomainProperties.Get(consts.Resilient); ok {
 		entity.SetResilient(val.Extension.Value.(bool))
 	}
-	if val, ok := shape.CustomDomainProperties.Get(metadata.Access); ok {
-		entity.SetAccess(val.Extension.Value.(metadata.AccessModifier))
+	if val, ok := shape.CustomDomainProperties.Get(consts.Access); ok {
+		entity.SetAccess(val.Extension.Value.(consts.AccessModifier))
 	}
 	if shape.CustomShapeFacets != nil {
-		if t, ok := shape.CustomShapeFacets.Get(metadata.Traits); ok {
+		if t, ok := shape.CustomShapeFacets.Get(consts.Traits); ok {
 			entity.SetTraits(t.Value)
 		}
 	}
-	if t, ok := shape.CustomShapeFacetDefinitions.Get(metadata.Traits); ok {
+	if t, ok := shape.CustomShapeFacetDefinitions.Get(consts.Traits); ok {
 		traitsJsonSchema, err := c.jsonSchemaConverter.Convert(t.Base.Shape)
 		if err != nil {
 			return nil, fmt.Errorf("convert traits schema: %w", err)
 		}
-		// Required to convert *raml.JsonSchema to map[string]any.
-		traitsSchemaBytes, err := json.Marshal(traitsJsonSchema)
-		if err != nil {
-			return nil, fmt.Errorf("marshal traits schema: %w", err)
-		}
-		var traitsSchema map[string]any
-		err = json.Unmarshal(traitsSchemaBytes, &traitsSchema)
-		if err != nil {
-			return nil, fmt.Errorf("unmarshal traits schema: %w", err)
-		}
 		// Annotations will be collected later during the transformation phase.
-		entity.SetTraitsSchema(traitsSchema, map[metadata.GJsonPath]*metadata.Annotations{})
+		entity.SetTraitsSchema(traitsJsonSchema, map[metadata.GJsonPath]*metadata.Annotations{})
 	}
 
 	entity.SetSourceMap(metadata.EntityTypeSourceMap{
@@ -207,24 +187,24 @@ func (c *RAMLXCollector) MakeMetadataInstance(
 
 	entity.SetResilient(false) // TODO
 
-	displayNameProp := c.findPropertyWithAnnotation(ctiType, metadata.DisplayName)
+	displayNameProp := c.findPropertyWithAnnotation(ctiType, consts.DisplayName)
 	if displayNameProp != nil {
 		if _, ok := values[displayNameProp.Name]; ok {
 			entity.SetDescription(values[displayNameProp.Name].(string))
 		}
 	}
 
-	descriptionProp := c.findPropertyWithAnnotation(ctiType, metadata.Description)
+	descriptionProp := c.findPropertyWithAnnotation(ctiType, consts.Description)
 	if descriptionProp != nil {
 		if _, ok := values[descriptionProp.Name]; ok {
 			entity.SetDescription(values[descriptionProp.Name].(string))
 		}
 	}
 
-	accessFieldProp := c.findPropertyWithAnnotation(ctiType, metadata.AccessField)
+	accessFieldProp := c.findPropertyWithAnnotation(ctiType, consts.AccessField)
 	if accessFieldProp != nil {
 		if _, ok := values[accessFieldProp.Name]; ok {
-			entity.SetAccess(metadata.AccessModifier(values[accessFieldProp.Name].(string)))
+			entity.SetAccess(values[accessFieldProp.Name].(consts.AccessModifier))
 		}
 	}
 
@@ -310,7 +290,7 @@ func (c *RAMLXCollector) moveAnnotationsToArrayItem(array *raml.ArrayShape) {
 }
 
 func (c *RAMLXCollector) readMetadataCti(base *raml.BaseShape) ([]string, error) {
-	ctiAnnotation, ok := base.CustomDomainProperties.Get(metadata.Cti)
+	ctiAnnotation, ok := base.CustomDomainProperties.Get(consts.CTI)
 	if !ok {
 		return nil, nil
 	}
@@ -363,7 +343,7 @@ func (c *RAMLXCollector) readAndMakeCtiInstances(annotation *raml.DomainExtensio
 	if items == nil {
 		return errors.New("items alias is nil")
 	}
-	ctiAnnotation, ok := items.CustomDomainProperties.Get(metadata.Cti)
+	ctiAnnotation, ok := items.CustomDomainProperties.Get(consts.CTI)
 	if !ok {
 		return errors.New("cti annotation not found")
 	}
@@ -392,7 +372,7 @@ func (c *RAMLXCollector) readAndMakeCtiInstances(annotation *raml.DomainExtensio
 	ctiType := items.Shape.(*raml.ObjectShape)
 	// CTI types are checked before collecting CTI instances.
 	// We can be sure that if annotation includes cti.cti, it uses array of objects schema.
-	idProp := c.findPropertyWithAnnotation(ctiType, metadata.ID)
+	idProp := c.findPropertyWithAnnotation(ctiType, consts.ID)
 	if idProp == nil {
 		return errors.New("cti.id not found")
 	}

@@ -177,7 +177,7 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 func (p *Packer) WriteEntity(baseDir string, object *metadata.EntityInstance) error {
 	typ := object.Parent()
 	if typ == nil {
-		return fmt.Errorf("%s has no parent type", object.Cti)
+		return fmt.Errorf("%s has no parent type", object.CTI)
 	}
 	// TODO: Collect annotations from the entire chain of CTI types
 	for _, handler := range p.AnnotationHandlers {
