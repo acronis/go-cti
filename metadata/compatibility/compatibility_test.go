@@ -6,6 +6,7 @@ import (
 
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/ctipackage"
+	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/testsupp"
 	"github.com/stretchr/testify/require"
 )
@@ -226,22 +227,22 @@ func TestValidationSummaryTemplate(t *testing.T) {
 
 func TestDiffReportTemplate(t *testing.T) {
 	// Create entity types for testing
-	newEntity1, err := metadata.NewEntityType("cti.vendor.package.new.entity.1.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]*metadata.Annotations{})
+	newEntity1, err := metadata.NewEntityType("cti.vendor.package.new.entity.1.v1.0", &jsonschema.JSONSchemaCTI{}, map[metadata.GJsonPath]*metadata.Annotations{})
 	if err != nil {
 		t.Fatalf("Failed to create new entity 1: %v", err)
 	}
 
-	newEntity2, err := metadata.NewEntityType("cti.vendor.package.new.entity.2.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]*metadata.Annotations{})
+	newEntity2, err := metadata.NewEntityType("cti.vendor.package.new.entity.2.v1.0", &jsonschema.JSONSchemaCTI{}, map[metadata.GJsonPath]*metadata.Annotations{})
 	if err != nil {
 		t.Fatalf("Failed to create new entity 2: %v", err)
 	}
 
-	removedEntity, err := metadata.NewEntityType("cti.vendor.package.removed.entity.1.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]*metadata.Annotations{})
+	removedEntity, err := metadata.NewEntityType("cti.vendor.package.removed.entity.1.v1.0", &jsonschema.JSONSchemaCTI{}, map[metadata.GJsonPath]*metadata.Annotations{})
 	if err != nil {
 		t.Fatalf("Failed to create removed entity: %v", err)
 	}
 
-	modifiedEntity, err := metadata.NewEntityType("cti.vendor.package.modified.entity.1.v1.0", map[string]interface{}{}, map[metadata.GJsonPath]*metadata.Annotations{})
+	modifiedEntity, err := metadata.NewEntityType("cti.vendor.package.modified.entity.1.v1.0", &jsonschema.JSONSchemaCTI{}, map[metadata.GJsonPath]*metadata.Annotations{})
 	if err != nil {
 		t.Fatalf("Failed to create modified entity: %v", err)
 	}

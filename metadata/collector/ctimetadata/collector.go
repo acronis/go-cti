@@ -66,7 +66,7 @@ func (c *CTIMetadataCollector) Collect() (*registry.MetadataRegistry, error) {
 			}
 			instance.SetSourceMap(metadata.EntityInstanceSourceMap{
 				AnnotationType: metadata.AnnotationType{
-					Name: instance.Cti,
+					Name: instance.CTI,
 				},
 				EntitySourceMap: metadata.EntitySourceMap{
 					OriginalPath: filepath.ToSlash(fragmentName),

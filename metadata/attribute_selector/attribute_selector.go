@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-raml/v2"
 )
 
@@ -43,15 +44,14 @@ func (as *AttributeSelector) WalkJSON(v map[string]any) (any, error) {
 	return cur, nil
 }
 
-func (as *AttributeSelector) WalkJSONSchema(v map[string]any) (map[string]any, error) {
+func (as *AttributeSelector) WalkJSONSchema(v *jsonschema.JSONSchemaCTI) (*jsonschema.JSONSchemaCTI, error) {
 	// TODO: May need to support walking $ref links and more complex structures.
 	cur := v
 	for _, tok := range as.Path {
-		properties, ok := cur["properties"].(map[string]any)
-		if !ok {
+		if cur.Properties == nil {
 			return nil, fmt.Errorf("cannot descend into %T", cur)
 		}
-		property, ok := properties[tok].(map[string]any)
+		property, ok := cur.Properties.Get(tok)
 		if !ok {
 			return nil, fmt.Errorf("key %q not found", tok)
 		}

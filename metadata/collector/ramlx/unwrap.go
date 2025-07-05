@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/acronis/go-cti/metadata"
+	"github.com/acronis/go-cti/metadata/consts"
 	"github.com/acronis/go-raml/v2"
 )
 
@@ -45,7 +45,7 @@ func (c *RAMLXCollector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseSha
 	case len(base.Inherits) == 1:
 		parent := base.Inherits[0]
 		// Continue unwrapping non-CTI type
-		if _, ok := parent.CustomDomainProperties.Get(metadata.Cti); !ok {
+		if _, ok := parent.CustomDomainProperties.Get(consts.CTI); !ok {
 			ss, err := c.unwrapMetadataType(parent)
 			if err != nil {
 				return nil, fmt.Errorf("parent unwrap: %w", err)
@@ -126,7 +126,7 @@ func (c *RAMLXCollector) splitMultipleInherits(inherits []*raml.BaseShape) ([]*r
 	ctiInherits := make([]*raml.BaseShape, 0, len(inherits))
 	// Multiple parents are aliased
 	for _, inherit := range inherits {
-		if _, ok := inherit.Alias.CustomDomainProperties.Get(metadata.Cti); ok {
+		if _, ok := inherit.Alias.CustomDomainProperties.Get(consts.CTI); ok {
 			ctiInherits = append(ctiInherits, inherit.Alias)
 		} else {
 			ramlInherits = append(ramlInherits, inherit.Alias)

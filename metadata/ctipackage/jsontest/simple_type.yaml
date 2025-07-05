@@ -7,9 +7,9 @@ resilient: false
 display_name: My Type
 schema:
   $schema: 'https://json-schema.org/draft-07/schema#'
-  $ref: "#/definitions/cti.x.y.type.v1.0"
+  $ref: "#/definitions/MyType"
   definitions:
-    cti.x.y.type.v1.0:
+    MyType:
       type: object
       additionalProperties: false
       properties:
