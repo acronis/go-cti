@@ -182,7 +182,11 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		return fmt.Errorf("%s is derived from final type %s", currentCti, parent.GetCTI())
 	}
 
-	if err := v.validateJSONDocument(v.metaSchema, gojsonschema.NewGoLoader(entity.Schema)); err != nil {
+	mergedSchema, err := entity.GetMergedSchema()
+	if err != nil {
+		return fmt.Errorf("failed to get merged schema for %s: %w", currentCti, err)
+	}
+	if err := v.validateJSONDocument(v.metaSchema, gojsonschema.NewGoLoader(mergedSchema)); err != nil {
 		return fmt.Errorf("%s contains invalid schema: %w", entity.CTI, err)
 	}
 
