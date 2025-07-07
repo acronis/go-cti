@@ -7,7 +7,6 @@ import (
 
 	"github.com/acronis/go-cti/metadata/consts"
 	"github.com/acronis/go-raml/v2"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 const (
@@ -17,8 +16,8 @@ const (
 type JSONSchemaGeneric = raml.JSONSchemaGeneric[*JSONSchemaCTI]
 
 type JSONSchemaCTI struct {
-	*JSONSchemaGeneric `yaml:",inline"`
-	*Annotations       `yaml:",inline"`
+	JSONSchemaGeneric `yaml:",inline"`
+	Annotations       `yaml:",inline"`
 }
 
 type Annotations struct {
@@ -39,64 +38,63 @@ type Annotations struct {
 	CTIPropertyNames map[string]any        `json:"x-cti.propertyNames,omitempty" yaml:"x-cti.propertyNames,omitempty"`
 }
 
-func (r *JSONSchemaCTI) Generic() *JSONSchemaGeneric { return r.JSONSchemaGeneric }
+func (a *Annotations) IsEmpty() bool {
+	return a == nil || (a.CTICTI == nil && a.CTIID == nil && a.CTIAccess == "" &&
+		a.CTIAccessField == nil && a.CTIDisplayName == nil && a.CTIDescription == nil &&
+		a.CTIReference == nil && a.CTIOverridable == nil && a.CTIFinal == nil &&
+		a.CTIResilient == nil && a.CTIAsset == nil && a.CTIL10N == nil &&
+		a.CTISchema == nil && a.CTIMeta == "" && len(a.CTIPropertyNames) == 0)
+}
+
+func (r *JSONSchemaCTI) Generic() *JSONSchemaGeneric { return &r.JSONSchemaGeneric }
 
 func JSONSchemaWrapper(c *raml.JSONSchemaConverter[*JSONSchemaCTI], core *JSONSchemaGeneric, b *raml.BaseShape) *JSONSchemaCTI {
 	if core == nil {
 		return nil
 	}
-	w := &JSONSchemaCTI{JSONSchemaGeneric: core}
+	w := &JSONSchemaCTI{JSONSchemaGeneric: *core}
 	if b == nil {
 		return w
 	}
-	var filtered []*orderedmap.Pair[string, *raml.DomainExtension]
 	for p := b.CustomDomainProperties.Oldest(); p != nil; p = p.Next() {
-		if strings.HasPrefix(p.Key, "cti.") {
-			filtered = append(filtered, p)
-		}
-	}
-	if len(filtered) > 0 {
-		w.Annotations = &Annotations{}
-		for _, p := range filtered {
-			val := p.Value.Extension.Value
-			switch p.Key {
-			case consts.CTI:
-				w.CTICTI = val
-			case consts.Final:
-				v := val.(bool)
-				w.CTIFinal = &v
-			case consts.Access:
-				w.CTIAccess = val.(consts.AccessModifier)
-			case consts.Resilient:
-				v := val.(bool)
-				w.CTIResilient = &v
-			case consts.ID:
-				v := val.(bool)
-				w.CTIID = &v
-			case consts.L10n:
-				v := val.(bool)
-				w.CTIL10N = &v
-			case consts.Asset:
-				v := val.(bool)
-				w.CTIAsset = &v
-			case consts.Overridable:
-				v := val.(bool)
-				w.CTIOverridable = &v
-			case consts.Reference:
-				w.CTIReference = val
-			case consts.Schema:
-				w.CTISchema = val
-			case consts.Meta:
-				w.CTIMeta = val.(string)
-			case consts.DisplayName:
-				v := val.(bool)
-				w.CTIDisplayName = &v
-			case consts.Description:
-				v := val.(bool)
-				w.CTIDescription = &v
-			case consts.PropertyNames:
-				w.CTIPropertyNames = val.(map[string]any)
-			}
+		val := p.Value.Extension.Value
+		switch p.Key {
+		case consts.CTI:
+			w.CTICTI = val
+		case consts.Final:
+			v := val.(bool)
+			w.CTIFinal = &v
+		case consts.Access:
+			w.CTIAccess = val.(consts.AccessModifier)
+		case consts.Resilient:
+			v := val.(bool)
+			w.CTIResilient = &v
+		case consts.ID:
+			v := val.(bool)
+			w.CTIID = &v
+		case consts.L10n:
+			v := val.(bool)
+			w.CTIL10N = &v
+		case consts.Asset:
+			v := val.(bool)
+			w.CTIAsset = &v
+		case consts.Overridable:
+			v := val.(bool)
+			w.CTIOverridable = &v
+		case consts.Reference:
+			w.CTIReference = val
+		case consts.Schema:
+			w.CTISchema = val
+		case consts.Meta:
+			w.CTIMeta = val.(string)
+		case consts.DisplayName:
+			v := val.(bool)
+			w.CTIDisplayName = &v
+		case consts.Description:
+			v := val.(bool)
+			w.CTIDescription = &v
+		case consts.PropertyNames:
+			w.CTIPropertyNames = val.(map[string]any)
 		}
 	}
 	// Ignoring custom facets and their values since they are not part of the CTI schema.
@@ -112,35 +110,81 @@ func GetRefType(ref string) (string, error) {
 	return "", errors.New("non-definition references are not implemented")
 }
 
+func (js *JSONSchemaCTI) Map() map[string]any {
+	if js == nil {
+		return nil
+	}
+	m := js.JSONSchemaGeneric.Map()
+	if js.CTICTI != nil {
+		m[consts.CTI] = js.CTICTI
+	}
+	if js.CTIID != nil {
+		m[consts.ID] = *js.CTIID
+	}
+	if js.CTIAccess != "" {
+		m[consts.Access] = js.CTIAccess
+	}
+	if js.CTIAccessField != nil {
+		m[consts.AccessField] = *js.CTIAccessField
+	}
+	if js.CTIDisplayName != nil {
+		m[consts.DisplayName] = *js.CTIDisplayName
+	}
+	if js.CTIDescription != nil {
+		m[consts.Description] = *js.CTIDescription
+	}
+	if js.CTIReference != nil {
+		m[consts.Reference] = js.CTIReference
+	}
+	if js.CTIOverridable != nil {
+		m[consts.Overridable] = *js.CTIOverridable
+	}
+	if js.CTIFinal != nil {
+		m[consts.Final] = *js.CTIFinal
+	}
+	if js.CTIResilient != nil {
+		m[consts.Resilient] = *js.CTIResilient
+	}
+	if js.CTIAsset != nil {
+		m[consts.Asset] = *js.CTIAsset
+	}
+	if js.CTIL10N != nil {
+		m[consts.L10n] = *js.CTIL10N
+	}
+	if js.CTISchema != nil {
+		m[consts.Schema] = js.CTISchema
+	}
+	if js.CTIMeta != "" {
+		m[consts.Meta] = js.CTIMeta
+	}
+	if len(js.CTIPropertyNames) > 0 {
+		m[consts.PropertyNames] = js.CTIPropertyNames
+	}
+	return m
+}
+
 func (js *JSONSchemaCTI) ShallowCopy() *JSONSchemaCTI {
-	if js == nil || js.JSONSchemaGeneric == nil {
+	if js == nil {
 		return nil
 	}
 	// Create a new instance of JSONSchemaCTI and copy the fields.
 	newJS := &JSONSchemaCTI{}
-	newJS.JSONSchemaGeneric = js.JSONSchemaGeneric.ShallowCopy()
-	if js.Annotations != nil {
-		newJS.Annotations = &Annotations{}
-		*newJS.Annotations = *js.Annotations
-	}
+	newJS.JSONSchemaGeneric = *js.JSONSchemaGeneric.ShallowCopy()
+	newJS.Annotations = js.Annotations
 	return newJS
 }
 
 func (js *JSONSchemaCTI) DeepCopy() *JSONSchemaCTI {
-	if js == nil || js.JSONSchemaGeneric == nil {
+	if js == nil {
 		return nil
 	}
 	newJS := &JSONSchemaCTI{}
-	*newJS = *js
-	newJS.JSONSchemaGeneric = js.JSONSchemaGeneric.DeepCopy()
-	if js.Annotations != nil {
-		newJS.Annotations = &Annotations{}
-		*newJS.Annotations = *js.Annotations
-		if len(js.CTIPropertyNames) > 0 {
-			newJS.CTIPropertyNames = make(map[string]any, len(js.CTIPropertyNames))
-			for k, v := range js.CTIPropertyNames {
-				newJS.CTIPropertyNames[k] = v
-			}
+	newJS.JSONSchemaGeneric = *js.JSONSchemaGeneric.DeepCopy()
+	newJS.Annotations = js.Annotations
+	if len(js.CTIPropertyNames) > 0 {
+		newJS.CTIPropertyNames = make(map[string]any, len(js.CTIPropertyNames))
+		for k, v := range js.CTIPropertyNames {
+			newJS.CTIPropertyNames[k] = v
 		}
 	}
 	return newJS
@@ -179,5 +223,5 @@ func (js *JSONSchemaCTI) IsAnyOf() bool {
 
 func (js *JSONSchemaCTI) IsAny() bool {
 	// An "any" type is one that has no type defined and is not an anyOf.
-	return js != nil && js.Type == "" && !js.IsAnyOf()
+	return js != nil && js.AnyOf == nil && js.Type == ""
 }

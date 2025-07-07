@@ -9,7 +9,7 @@ import (
 )
 
 func (t *Transformer) readMetadataCti(s *jsonschema.JSONSchemaCTI) ([]string, error) {
-	if s.Annotations == nil || s.CTICTI == nil {
+	if s.CTICTI == nil {
 		return nil, nil
 	}
 	switch v := s.CTICTI.(type) {

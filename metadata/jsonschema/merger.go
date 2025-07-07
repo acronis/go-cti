@@ -219,7 +219,7 @@ func mergeTargetAnyOf(source, target *JSONSchemaCTI) (*JSONSchemaCTI, error) {
 		}
 		anyOfs = append(anyOfs, merged)
 	}
-	target = &JSONSchemaCTI{JSONSchemaGeneric: &JSONSchemaGeneric{AnyOf: anyOfs}}
+	target = &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{AnyOf: anyOfs}}
 	return target, nil
 }
 
@@ -247,7 +247,7 @@ func mergeSourceAnyOf(source, target *JSONSchemaCTI) (*JSONSchemaCTI, error) {
 			// If only one union member remains - simplify to target type
 			return anyOfs[0], nil
 		}
-		target = &JSONSchemaCTI{JSONSchemaGeneric: &JSONSchemaGeneric{AnyOf: anyOfs}}
+		target = &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{AnyOf: anyOfs}}
 	} else {
 		for _, sourceMember := range source.AnyOf {
 			for _, targetMember := range target.AnyOf {

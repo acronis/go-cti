@@ -186,7 +186,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 	if err != nil {
 		return fmt.Errorf("failed to get merged schema for %s: %w", currentCti, err)
 	}
-	if err := v.validateJSONDocument(v.metaSchema, gojsonschema.NewGoLoader(mergedSchema)); err != nil {
+	if err := v.validateJSONDocument(v.metaSchema, gojsonschema.NewRawLoader(mergedSchema.Map())); err != nil {
 		return fmt.Errorf("%s contains invalid schema: %w", entity.CTI, err)
 	}
 
@@ -413,14 +413,10 @@ func (v *MetadataValidator) getOrCacheSchema(
 	if ok {
 		return s, nil
 	}
-	// GoLoader.LoadJSON() will Marshal and Unmarshal the JSON in interface{} with required params.
-	data, err := gojsonschema.NewGoLoader(schema).LoadJSON()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load JSON for %s: %w", cti, err)
-	}
+	data := schema.Map()
 	// NewRawLoader() will load provided interface{} directly without Marshal/Unmarshal.
 	// We use it to validate the JSON document against the meta-schema.
-	err = v.validateJSONDocument(v.metaSchema, gojsonschema.NewRawLoader(data))
+	err := v.validateJSONDocument(v.metaSchema, gojsonschema.NewRawLoader(data))
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate JSON document for %s: %w", cti, err)
 	}

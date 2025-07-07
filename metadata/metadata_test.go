@@ -9,7 +9,7 @@ import (
 )
 
 func makeSchemaWithDefs(defName string, defs map[string]*jsonschema.JSONSchemaCTI) *jsonschema.JSONSchemaCTI {
-	return &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{
+	return &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 		Version:     "http://json-schema.org/draft-07/schema",
 		Ref:         "#/definitions/" + defName,
 		Definitions: defs,
@@ -18,7 +18,7 @@ func makeSchemaWithDefs(defName string, defs map[string]*jsonschema.JSONSchemaCT
 
 func makeObjectSchema(props []orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]) *jsonschema.JSONSchemaCTI {
 	return &jsonschema.JSONSchemaCTI{
-		JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			Type:       "object",
 			Properties: orderedmap.New[string, *jsonschema.JSONSchemaCTI](orderedmap.WithInitialData(props...)),
 		},
@@ -26,7 +26,7 @@ func makeObjectSchema(props []orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]
 }
 
 func makeAnyOfSchema(members []*jsonschema.JSONSchemaCTI) *jsonschema.JSONSchemaCTI {
-	return &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{AnyOf: members}}
+	return &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{AnyOf: members}}
 }
 
 func TestEntity_GetCti(t *testing.T) {
@@ -263,14 +263,14 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 			root: &EntityType{
 				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
 					"Child": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
-						{Key: "field1", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "string"}}},
+						{Key: "field1", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
 					}),
 				}),
 				entity: entity{
 					parent: &EntityType{
 						Schema: makeSchemaWithDefs("Parent", map[string]*jsonschema.JSONSchemaCTI{
 							"Parent": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
-								{Key: "field2", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "integer"}}},
+								{Key: "field2", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"}}},
 							}),
 						}),
 					},
@@ -325,7 +325,7 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 					parent: &EntityType{
 						Schema: makeSchemaWithDefs("Parent", map[string]*jsonschema.JSONSchemaCTI{
 							"Parent": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
-								{Key: "recursive", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Ref: "#/definitions/Parent"}}},
+								{Key: "recursive", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#/definitions/Parent"}}},
 							}),
 						}),
 					},
@@ -351,10 +351,10 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
 					"Child": makeAnyOfSchema([]*jsonschema.JSONSchemaCTI{
 						makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
-							{Key: "field2", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "string"}}},
-							{Key: "field3", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "integer"}}},
+							{Key: "field2", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+							{Key: "field3", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"}}},
 						}),
-						&jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "string"}},
+						&jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
 					}),
 				}),
 				entity: entity{
@@ -362,9 +362,9 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 						Schema: makeSchemaWithDefs("Parent", map[string]*jsonschema.JSONSchemaCTI{
 							"Parent": makeAnyOfSchema([]*jsonschema.JSONSchemaCTI{
 								makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
-									{Key: "field1", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "number"}}},
+									{Key: "field1", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "number"}}},
 								}),
-								&jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "string"}},
+								&jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
 							}),
 						}),
 					},
@@ -454,7 +454,7 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 }
 
 func TestEntityType_GetTraitsSchema(t *testing.T) {
-	schema := &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{
+	schema := &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 		Type: "object",
 	}}
 	obj := &EntityType{
@@ -472,11 +472,11 @@ func TestEntityType_FindTraitsSchemaInChain(t *testing.T) {
 		{
 			name: "schema in object",
 			obj: &EntityType{
-				TraitsSchema: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{
+				TraitsSchema: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 					Type: "object",
 				}},
 			},
-			wantResult: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{
+			wantResult: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 				Type: "object",
 			}},
 		},
@@ -485,13 +485,13 @@ func TestEntityType_FindTraitsSchemaInChain(t *testing.T) {
 			obj: &EntityType{
 				entity: entity{
 					parent: &EntityType{
-						TraitsSchema: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{
+						TraitsSchema: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 							Type: "object",
 						}},
 					},
 				},
 			},
-			wantResult: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{
+			wantResult: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 				Type: "object",
 			}},
 		},
@@ -866,13 +866,13 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 			entityType: &EntityType{
 				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{
 					"Test": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
-						{Key: "foo", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "string"}}},
-						{Key: "bar", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "integer"}}},
+						{Key: "foo", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+						{Key: "bar", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"}}},
 					}),
 				}),
 			},
 			selector: "foo",
-			want:     &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "string"}},
+			want:     &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
 			wantErr:  false,
 		},
 		{
@@ -880,7 +880,7 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 			entityType: &EntityType{
 				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{
 					"Test": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
-						{Key: "foo", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "string"}}},
+						{Key: "foo", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
 					}),
 				}),
 			},
@@ -909,7 +909,7 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 			entityType: &EntityType{
 				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{
 					"Test": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
-						{Key: "foo", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Type: "string"}}},
+						{Key: "foo", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
 					}),
 				}),
 			},

@@ -72,7 +72,7 @@ func (c *AnnotationsCollector) VisitAnyOf(ctx string, s *jsonschema.JSONSchemaCT
 }
 
 func (c *AnnotationsCollector) collectAnnotations(ctx string, s *jsonschema.JSONSchemaCTI) {
-	if s.Annotations == nil {
+	if s.Annotations.IsEmpty() {
 		return // No annotations to collect.
 	}
 	key := metadata.GJsonPath(ctx)

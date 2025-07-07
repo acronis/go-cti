@@ -520,7 +520,7 @@ func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 	}
 
 	outSchema := &jsonschema.JSONSchemaCTI{
-		JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			Version:     "http://json-schema.org/draft-07/schema",
 			Ref:         origSelfRefType,
 			Definitions: definitions,

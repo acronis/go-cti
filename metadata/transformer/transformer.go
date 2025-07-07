@@ -177,7 +177,7 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSche
 				newSchema := &jsonschema.JSONSchemaCTI{
 					// TODO: Here we assume that self-references always use #/definitions.
 					// This is the case for CTI types, but isn't for other JSON Schemas.
-					JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{Ref: s.Ref},
+					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: s.Ref},
 					Annotations:       s.Annotations,
 				}
 				return newSchema, nil
@@ -186,7 +186,7 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSche
 		ctx.history = ctx.history.add(cti)
 	}
 
-	if s.Annotations != nil && s.CTISchema != nil {
+	if s.CTISchema != nil {
 		// Inserted CTI schema will contain cti.cti, so we can use it to detect if we already processed it.
 		// We don't need to process it again since it's done for each type separately.
 		if ctis != nil {
@@ -221,9 +221,6 @@ func (t *Transformer) getCtiSchema(ctx context, val any) (*jsonschema.JSONSchema
 			return nil, fmt.Errorf("find and insert cti schema for %s: %w", vv, err)
 		}
 		schema = schema.ShallowCopy()
-		if schema.Annotations == nil {
-			schema.Annotations = &jsonschema.Annotations{}
-		}
 		schema.CTISchema = vv
 		return schema, nil
 	case []any:
@@ -244,8 +241,8 @@ func (t *Transformer) getCtiSchema(ctx context, val any) (*jsonschema.JSONSchema
 			schemas[i] = schema
 		}
 		return &jsonschema.JSONSchemaCTI{
-			JSONSchemaGeneric: &jsonschema.JSONSchemaGeneric{AnyOf: schemas},
-			Annotations:       &jsonschema.Annotations{CTISchema: vv},
+			JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{AnyOf: schemas},
+			Annotations:       jsonschema.Annotations{CTISchema: vv},
 		}, nil
 	default:
 		return nil, fmt.Errorf("unexpected type %T for x-%s", vv, consts.Schema)
