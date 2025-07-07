@@ -24,6 +24,8 @@ type MetadataValidator struct {
 	localRegistry  *registry.MetadataRegistry
 	globalRegistry *registry.MetadataRegistry
 	ctiParser      *cti.Parser
+	vendor         string
+	pkg            string
 
 	typeHooks     map[string][]TypeHook
 	instanceHooks map[string][]InstanceHook
@@ -42,11 +44,13 @@ type MetadataValidator struct {
 	expressionsCache map[string]*cti.Expression
 }
 
-func MakeMetadataValidator(gr, lr *registry.MetadataRegistry) *MetadataValidator {
+func MakeMetadataValidator(vendor, pkg string, gr, lr *registry.MetadataRegistry) *MetadataValidator {
 	return &MetadataValidator{
 		ctiParser:      cti.NewParser(),
 		globalRegistry: gr,
 		localRegistry:  lr,
+		vendor:         vendor,
+		pkg:            pkg,
 
 		typeHooks:     make(map[string][]TypeHook),
 		instanceHooks: make(map[string][]InstanceHook),
@@ -145,6 +149,12 @@ func (v *MetadataValidator) validateBaseProperties(object metadata.Entity) error
 	currentCti := object.GetCTI()
 	parent := object.Parent()
 	// TODO: Check presence of parents in chain according to expression.
+	if object.Vendor() != v.vendor {
+		return fmt.Errorf("%s vendor %s doesn't match expected %s", currentCti, object.Vendor(), v.vendor)
+	}
+	if object.Package() != v.pkg {
+		return fmt.Errorf("%s package %s doesn't match expected %s", currentCti, object.Package(), v.pkg)
+	}
 	if parent != nil {
 		parentCti := parent.GetCTI()
 		if !object.IsA(parent) {
