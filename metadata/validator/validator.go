@@ -37,6 +37,9 @@ type MetadataValidator struct {
 	metaSchema              *gojsonschema.Schema
 	schemaLoaderCache       map[string]*gojsonschema.Schema
 	traitsSchemaLoaderCache map[string]*gojsonschema.Schema
+
+	// TODO: Probably need global expressions cache.
+	expressionsCache map[string]*cti.Expression
 }
 
 func MakeMetadataValidator(gr, lr *registry.MetadataRegistry) *MetadataValidator {
@@ -203,6 +206,17 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		if err := v.validateJSONDocument(s, gojsonschema.NewGoLoader(entity.Traits)); err != nil {
 			return fmt.Errorf("%s contains invalid values: %w", entity.CTI, err)
 		}
+		if parentWithTraits.TraitsAnnotations != nil {
+			for key, annotations := range parentWithTraits.TraitsAnnotations {
+				values, err := entity.GetRawTraits()
+				if err != nil {
+					return fmt.Errorf("failed to get raw trait values for %s: %w", currentCti, err)
+				}
+				if err := v.validateValueReference(key, entity, annotations, values); err != nil {
+					return fmt.Errorf("%s@traits%s: %w", currentCti, key, err)
+				}
+			}
+		}
 	}
 
 	if entity.TraitsSchema != nil {
@@ -211,10 +225,11 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		}
 		if entity.TraitsAnnotations != nil {
 			for key, annotation := range entity.TraitsAnnotations {
-				if err := v.validateTypeReference(key, annotation, entity, parent); err != nil {
+				// NOTE: Traits annotations are not inherited from parent.
+				if err := v.validateTypeReference(key, annotation, entity, nil); err != nil {
 					return fmt.Errorf("%s@%s: %w", currentCti, key, err)
 				}
-				if err := v.validateCtiSchema(key, annotation, entity, parent); err != nil {
+				if err := v.validateCtiSchema(key, annotation, entity, nil); err != nil {
 					return fmt.Errorf("%s@%s: %w", currentCti, key, err)
 				}
 			}
@@ -226,7 +241,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 			if err := v.validateTypeReference(key, annotation, entity, parent); err != nil {
 				return fmt.Errorf("%s@%s: %w", currentCti, key, err)
 			}
-			if err := v.validateCtiSchema(key, annotation, entity, parent); err != nil {
+			if err := v.validateCtiSchema(key, annotation, entity, nil); err != nil {
 				return fmt.Errorf("%s@%s: %w", currentCti, key, err)
 			}
 		}
@@ -236,9 +251,9 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 }
 
 func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *metadata.Annotations, child, _ *metadata.EntityType) error {
-	schemaRefs := annotation.ReadCtiSchema()
+	schemaRefs := annotation.ReadCTISchema()
 	for _, schemaRef := range schemaRefs {
-		expr, err := v.ctiParser.Parse(schemaRef)
+		expr, err := v.getOrCacheExpression(schemaRef, v.ctiParser.Parse)
 		if err != nil {
 			return fmt.Errorf("failed to parse parent cti.schema %s: %w", schemaRef, err)
 		}
@@ -262,8 +277,8 @@ func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *
 }
 
 func (v *MetadataValidator) validateTypeReference(key metadata.GJsonPath, annotation *metadata.Annotations, child *metadata.EntityType, parent *metadata.EntityType) error {
-	currentRef := annotation.ReadReference()
-	if currentRef == "" {
+	currentRefs := annotation.ReadReference()
+	if len(currentRefs) == 0 {
 		return nil
 	}
 	if parent != nil {
@@ -271,38 +286,47 @@ func (v *MetadataValidator) validateTypeReference(key metadata.GJsonPath, annota
 			return a.Reference != nil
 		})
 		if parentAnnotations != nil {
-			parentRef := parentAnnotations.ReadReference()
-			if parentRef != TrueStr && currentRef == TrueStr {
-				return errors.New("parent cti.reference defines a specific CTI, but child specifies true")
-			}
-			if parentRef != TrueStr {
-				expr, err := v.ctiParser.ParseReference(parentRef)
-				if err != nil {
-					return fmt.Errorf("failed to parse parent cti.reference %s: %w", parentRef, err)
+			parentRefs := parentAnnotations.ReadReference()
+			err := func() error {
+				if len(parentRefs) == 0 {
+					return nil
 				}
-				if err = v.matchCti(&expr, currentRef); err != nil {
-					return fmt.Errorf("cti.reference %s does not match parent reference %s: %w", currentRef, parentRef, err)
+				if parentRefs[0] != TrueStr && currentRefs[0] == TrueStr {
+					return errors.New("parent cti.reference defines a specific CTI, but child specifies true")
 				}
+				if parentRefs[0] != TrueStr {
+					for _, currentRef := range currentRefs {
+						compatible := false
+						for _, parentRef := range parentRefs {
+							if err := v.matchRefAgainstRef(parentRef, currentRef); err == nil {
+								compatible = true
+								break
+							}
+						}
+						if !compatible {
+							return fmt.Errorf("cti.reference %s does not match parent reference %s", currentRefs, parentRefs)
+						}
+					}
+				}
+				return nil
+			}()
+			if err != nil {
+				return fmt.Errorf("%s@%s: %w", child.CTI, key, err)
 			}
 		}
-		if currentRef == TrueStr {
+		if currentRefs[0] == TrueStr {
 			return nil
 		}
 	} else {
-		if currentRef == TrueStr {
+		if currentRefs[0] == TrueStr {
 			return nil
 		}
-		if _, err := v.ctiParser.ParseReference(currentRef); err != nil {
-			return fmt.Errorf("failed to parse cti.reference %s: %w", currentRef, err)
+		for _, currentRef := range currentRefs {
+			if _, err := v.getOrCacheExpression(currentRef, v.ctiParser.ParseIdentifier); err != nil {
+				return fmt.Errorf("failed to parse cti.reference %s: %w", currentRef, err)
+			}
 		}
 	}
-	_, ok := v.globalRegistry.Index[currentRef]
-	if !ok {
-		return fmt.Errorf("reference %s not found", currentRef)
-	}
-	// if err := refObject.IsAccessibleBy(child); err != nil {
-	// 	return fmt.Errorf("reference %s is not accessible by %s: %w", currentRef, child.GetCTI(), err)
-	// }
 	return nil
 }
 
@@ -344,7 +368,10 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 			return fmt.Errorf("failed to get raw values for %s: %w", currentCti, err)
 		}
 		for key := range parent.Annotations {
-			if err = v.validateInstanceReference(key, entity, parent, values); err != nil {
+			annotation := parent.FindAnnotationsByPredicateInChain(key, func(a *metadata.Annotations) bool {
+				return a.Reference != nil
+			})
+			if err = v.validateValueReference(key, entity, annotation, values); err != nil {
 				return fmt.Errorf("%s@%s: %w", currentCti, key, err)
 			}
 		}
@@ -352,50 +379,82 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 	return nil
 }
 
-func (v *MetadataValidator) validateInstanceReference(key metadata.GJsonPath, child *metadata.EntityInstance, parent *metadata.EntityType, values []byte) error {
-	annotation := parent.FindAnnotationsByPredicateInChain(key, func(a *metadata.Annotations) bool {
-		return a.Reference != nil
-	})
+func (v *MetadataValidator) validateValueReference(key metadata.GJsonPath, child metadata.Entity, annotation *metadata.Annotations, values []byte) error {
 	if annotation == nil {
 		return nil
 	}
 
-	ref := annotation.ReadReference()
-	if ref == TrueStr {
+	refs := annotation.ReadReference()
+	if len(refs) == 0 {
+		return nil
+	}
+	if refs[0] == TrueStr {
 		return nil
 	}
 
-	_, ok := v.globalRegistry.Index[ref]
-	if !ok {
-		return fmt.Errorf("reference %s not found", ref)
-	}
-	// if err := refObject.IsAccessibleBy(child); err != nil {
-	// 	return fmt.Errorf("reference %s is not accessible by %s: %w", ref, child.CTI, err)
-	// }
-
-	expr, err := v.ctiParser.ParseReference(ref)
-	if err != nil {
-		return fmt.Errorf("failed to parse cti.reference %s: %w", ref, err)
-	}
 	value := key.GetValue(values)
 	for _, val := range value.Array() {
-		if err = v.matchCti(&expr, val.Str); err != nil {
-			return fmt.Errorf("cti.reference %s does not match value %s: %w", ref, val.Str, err)
+		compatible := false
+		for _, ref := range refs {
+			if err := v.matchCTIAgainstRef(ref, val.Str); err == nil {
+				compatible = true
+				break
+			}
 		}
+		if !compatible {
+			return fmt.Errorf("cti.reference %s does not match any of the values in %s", refs, child.GetCTI())
+		}
+		if _, ok := v.globalRegistry.Index[val.Str]; !ok {
+			return fmt.Errorf("referenced entity %s not found in registry", val.Str)
+		}
+	}
+
+	return nil
+}
+
+func (v *MetadataValidator) getOrCacheExpression(cti string, parseFn func(string) (cti.Expression, error)) (*cti.Expression, error) {
+	if expr, ok := v.expressionsCache[cti]; ok {
+		return expr, nil
+	}
+	expr, err := parseFn(cti)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CTI %s: %w", cti, err)
+	}
+	return &expr, nil
+}
+
+func (v *MetadataValidator) matchCTIAgainstRef(refCTI, compCTI string) error {
+	refExpr, err := v.getOrCacheExpression(refCTI, v.ctiParser.ParseReference)
+	if err != nil {
+		return fmt.Errorf("failed to parse cti %s: %w", refCTI, err)
+	}
+	compExpr, err := v.getOrCacheExpression(compCTI, v.ctiParser.Parse)
+	if err != nil {
+		return fmt.Errorf("failed to parse cti %s: %w", compCTI, err)
+	}
+	if ok, err := refExpr.Match(*compExpr); !ok {
+		if err != nil {
+			return fmt.Errorf("%s doesn't match: %w", compCTI, err)
+		}
+		return fmt.Errorf("%s doesn't match", compCTI)
 	}
 	return nil
 }
 
-func (v *MetadataValidator) matchCti(ref *cti.Expression, id string) error {
-	val, err := v.ctiParser.Parse(id)
+func (v *MetadataValidator) matchRefAgainstRef(refCTI, compCTI string) error {
+	refExpr, err := v.getOrCacheExpression(refCTI, v.ctiParser.ParseReference)
 	if err != nil {
-		return fmt.Errorf("failed to parse cti %s: %w", id, err)
+		return fmt.Errorf("failed to parse cti %s: %w", refCTI, err)
 	}
-	if ok, err := ref.Match(val); !ok {
+	compExpr, err := v.getOrCacheExpression(compCTI, v.ctiParser.ParseReference)
+	if err != nil {
+		return fmt.Errorf("failed to parse cti %s: %w", compCTI, err)
+	}
+	if ok, err := refExpr.Match(*compExpr); !ok {
 		if err != nil {
-			return fmt.Errorf("%s doesn't match: %w", id, err)
+			return fmt.Errorf("%s doesn't match: %w", compCTI, err)
 		}
-		return fmt.Errorf("%s doesn't match", id)
+		return fmt.Errorf("%s doesn't match", compCTI)
 	}
 	return nil
 }
