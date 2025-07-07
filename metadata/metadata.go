@@ -335,7 +335,7 @@ func (e *entity) Expression() (*cti.Expression, error) {
 		if e.CTI == "" {
 			return nil, errors.New("entity CTI is empty")
 		}
-		expr, err := cti.Parse(e.CTI)
+		expr, err := cti.ParseIdentifier(e.CTI)
 		if err != nil {
 			return nil, fmt.Errorf("parse expression %s: %w", e.CTI, err)
 		}

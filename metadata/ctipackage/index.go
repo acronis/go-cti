@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/acronis/go-cti/metadata/filesys"
 )
@@ -29,6 +30,9 @@ type Index struct {
 	Examples             []string          `json:"examples,omitempty"`
 	AdditionalProperties interface{}       `json:"additional_properties,omitempty"`
 	Serialized           []string          `json:"serialized,omitempty"`
+
+	Vendor string `json:"-"`
+	Pkg    string `json:"-"`
 }
 
 func ReadIndex(dirPath string) (*Index, error) {
@@ -49,6 +53,12 @@ func ReadIndexFile(fPath string) (*Index, error) {
 	if err := idx.Check(); err != nil {
 		return nil, fmt.Errorf("check index file: %w", err)
 	}
+	packageIDChunks := strings.Split(idx.PackageID, ".")
+	if len(packageIDChunks) != 2 {
+		return nil, fmt.Errorf("package id %s is invalid, expected format: vendor.package", idx.PackageID)
+	}
+	idx.Vendor = packageIDChunks[0]
+	idx.Pkg = packageIDChunks[1]
 
 	return idx, nil
 }
