@@ -9,8 +9,8 @@ import (
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata/attribute_selector"
+	"github.com/acronis/go-cti/metadata/consts"
 	"github.com/acronis/go-cti/metadata/jsonschema"
-	"github.com/acronis/go-cti/metadata/merger"
 	"github.com/tidwall/gjson"
 )
 
@@ -32,13 +32,13 @@ type NilChecker interface {
 }
 
 type Entity interface {
-	GetCti() string
+	GetCTI() string
 
 	SetFinal(final bool)
 	IsFinal() bool
 
-	GetAccess() AccessModifier
-	SetAccess(access AccessModifier)
+	GetAccess() consts.AccessModifier
+	SetAccess(access consts.AccessModifier)
 	IsSamePackage(other Entity) bool
 	IsSameVendor(other Entity) bool
 	IsAccessibleBy(other Entity) error
@@ -69,44 +69,23 @@ type Entity interface {
 	NilChecker
 }
 
-type AccessModifier string
-
-const (
-	AccessModifierPublic    AccessModifier = "public"
-	AccessModifierPrivate   AccessModifier = "private"
-	AccessModifierProtected AccessModifier = "protected"
-)
-
-func (a AccessModifier) Integer() int {
-	switch a {
-	case AccessModifierPublic:
-		return 0
-	case AccessModifierProtected:
-		return 1
-	case AccessModifierPrivate:
-		return 2
-	default:
-		return -1
-	}
-}
-
 type Annotations struct {
 	// TODO: Refactor Cti into CTI
-	Cti           any            `json:"cti.cti,omitempty" yaml:"cti.cti,omitempty"` // string or []string
-	ID            *bool          `json:"cti.id,omitempty" yaml:"cti.id,omitempty"`   // bool?
-	Access        AccessModifier `json:"cti.access,omitempty" yaml:"cti.access,omitempty"`
-	AccessField   *bool          `json:"cti.access_field,omitempty" yaml:"cti.access_field,omitempty"`
-	DisplayName   *bool          `json:"cti.display_name,omitempty" yaml:"cti.display_name,omitempty"`
-	Description   *bool          `json:"cti.description,omitempty" yaml:"cti.description,omitempty"`
-	Reference     any            `json:"cti.reference,omitempty" yaml:"cti.reference,omitempty"` // bool or string or []string
-	Overridable   *bool          `json:"cti.overridable,omitempty" yaml:"cti.overridable,omitempty"`
-	Final         *bool          `json:"cti.final,omitempty" yaml:"cti.final,omitempty"`
-	Resilient     *bool          `json:"cti.resilient,omitempty" yaml:"cti.resilient,omitempty"`
-	Asset         *bool          `json:"cti.asset,omitempty" yaml:"cti.asset,omitempty"`
-	L10N          *bool          `json:"cti.l10n,omitempty" yaml:"cti.l10n,omitempty"`
-	Schema        any            `json:"cti.schema,omitempty" yaml:"cti.schema,omitempty"` // string or []string
-	Meta          string         `json:"cti.meta,omitempty" yaml:"cti.meta,omitempty"`     // string
-	PropertyNames map[string]any `json:"cti.propertyNames,omitempty" yaml:"cti.propertyNames,omitempty"`
+	CTI           any                   `json:"cti.cti,omitempty" yaml:"cti.cti,omitempty"` // string or []string
+	ID            *bool                 `json:"cti.id,omitempty" yaml:"cti.id,omitempty"`   // bool?
+	Access        consts.AccessModifier `json:"cti.access,omitempty" yaml:"cti.access,omitempty"`
+	AccessField   *bool                 `json:"cti.access_field,omitempty" yaml:"cti.access_field,omitempty"`
+	DisplayName   *bool                 `json:"cti.display_name,omitempty" yaml:"cti.display_name,omitempty"`
+	Description   *bool                 `json:"cti.description,omitempty" yaml:"cti.description,omitempty"`
+	Reference     any                   `json:"cti.reference,omitempty" yaml:"cti.reference,omitempty"` // bool or string or []string
+	Overridable   *bool                 `json:"cti.overridable,omitempty" yaml:"cti.overridable,omitempty"`
+	Final         *bool                 `json:"cti.final,omitempty" yaml:"cti.final,omitempty"`
+	Resilient     *bool                 `json:"cti.resilient,omitempty" yaml:"cti.resilient,omitempty"`
+	Asset         *bool                 `json:"cti.asset,omitempty" yaml:"cti.asset,omitempty"`
+	L10N          *bool                 `json:"cti.l10n,omitempty" yaml:"cti.l10n,omitempty"`
+	Schema        any                   `json:"cti.schema,omitempty" yaml:"cti.schema,omitempty"` // string or []string
+	Meta          string                `json:"cti.meta,omitempty" yaml:"cti.meta,omitempty"`     // string
+	PropertyNames map[string]any        `json:"cti.propertyNames,omitempty" yaml:"cti.propertyNames,omitempty"`
 }
 
 type AnnotationType struct {
@@ -126,14 +105,14 @@ type InstanceAnnotationReference struct {
 }
 
 func (a Annotations) ReadCti() []string {
-	if a.Cti == nil {
+	if a.CTI == nil {
 		return []string{}
 	}
-	if val, ok := a.Cti.(string); ok {
+	if val, ok := a.CTI.(string); ok {
 		return []string{val}
 	}
 	var vals []string
-	for _, val := range a.Cti.([]any) {
+	for _, val := range a.CTI.([]any) {
 		if strVal, ok := val.(string); ok {
 			vals = append(vals, strVal)
 		}
@@ -194,13 +173,13 @@ type entity struct {
 	// TODO: Implement Validate method
 
 	Final        bool                       `json:"final" yaml:"final"`
-	Access       AccessModifier             `json:"access" yaml:"access"`
-	Cti          string                     `json:"cti" yaml:"cti"`
+	Access       consts.AccessModifier      `json:"access" yaml:"access"`
+	CTI          string                     `json:"cti" yaml:"cti"`
 	Resilient    bool                       `json:"resilient" yaml:"resilient"`
 	DisplayName  string                     `json:"display_name,omitempty" yaml:"display_name,omitempty"`
 	Description  string                     `json:"description,omitempty" yaml:"description,omitempty"`
 	Dictionaries map[string]any             `json:"dictionaries,omitempty" yaml:"dictionaries,omitempty"`
-	Annotations  map[GJsonPath]*Annotations `json:"annotations" yaml:"annotations"`
+	Annotations  map[GJsonPath]*Annotations `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
 	parent *EntityType `json:"-" yaml:"-"` // Parent entity type, if any
 
@@ -217,11 +196,11 @@ type EntitySourceMap struct {
 	OriginalPath string `json:"$originalPath,omitempty" yaml:"$originalPath,omitempty"`
 }
 
-func (e *entity) GetCti() string {
-	return e.Cti
+func (e *entity) GetCTI() string {
+	return e.CTI
 }
 
-func (e *entity) GetAccess() AccessModifier {
+func (e *entity) GetAccess() consts.AccessModifier {
 	return e.Access
 }
 
@@ -265,9 +244,9 @@ func (e *entity) IsAccessibleBy(other Entity) error {
 	if other == nil {
 		return errors.New("other entity is nil")
 	}
-	if !e.IsSameVendor(other) && e.Access != AccessModifierPublic {
+	if !e.IsSameVendor(other) && e.Access != consts.AccessModifierPublic {
 		return errors.New("cannot reference non-public entity of external vendor")
-	} else if !e.IsSamePackage(other) && e.Access == AccessModifierPrivate {
+	} else if !e.IsSamePackage(other) && e.Access == consts.AccessModifierPrivate {
 		return errors.New("cannot reference private entity of the same vendor")
 	}
 	return nil
@@ -346,12 +325,12 @@ func (e *entity) IsFinal() bool {
 
 func (e *entity) Expression() (*cti.Expression, error) {
 	if e.expression == nil {
-		if e.Cti == "" {
+		if e.CTI == "" {
 			return nil, errors.New("entity CTI is empty")
 		}
-		expr, err := cti.Parse(e.Cti)
+		expr, err := cti.Parse(e.CTI)
 		if err != nil {
-			return nil, fmt.Errorf("parse expression %s: %w", e.Cti, err)
+			return nil, fmt.Errorf("parse expression %s: %w", e.CTI, err)
 		}
 		e.expression = &expr
 	}
@@ -362,7 +341,7 @@ func (e *entity) IsA(entity *EntityType) bool {
 	if entity == nil {
 		return false
 	}
-	return strings.HasPrefix(e.Cti, entity.Cti)
+	return strings.HasPrefix(e.CTI, entity.CTI)
 }
 
 func (e *entity) Match(other Entity) (bool, error) {
@@ -390,7 +369,7 @@ func (e *entity) SetFinal(final bool) {
 	e.Final = final
 }
 
-func (e *entity) SetAccess(access AccessModifier) {
+func (e *entity) SetAccess(access consts.AccessModifier) {
 	e.Access = access
 }
 
@@ -420,7 +399,7 @@ func (e *entity) IsNil() bool {
 
 func NewEntityType(
 	id string,
-	schema map[string]any,
+	schema *jsonschema.JSONSchemaCTI,
 	annotations map[GJsonPath]*Annotations,
 ) (*EntityType, error) {
 	switch {
@@ -432,9 +411,9 @@ func NewEntityType(
 
 	obj := &EntityType{
 		entity: entity{
-			Cti:         id,
+			CTI:         id,
 			Final:       true, // All entities are final by default
-			Access:      AccessModifierProtected,
+			Access:      consts.AccessModifierProtected,
 			Annotations: annotations,
 		},
 		Schema: schema,
@@ -446,15 +425,12 @@ func NewEntityType(
 type EntityType struct {
 	entity `yaml:",inline"`
 
-	Schema            map[string]any             `json:"schema" yaml:"schema"`
-	TraitsSchema      map[string]any             `json:"traits_schema,omitempty" yaml:"traits_schema,omitempty"`
+	Schema            *jsonschema.JSONSchemaCTI  `json:"schema" yaml:"schema"`
+	TraitsSchema      *jsonschema.JSONSchemaCTI  `json:"traits_schema,omitempty" yaml:"traits_schema,omitempty"`
 	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty" yaml:"traits_annotations,omitempty"`
 	Traits            any                        `json:"traits,omitempty" yaml:"traits,omitempty"`
 
-	mergedSchema map[string]any `json:"-" yaml:"-"` // Cached merged schema, if any
-
-	// NOTE: This field is kept for compatibility and subject to removal in the future.
-	RawSchema []byte `json:"-" yaml:"-"` // Raw schema bytes, if any
+	mergedSchema *jsonschema.JSONSchemaCTI `json:"-" yaml:"-"` // Cached merged schema, if any
 
 	SourceMap EntityTypeSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
@@ -476,7 +452,7 @@ func (e *EntityType) SetParent(entity *EntityType) error {
 	return nil
 }
 
-func (e *EntityType) GetMergedSchema() (map[string]any, error) {
+func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 	if e.Schema == nil {
 		return nil, errors.New("entity type schema is nil")
 	}
@@ -487,15 +463,15 @@ func (e *EntityType) GetMergedSchema() (map[string]any, error) {
 	}
 
 	// Copy the child schema since it will be modified during the merge process.
-	childRootSchema := jsonschema.DeepCopyMap(e.Schema)
+	childRootSchema := e.Schema.DeepCopy()
 
-	childSchema, refType, err := jsonschema.ExtractSchemaDefinition(childRootSchema)
+	childSchema, refType, err := childRootSchema.GetRefSchema()
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract schema definition: %w", err)
 	}
 
-	definitions := map[string]any{}
-	for k, v := range childRootSchema["definitions"].(map[string]any) {
+	definitions := map[string]*jsonschema.JSONSchemaCTI{}
+	for k, v := range childRootSchema.Definitions {
 		if k == refType {
 			continue
 		}
@@ -509,23 +485,23 @@ func (e *EntityType) GetMergedSchema() (map[string]any, error) {
 	for parent != nil {
 		parentRootSchema := parent.Schema
 
-		parentSchema, parentRefType, err := jsonschema.ExtractSchemaDefinition(parentRootSchema)
+		parentSchema, parentRefType, err := parentRootSchema.GetRefSchema()
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract parent schema definition: %w", err)
 		}
 		refsToReplace["#/definitions/"+parentRefType] = struct{}{}
 
-		childSchema, err = merger.MergeSchemas(parentSchema, childSchema)
+		childSchema, err = jsonschema.MergeSchemas(parentSchema, childSchema)
 		if err != nil {
 			return nil, fmt.Errorf("failed to merge schemas: %w", err)
 		}
 
-		for parentDefName, parentDef := range parentRootSchema["definitions"].(map[string]any) {
+		for parentDefName, parentDef := range parentRootSchema.Definitions {
 			if parentDefName == parentRefType {
 				continue
 			}
 			if childDef, ok := definitions[parentDefName]; ok {
-				childDef, err = merger.MergeSchemas(parentDef.(map[string]any), childDef.(map[string]any))
+				childDef, err = jsonschema.MergeSchemas(parentDef, childDef)
 				if err != nil {
 					return nil, fmt.Errorf("failed to merge definitions: %w", err)
 				}
@@ -537,20 +513,18 @@ func (e *EntityType) GetMergedSchema() (map[string]any, error) {
 		parent = parent.Parent()
 	}
 	definitions[refType] = childSchema
-	for _, someDefinition := range definitions {
-		definition, ok := someDefinition.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("definition is not a map: %v", someDefinition)
-		}
-		if err = merger.FixSelfReferences(definition, origSelfRefType, refsToReplace); err != nil {
+	for _, definition := range definitions {
+		if err = jsonschema.FixSelfReferences(definition, origSelfRefType, refsToReplace); err != nil {
 			return nil, fmt.Errorf("failed to fix self references: %w", err)
 		}
 	}
 
-	outSchema := map[string]any{
-		"$schema":     "http://json-schema.org/draft-07/schema",
-		"$ref":        origSelfRefType,
-		"definitions": definitions,
+	outSchema := &jsonschema.JSONSchemaCTI{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+			Version:     "http://json-schema.org/draft-07/schema",
+			Ref:         origSelfRefType,
+			Definitions: definitions,
+		},
 	}
 
 	e.mergedSchema = outSchema
@@ -558,11 +532,11 @@ func (e *EntityType) GetMergedSchema() (map[string]any, error) {
 	return e.mergedSchema, nil
 }
 
-func (e *EntityType) GetTraitsSchema() any {
+func (e *EntityType) GetTraitsSchema() *jsonschema.JSONSchemaCTI {
 	return e.TraitsSchema
 }
 
-func (e *EntityType) GetSchemaByAttributeSelectorInChain(attributeSelector string) (map[string]any, error) {
+func (e *EntityType) GetSchemaByAttributeSelectorInChain(attributeSelector string) (*jsonschema.JSONSchemaCTI, error) {
 	as, err := attribute_selector.NewAttributeSelector(attributeSelector)
 	if err != nil {
 		return nil, fmt.Errorf("create attribute selector: %w", err)
@@ -572,14 +546,25 @@ func (e *EntityType) GetSchemaByAttributeSelectorInChain(attributeSelector strin
 	if err != nil {
 		return nil, fmt.Errorf("get merged schema: %w", err)
 	}
-	schema, _, err = jsonschema.ExtractSchemaDefinition(schema)
+	schema, _, err = schema.GetRefSchema()
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract schema definition: %w", err)
 	}
 	return as.WalkJSONSchema(schema)
 }
 
-func (e *EntityType) FindTraitsSchemaInChain() map[string]any {
+func (e *EntityType) FindEntityTypeByPredicate(predicate func(*EntityType) bool) *EntityType {
+	root := e
+	for root != nil {
+		if predicate(root) {
+			return root
+		}
+		root = root.parent
+	}
+	return nil
+}
+
+func (e *EntityType) FindTraitsSchemaInChain() *jsonschema.JSONSchemaCTI {
 	root := e
 	for root != nil {
 		if root.TraitsSchema != nil {
@@ -620,11 +605,11 @@ func (e *EntityType) ReplacePointer(src Entity) error {
 	return nil
 }
 
-func (e *EntityType) SetSchema(schema map[string]any) {
+func (e *EntityType) SetSchema(schema *jsonschema.JSONSchemaCTI) {
 	e.Schema = schema
 }
 
-func (e *EntityType) SetTraitsSchema(traitsSchema map[string]any, traitsAnnotations map[GJsonPath]*Annotations) {
+func (e *EntityType) SetTraitsSchema(traitsSchema *jsonschema.JSONSchemaCTI, traitsAnnotations map[GJsonPath]*Annotations) {
 	e.TraitsSchema = traitsSchema
 	e.TraitsAnnotations = traitsAnnotations
 }
@@ -648,9 +633,9 @@ func NewEntityInstance(id string, values any) (*EntityInstance, error) {
 
 	obj := &EntityInstance{
 		entity: entity{
-			Cti:         id,
+			CTI:         id,
 			Final:       true, // All entities are final by default
-			Access:      AccessModifierProtected,
+			Access:      consts.AccessModifierProtected,
 			Annotations: make(map[GJsonPath]*Annotations),
 		},
 		Values: values,
@@ -664,6 +649,8 @@ type EntityInstance struct {
 
 	Values any `json:"values" yaml:"values"`
 
+	// FIXME: Need to remove. Raw values are only needed for GJSON, but it works with bytes.
+	// Need custom visitor for Go interface based on GJSON.
 	rawValues []byte                  `json:"-" yaml:"-"`
 	SourceMap EntityInstanceSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
@@ -679,6 +666,17 @@ func (e *EntityInstance) SetParent(entity *EntityType) error {
 		return nil
 	}
 	e.parent = entity
+	return nil
+}
+
+func (e *EntityInstance) FindEntityTypeByPredicate(predicate func(*EntityType) bool) *EntityType {
+	root := e.Parent()
+	for root != nil {
+		if predicate(root) {
+			return root
+		}
+		root = root.parent
+	}
 	return nil
 }
 

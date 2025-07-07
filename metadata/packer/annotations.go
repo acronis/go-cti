@@ -17,7 +17,7 @@ func defaultAnnotationHandler(
 		value := key.GetValue(values)
 		assetPath := value.String()
 		if assetPath == "" {
-			slog.Warn("Empty asset path", slog.String("entity", entity.Cti), slog.String("key", value.Str))
+			slog.Warn("Empty asset path", slog.String("entity", entity.CTI), slog.String("key", value.Str))
 			return nil
 		}
 		if err := archiver.WriteFile(baseDir, assetPath); err != nil {

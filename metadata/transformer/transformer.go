@@ -3,10 +3,10 @@ package transformer
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
+	"github.com/acronis/go-cti/metadata/consts"
 	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/registry"
 )
@@ -52,9 +52,10 @@ func (t *Transformer) Transform() error {
 	if err := t.linkEntities(); err != nil {
 		return fmt.Errorf("link entities: %w", err)
 	}
-	if err := t.replaceRefNameWithRefCti(); err != nil {
-		return fmt.Errorf("replace ref name with ref cti: %w", err)
-	}
+	// TODO: Cannot use CTI as ref name because of tilde (~) in CTI names.
+	// if err := t.replaceRefNameWithRefCti(); err != nil {
+	// 	return fmt.Errorf("replace ref name with ref cti: %w", err)
+	// }
 	if err := t.mergeSchemas(); err != nil {
 		return fmt.Errorf("generate merged schemas: %w", err)
 	}
@@ -67,33 +68,29 @@ func (t *Transformer) Transform() error {
 	return nil
 }
 
-func (t *Transformer) replaceRefNameWithRefCti() error {
-	for cti, entity := range t.registry.Types {
-		if entity.Schema == nil {
-			return fmt.Errorf("entity %s has no schema", entity.GetCti())
-		}
-		_, ref, err := jsonschema.ExtractSchemaDefinition(entity.Schema)
-		if ref == entity.Cti {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("extract schema definition for %s: %w", entity.GetCti(), err)
-		}
-		definitions, ok := entity.Schema["definitions"].(map[string]any)
-		if !ok {
-			return fmt.Errorf("definitions not found in schema of %s", entity.GetCti())
-		}
-		entity.Schema["$ref"] = "#/definitions/" + cti
-		definitions[cti] = definitions[ref]
-		delete(definitions, ref)
-	}
-	return nil
-}
+// func (t *Transformer) replaceRefNameWithRefCti() error {
+// 	for cti, entity := range t.registry.Types {
+// 		if entity.Schema == nil {
+// 			return fmt.Errorf("entity %s has no schema", entity.GetCTI())
+// 		}
+// 		_, ref, err := entity.Schema.GetRefSchema()
+// 		if err != nil {
+// 			return fmt.Errorf("extract schema definition for %s: %w", entity.GetCTI(), err)
+// 		}
+// 		if ref == entity.CTI {
+// 			continue
+// 		}
+// 		entity.Schema.Ref = "#/definitions/" + cti
+// 		entity.Schema.Definitions[cti] = entity.Schema.Definitions[ref]
+// 		delete(entity.Schema.Definitions, ref)
+// 	}
+// 	return nil
+// }
 
 func (t *Transformer) mergeSchemas() error {
 	for _, entity := range t.registry.Types {
 		if _, err := entity.GetMergedSchema(); err != nil {
-			return fmt.Errorf("get merged schema for %s: %w", entity.GetCti(), err)
+			return fmt.Errorf("get merged schema for %s: %w", entity.GetCTI(), err)
 		}
 	}
 	return nil
@@ -101,7 +98,7 @@ func (t *Transformer) mergeSchemas() error {
 
 func (t *Transformer) linkEntities() error {
 	for _, object := range t.registry.Index {
-		cti := object.GetCti()
+		cti := object.GetCTI()
 		parentID := metadata.GetParentCti(cti)
 		if parentID == cti {
 			continue
@@ -126,7 +123,7 @@ func (t *Transformer) collectAnnotations() error {
 		if entity.Schema == nil {
 			return fmt.Errorf("entity %s has no schema", cti)
 		}
-		schema, _, err := jsonschema.ExtractSchemaDefinition(entity.Schema)
+		schema, _, err := entity.Schema.GetRefSchema()
 		if err != nil {
 			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
 		}
@@ -134,7 +131,7 @@ func (t *Transformer) collectAnnotations() error {
 		if entity.TraitsSchema == nil {
 			continue
 		}
-		schema, _, err = jsonschema.ExtractSchemaDefinition(entity.TraitsSchema)
+		schema, _, err = entity.TraitsSchema.GetRefSchema()
 		if err != nil {
 			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
 		}
@@ -149,7 +146,7 @@ func (t *Transformer) findAndInsertCtiSchemas() error {
 			continue
 		}
 		ctx := context{entity: entity}
-		schema, _, err := jsonschema.ExtractSchemaDefinition(entity.Schema)
+		schema, _, err := entity.Schema.GetRefSchema()
 		if err != nil {
 			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
 		}
@@ -160,7 +157,7 @@ func (t *Transformer) findAndInsertCtiSchemas() error {
 	return nil
 }
 
-func (t *Transformer) findAndInsertCtiSchema(ctx context, s map[string]any) (map[string]any, error) {
+func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSchemaCTI) (*jsonschema.JSONSchemaCTI, error) {
 	if s == nil {
 		return nil, fmt.Errorf("schema at %s is nil", ctx.path)
 	}
@@ -176,16 +173,12 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s map[string]any) (map
 	for _, cti := range ctis {
 		for _, item := range ctx.history {
 			if cti == item {
-				defs, ok := ctx.entity.Schema["definitions"].(map[string]any)
-				if !ok {
-					return nil, fmt.Errorf("definitions not found in schema of %s", ctx.entity.GetCti())
-				}
-				defs[cti] = s
-				newSchema := map[string]any{"$ref": "#/definitions/" + cti}
-				for k, v := range s {
-					if strings.HasPrefix(k, annotationPrefix) {
-						newSchema[k] = v
-					}
+				ctx.entity.Schema.Definitions[cti] = s
+				newSchema := &jsonschema.JSONSchemaCTI{
+					// TODO: Here we assume that self-references always use #/definitions.
+					// This is the case for CTI types, but isn't for other JSON Schemas.
+					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: s.Ref},
+					Annotations:       s.Annotations,
 				}
 				return newSchema, nil
 			}
@@ -193,25 +186,20 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s map[string]any) (map
 		ctx.history = ctx.history.add(cti)
 	}
 
-	if val, ok := s[metadata.XSchema]; ok {
+	if s.CTISchema != nil {
 		// Inserted CTI schema will contain cti.cti, so we can use it to detect if we already processed it.
 		// We don't need to process it again since it's done for each type separately.
 		if ctis != nil {
 			return s, nil
 		}
-		return t.getCtiSchema(ctx, val)
+		return t.getCtiSchema(ctx, s.CTISchema)
 	}
 
 	switch {
-	case jsonschema.IsAnyOf(s):
+	case s.IsAnyOf():
 		return t.visitAnyOf(ctx, s)
 	default:
-		// TODO: Support for the list of types
-		typ, ok := s["type"].(string)
-		if !ok && !jsonschema.IsAny(s) {
-			return nil, fmt.Errorf("source schema does not have a valid type: %v", s["type"])
-		}
-		switch typ {
+		switch s.Type {
 		case "array":
 			return t.visitArray(ctx, s)
 		case "object":
@@ -221,7 +209,7 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s map[string]any) (map
 	return s, nil
 }
 
-func (t *Transformer) getCtiSchema(ctx context, val any) (map[string]any, error) {
+func (t *Transformer) getCtiSchema(ctx context, val any) (*jsonschema.JSONSchemaCTI, error) {
 	switch vv := val.(type) {
 	case string:
 		schema, err := t.resolveCtiSchema(vv)
@@ -232,15 +220,15 @@ func (t *Transformer) getCtiSchema(ctx context, val any) (map[string]any, error)
 		if err != nil {
 			return nil, fmt.Errorf("find and insert cti schema for %s: %w", vv, err)
 		}
-		schema = shallowCopy(schema)
-		schema[metadata.XSchema] = vv
+		schema = schema.ShallowCopy()
+		schema.CTISchema = vv
 		return schema, nil
 	case []any:
-		schemas := make([]any, len(vv))
+		schemas := make([]*jsonschema.JSONSchemaCTI, len(vv))
 		for i, v := range vv {
 			ref, ok := v.(string)
 			if !ok {
-				return nil, fmt.Errorf("expected string in x-%s, got %T", metadata.Schema, v)
+				return nil, fmt.Errorf("expected string in x-%s, got %T", consts.Schema, v)
 			}
 			schema, err := t.resolveCtiSchema(ref)
 			if err != nil {
@@ -252,91 +240,65 @@ func (t *Transformer) getCtiSchema(ctx context, val any) (map[string]any, error)
 			}
 			schemas[i] = schema
 		}
-		return map[string]any{"anyOf": schemas, metadata.Schema: vv}, nil
+		return &jsonschema.JSONSchemaCTI{
+			JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{AnyOf: schemas},
+			Annotations:       jsonschema.Annotations{CTISchema: vv},
+		}, nil
 	default:
-		return nil, fmt.Errorf("unexpected type %T for x-%s", vv, metadata.Schema)
+		return nil, fmt.Errorf("unexpected type %T for x-%s", vv, consts.Schema)
 	}
 }
 
-func (t *Transformer) visitAnyOf(ctx context, s map[string]any) (map[string]any, error) {
-	anyOfList, ok := s["anyOf"].([]any)
-	if !ok {
-		return nil, fmt.Errorf("anyOf at %s is not a list", ctx.path)
-	}
-	for i, item := range anyOfList {
-		itemMap, ok := item.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("anyOf item at %s is not a map", ctx.path)
-		}
+func (t *Transformer) visitAnyOf(ctx context, schema *jsonschema.JSONSchemaCTI) (*jsonschema.JSONSchemaCTI, error) {
+	for i, item := range schema.AnyOf {
 		newCtx := ctx
 		newCtx.path = fmt.Sprintf("%s.anyOf[%d]", ctx.path, i)
-		s, err := t.findAndInsertCtiSchema(newCtx, itemMap)
+		s, err := t.findAndInsertCtiSchema(newCtx, item)
 		if err != nil {
 			return nil, fmt.Errorf("visit anyOf item %d at %s: %w", i, ctx.path, err)
 		}
-		anyOfList[i] = s
+		schema.AnyOf[i] = s
 	}
-	return s, nil
+	return schema, nil
 }
 
-func (t *Transformer) visitArray(ctx context, s map[string]any) (map[string]any, error) {
-	items, ok := s["items"]
-	if !ok {
-		return s, nil // No items means no further processing needed.
-	}
-	itemMap, ok := items.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("items at %s is not a map", ctx.path)
+func (t *Transformer) visitArray(ctx context, schema *jsonschema.JSONSchemaCTI) (*jsonschema.JSONSchemaCTI, error) {
+	if schema.Items == nil {
+		return schema, nil // No items means no further processing needed.
 	}
 	newCtx := ctx
 	newCtx.path += ".items"
-	newItems, err := t.findAndInsertCtiSchema(newCtx, itemMap)
+	newItems, err := t.findAndInsertCtiSchema(newCtx, schema.Items)
 	if err != nil {
 		return nil, fmt.Errorf("visit items at %s: %w", ctx.path, err)
 	}
-	s["items"] = newItems
-	return s, nil
+	schema.Items = newItems
+	return schema, nil
 }
 
-func (t *Transformer) visitObject(ctx context, s map[string]any) (map[string]any, error) {
-	if props, ok := s["properties"]; ok {
-		propsMap, ok := props.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("properties at %s is not a map", ctx.path)
-		}
-		for k, v := range propsMap {
-			propMap, ok := v.(map[string]any)
-			if !ok {
-				return nil, fmt.Errorf("property %s at %s is not a map", k, ctx.path)
-			}
+func (t *Transformer) visitObject(ctx context, schema *jsonschema.JSONSchemaCTI) (*jsonschema.JSONSchemaCTI, error) {
+	if schema.Properties != nil {
+		for p := schema.Properties.Oldest(); p != nil; p = p.Next() {
 			newCtx := ctx
-			newCtx.path += ".properties." + k
-			s, err := t.findAndInsertCtiSchema(newCtx, propMap)
+			newCtx.path += ".properties." + p.Key
+			s, err := t.findAndInsertCtiSchema(newCtx, p.Value)
 			if err != nil {
-				return nil, fmt.Errorf("visit property %s at %s: %w", k, ctx.path, err)
+				return nil, fmt.Errorf("visit property %s at %s: %w", p.Key, ctx.path, err)
 			}
-			propsMap[k] = s
+			schema.Properties.Set(p.Key, s)
 		}
 	}
 
-	if patternProps, ok := s["patternProperties"]; ok {
-		patternPropsMap, ok := patternProps.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("patternProperties at %s is not a map", ctx.path)
-		}
-		for k, v := range patternPropsMap {
-			propMap, ok := v.(map[string]any)
-			if !ok {
-				return nil, fmt.Errorf("pattern property %s at %s is not a map", k, ctx.path)
-			}
+	if schema.PatternProperties != nil {
+		for p := schema.PatternProperties.Oldest(); p != nil; p = p.Next() {
 			newCtx := ctx
-			newCtx.path += ".patternProperties." + k
-			s, err := t.findAndInsertCtiSchema(newCtx, propMap)
+			newCtx.path += ".patternProperties." + p.Key
+			s, err := t.findAndInsertCtiSchema(newCtx, p.Value)
 			if err != nil {
-				return nil, fmt.Errorf("visit pattern property %s at %s: %w", k, ctx.path, err)
+				return nil, fmt.Errorf("visit pattern property %s at %s: %w", p.Key, ctx.path, err)
 			}
-			patternPropsMap[k] = s
+			schema.PatternProperties.Set(p.Key, s)
 		}
 	}
-	return s, nil
+	return schema, nil
 }

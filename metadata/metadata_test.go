@@ -3,14 +3,35 @@ package metadata
 import (
 	"testing"
 
+	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/stretchr/testify/require"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
-func TestEntity_GetCti(t *testing.T) {
-	obj := &entity{
-		Cti: "cti.vendor.app.test.v1.0",
+func makeSchemaWithDefs(defName string, defs map[string]*jsonschema.JSONSchemaCTI) *jsonschema.JSONSchemaCTI {
+	return &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+		Version:     "http://json-schema.org/draft-07/schema",
+		Ref:         "#/definitions/" + defName,
+		Definitions: defs,
+	}}
+}
+
+func makeObjectSchema(props []orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]) *jsonschema.JSONSchemaCTI {
+	return &jsonschema.JSONSchemaCTI{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+			Type:       "object",
+			Properties: orderedmap.New[string, *jsonschema.JSONSchemaCTI](orderedmap.WithInitialData(props...)),
+		},
 	}
-	require.Equal(t, "cti.vendor.app.test.v1.0", obj.GetCti())
+}
+
+func makeAnyOfSchema(members []*jsonschema.JSONSchemaCTI) *jsonschema.JSONSchemaCTI {
+	return &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{AnyOf: members}}
+}
+
+func TestEntity_GetCti(t *testing.T) {
+	obj := &entity{CTI: "cti.vendor.app.test.v1.0"}
+	require.Equal(t, "cti.vendor.app.test.v1.0", obj.GetCTI())
 }
 
 func TestEntity_GetParent(t *testing.T) {
@@ -23,7 +44,7 @@ func TestEntity_GetParent(t *testing.T) {
 
 func TestEntity_GetAnnotations(t *testing.T) {
 	annotations := map[GJsonPath]*Annotations{
-		".": {Cti: "cti.vendor.app.test.v1.0"},
+		".": {CTI: "cti.vendor.app.test.v1.0"},
 	}
 	obj := &entity{
 		Annotations: annotations,
@@ -44,13 +65,13 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 			name: "find in object",
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{
-					".": {Cti: "cti.vendor.app.test.v1.0"},
+					".": {CTI: "cti.vendor.app.test.v1.0"},
 				},
 			},
 			predicate: func(a *Annotations) bool {
-				return a.Cti != nil
+				return a.CTI != nil
 			},
-			wantResult: &Annotations{Cti: "cti.vendor.app.test.v1.0"},
+			wantResult: &Annotations{CTI: "cti.vendor.app.test.v1.0"},
 		},
 		{
 			name: "find in parent",
@@ -59,15 +80,15 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 				parent: &EntityType{
 					entity: entity{
 						Annotations: map[GJsonPath]*Annotations{
-							".": {Cti: "cti.vendor.app.test.v1.0"},
+							".": {CTI: "cti.vendor.app.test.v1.0"},
 						},
 					},
 				},
 			},
 			predicate: func(a *Annotations) bool {
-				return a.Cti != nil
+				return a.CTI != nil
 			},
-			wantResult: &Annotations{Cti: "cti.vendor.app.test.v1.0"},
+			wantResult: &Annotations{CTI: "cti.vendor.app.test.v1.0"},
 		},
 		{
 			name: "not found",
@@ -75,7 +96,7 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 				Annotations: map[GJsonPath]*Annotations{},
 			},
 			predicate: func(a *Annotations) bool {
-				return a.Cti != nil
+				return a.CTI != nil
 			},
 			wantResult: nil,
 		},
@@ -123,13 +144,13 @@ func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{
 					".": {
-						Cti: "cti.vendor.app.test.v1.0",
+						CTI: "cti.vendor.app.test.v1.0",
 					},
 				},
 			},
 			key: ".",
 			wantResult: &Annotations{
-				Cti: "cti.vendor.app.test.v1.0",
+				CTI: "cti.vendor.app.test.v1.0",
 			},
 		},
 		{
@@ -140,7 +161,7 @@ func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
 					entity: entity{
 						Annotations: map[GJsonPath]*Annotations{
 							".": {
-								Cti: "cti.vendor.app.test.v1.0",
+								CTI: "cti.vendor.app.test.v1.0",
 							},
 						},
 					},
@@ -148,7 +169,7 @@ func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
 			},
 			key: ".",
 			wantResult: &Annotations{
-				Cti: "cti.vendor.app.test.v1.0",
+				CTI: "cti.vendor.app.test.v1.0",
 			},
 		},
 		{
@@ -235,213 +256,170 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 		name          string
 		root          *EntityType
 		expectedError string
-		validate      func(t *testing.T, parentSchema, childSchema, mergedSchema map[string]interface{})
+		validate      func(t *testing.T, parentSchema, childSchema, mergedSchema *jsonschema.JSONSchemaCTI)
 	}{
 		{
 			name: "simple merge with single parent",
 			root: &EntityType{
-				Schema: map[string]interface{}{
-					"$schema": "http://json-schema.org/draft-07/schema",
-					"$ref":    "#/definitions/Child",
-					"definitions": map[string]interface{}{
-						"Child": map[string]interface{}{
-							"type": "object",
-							"properties": map[string]interface{}{
-								"field1": map[string]interface{}{"type": "string"},
-							},
-						},
-					},
-				},
+				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
+					"Child": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+						{Key: "field1", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+					}),
+				}),
 				entity: entity{
 					parent: &EntityType{
-						Schema: map[string]interface{}{
-							"$schema": "http://json-schema.org/draft-07/schema",
-							"$ref":    "#/definitions/Parent",
-							"definitions": map[string]interface{}{
-								"Parent": map[string]interface{}{
-									"type": "object",
-									"properties": map[string]interface{}{
-										"field2": map[string]interface{}{"type": "integer"},
-									},
-								},
-							},
-						},
+						Schema: makeSchemaWithDefs("Parent", map[string]*jsonschema.JSONSchemaCTI{
+							"Parent": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+								{Key: "field2", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"}}},
+							}),
+						}),
 					},
 				},
 			},
-			validate: func(t *testing.T, parentSchema, childSchema, mergedSchema map[string]interface{}) {
+			validate: func(t *testing.T, parentSchema, childSchema, mergedSchema *jsonschema.JSONSchemaCTI) {
 				// Verify parent schema
-				require.Equal(t, "#/definitions/Parent", parentSchema["$ref"])
+				require.Equal(t, "#/definitions/Parent", parentSchema.Ref)
 
-				definitions := parentSchema["definitions"].(map[string]interface{})
+				definitions := parentSchema.Definitions
 				require.Contains(t, definitions, "Parent")
 
-				parent := definitions["Parent"].(map[string]interface{})
-				props := parent["properties"].(map[string]interface{})
-				require.NotContains(t, props, "field1") // Must be absent in parent but present in child
-				require.Contains(t, props, "field2")
+				parent := definitions["Parent"]
+				_, ok := parent.Properties.Get("field1")
+				require.False(t, ok) // Must be absent in parent but present in child
+				_, ok = parent.Properties.Get("field2")
+				require.True(t, ok) // Must be present in parent
 
 				// Verify child schema
-				require.Equal(t, "#/definitions/Child", childSchema["$ref"])
+				require.Equal(t, "#/definitions/Child", childSchema.Ref)
 
-				definitions = childSchema["definitions"].(map[string]interface{})
+				definitions = childSchema.Definitions
 				require.Contains(t, definitions, "Child")
 
-				child := definitions["Child"].(map[string]interface{})
-				props = child["properties"].(map[string]interface{})
-				require.Contains(t, props, "field1")    // Must be present in child
-				require.NotContains(t, props, "field2") // Must be absent in child but present in parent
+				child := definitions["Child"]
+				_, ok = child.Properties.Get("field1")
+				require.True(t, ok) // Must be present in child
+				_, ok = child.Properties.Get("field2")
+				require.False(t, ok) // Must be absent in child but present in parent
 
 				// Verify merged schema
-				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema["$schema"])
-				require.Equal(t, "#/definitions/Child", mergedSchema["$ref"])
+				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema.Version)
+				require.Equal(t, "#/definitions/Child", mergedSchema.Ref)
 
-				definitions = mergedSchema["definitions"].(map[string]interface{})
+				definitions = mergedSchema.Definitions
 				require.Contains(t, definitions, "Child")
 
-				child = definitions["Child"].(map[string]interface{})
-				props = child["properties"].(map[string]interface{})
-				require.Contains(t, props, "field1")
-				require.Contains(t, props, "field2") // Must be inherited from parent
+				child = definitions["Child"]
+				_, ok = child.Properties.Get("field1")
+				require.True(t, ok)
+				_, ok = child.Properties.Get("field2")
+				require.True(t, ok) // Must be inherited from parent
 			},
 		},
 		{
 			name: "merge with single recursive parent",
 			root: &EntityType{
-				Schema: map[string]interface{}{
-					"$schema": "http://json-schema.org/draft-07/schema",
-					"$ref":    "#/definitions/Child",
-					"definitions": map[string]interface{}{
-						"Child": map[string]interface{}{"type": "object"},
-					},
-				},
+				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
+					"Child": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{}),
+				}),
 				entity: entity{
 					parent: &EntityType{
-						Schema: map[string]interface{}{
-							"$schema": "http://json-schema.org/draft-07/schema",
-							"$ref":    "#/definitions/Parent",
-							"definitions": map[string]interface{}{
-								"Parent": map[string]interface{}{
-									"type": "object",
-									"properties": map[string]interface{}{
-										"recursive": map[string]interface{}{"$ref": "#/definitions/Parent"},
-									},
-								},
-							},
-						},
+						Schema: makeSchemaWithDefs("Parent", map[string]*jsonschema.JSONSchemaCTI{
+							"Parent": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+								{Key: "recursive", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#/definitions/Parent"}}},
+							}),
+						}),
 					},
 				},
 			},
-			validate: func(t *testing.T, parentSchema, childSchema, mergedSchema map[string]interface{}) {
-				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema["$schema"])
-				require.Equal(t, "#/definitions/Child", mergedSchema["$ref"])
+			validate: func(t *testing.T, parentSchema, childSchema, mergedSchema *jsonschema.JSONSchemaCTI) {
+				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema.Version)
+				require.Equal(t, "#/definitions/Child", mergedSchema.Ref)
 
-				definitions := mergedSchema["definitions"].(map[string]interface{})
+				definitions := mergedSchema.Definitions
 				require.Contains(t, definitions, "Child")
 
-				child := definitions["Child"].(map[string]interface{})
-				childProperties := child["properties"].(map[string]interface{})
+				child := definitions["Child"]
 
-				require.Contains(t, childProperties, "recursive")
-				require.Equal(t, "#/definitions/Child", childProperties["recursive"].(map[string]interface{})["$ref"].(string))
+				prop, ok := child.Properties.Get("recursive")
+				require.True(t, ok)
+				require.Equal(t, "#/definitions/Child", prop.Ref)
 			},
 		},
 		{
 			name: "merge with anyOf",
 			root: &EntityType{
-				Schema: map[string]interface{}{
-					"$schema": "http://json-schema.org/draft-07/schema",
-					"$ref":    "#/definitions/Child",
-					"definitions": map[string]interface{}{
-						"Child": map[string]interface{}{
-							"anyOf": []interface{}{
-								map[string]interface{}{
-									"type": "object",
-									"properties": map[string]interface{}{
-										"field2": map[string]interface{}{"type": "string"},
-										"field3": map[string]interface{}{"type": "integer"},
-									},
-								},
-								map[string]interface{}{"type": "string"},
-							},
-						},
-					},
-				},
+				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
+					"Child": makeAnyOfSchema([]*jsonschema.JSONSchemaCTI{
+						makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+							{Key: "field2", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+							{Key: "field3", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"}}},
+						}),
+						&jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
+					}),
+				}),
 				entity: entity{
 					parent: &EntityType{
-						Schema: map[string]interface{}{
-							"$schema": "http://json-schema.org/draft-07/schema",
-							"$ref":    "#/definitions/Parent",
-							"definitions": map[string]interface{}{
-								"Parent": map[string]interface{}{
-									"anyOf": []interface{}{
-										map[string]interface{}{
-											"type": "object",
-											"properties": map[string]interface{}{
-												"field1": map[string]interface{}{"type": "number"},
-											},
-										},
-										map[string]interface{}{"type": "string"},
-									},
-								},
-							},
-						},
+						Schema: makeSchemaWithDefs("Parent", map[string]*jsonschema.JSONSchemaCTI{
+							"Parent": makeAnyOfSchema([]*jsonschema.JSONSchemaCTI{
+								makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+									{Key: "field1", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "number"}}},
+								}),
+								&jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
+							}),
+						}),
 					},
 				},
 			},
-			validate: func(t *testing.T, parentSchema, childSchema, mergedSchema map[string]interface{}) {
+			validate: func(t *testing.T, parentSchema, childSchema, mergedSchema *jsonschema.JSONSchemaCTI) {
 				// Verify parent schema
-				require.Equal(t, "http://json-schema.org/draft-07/schema", parentSchema["$schema"])
-				require.Equal(t, "#/definitions/Parent", parentSchema["$ref"])
+				require.Equal(t, "http://json-schema.org/draft-07/schema", parentSchema.Version)
+				require.Equal(t, "#/definitions/Parent", parentSchema.Ref)
 
-				parentDefinitions := parentSchema["definitions"].(map[string]interface{})
-				require.Contains(t, parentDefinitions, "Parent")
+				require.Contains(t, parentSchema.Definitions, "Parent")
 
-				parent := parentDefinitions["Parent"].(map[string]interface{})
-				parentAnyOf, ok := parent["anyOf"].([]interface{})
-				require.True(t, ok)
-				require.Len(t, parentAnyOf, 2)
-				firstMember := parentAnyOf[0].(map[string]interface{})
-				props := firstMember["properties"].(map[string]interface{})
-				require.Contains(t, props, "field1")
-				require.NotContains(t, props, "field2") // Must be absent in parent but present in child
-				require.NotContains(t, props, "field3") // Must be absent in parent but present in child
+				parent := parentSchema.Definitions["Parent"]
+				require.Len(t, parent.AnyOf, 2)
+				firstMember := parent.AnyOf[0]
+				_, ok := firstMember.Properties.Get("field1")
+				require.True(t, ok) // Must be present in parent
+				_, ok = firstMember.Properties.Get("field2")
+				require.False(t, ok) // Must be absent in parent but present in child
+				_, ok = firstMember.Properties.Get("field3")
+				require.False(t, ok) // Must be absent in parent but present in child
 
 				// Verify child schema
-				require.Equal(t, "http://json-schema.org/draft-07/schema", childSchema["$schema"])
-				require.Equal(t, "#/definitions/Child", childSchema["$ref"])
+				require.Equal(t, "http://json-schema.org/draft-07/schema", childSchema.Version)
+				require.Equal(t, "#/definitions/Child", childSchema.Ref)
 
-				childDefinitions := childSchema["definitions"].(map[string]interface{})
-				require.Contains(t, childDefinitions, "Child")
+				require.Contains(t, childSchema.Definitions, "Child")
 
-				child := childDefinitions["Child"].(map[string]interface{})
-				childAnyOf, ok := child["anyOf"].([]interface{})
-				require.True(t, ok)
-				require.Len(t, childAnyOf, 2)
+				child := childSchema.Definitions["Child"]
+				require.Len(t, child.AnyOf, 2)
 
-				firstMember = childAnyOf[0].(map[string]interface{})
-				props = firstMember["properties"].(map[string]interface{})
-				require.NotContains(t, props, "field1") // Must be absent in child but present in parent
-				require.Contains(t, props, "field2")
-				require.Contains(t, props, "field3")
+				firstMember = child.AnyOf[0]
+				_, ok = firstMember.Properties.Get("field2")
+				require.True(t, ok) // Must be present in child
+				_, ok = firstMember.Properties.Get("field3")
+				require.True(t, ok) // Must be present in child
+				_, ok = firstMember.Properties.Get("field1")
+				require.False(t, ok) // Must be absent in child but present in parent
 
 				// Verify merged schema
-				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema["$schema"])
-				require.Equal(t, "#/definitions/Child", mergedSchema["$ref"])
+				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema.Version)
+				require.Equal(t, "#/definitions/Child", mergedSchema.Ref)
 
-				mergedDefinitions := mergedSchema["definitions"].(map[string]interface{})
-				require.Contains(t, mergedDefinitions, "Child")
+				require.Contains(t, mergedSchema.Definitions, "Child")
 
-				child = mergedDefinitions["Child"].(map[string]interface{})
-				childAnyOf, ok = child["anyOf"].([]interface{})
-				require.True(t, ok)
-				require.Len(t, childAnyOf, 2)
+				child = mergedSchema.Definitions["Child"]
+				require.Len(t, child.AnyOf, 2)
 
-				firstMember = childAnyOf[0].(map[string]interface{})
-				props = firstMember["properties"].(map[string]interface{})
-				require.Contains(t, props, "field1") // Must be inherited from parent
-				require.Contains(t, props, "field2")
-				require.Contains(t, props, "field3")
+				firstMember = child.AnyOf[0]
+				_, ok = firstMember.Properties.Get("field1")
+				require.True(t, ok) // Must be inherited from parent
+				_, ok = firstMember.Properties.Get("field2")
+				require.True(t, ok) // Must be inherited from child
+				_, ok = firstMember.Properties.Get("field3")
+				require.True(t, ok) // Must be inherited from child
 			},
 		},
 		{
@@ -452,15 +430,10 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 		{
 			name: "missing parent schema",
 			root: &EntityType{
-				Schema: map[string]interface{}{
-					"$ref": "#/definitions/Child",
-					"definitions": map[string]interface{}{
-						"Child": map[string]interface{}{"type": "object"},
-					},
-				},
-				entity: entity{
-					parent: &EntityType{},
-				},
+				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
+					"Child": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{}),
+				}),
+				entity: entity{parent: &EntityType{}},
 			},
 			expectedError: "failed to extract parent schema definition: invalid schema",
 		},
@@ -481,7 +454,9 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 }
 
 func TestEntityType_GetTraitsSchema(t *testing.T) {
-	schema := map[string]interface{}{"type": "object"}
+	schema := &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+		Type: "object",
+	}}
 	obj := &EntityType{
 		TraitsSchema: schema,
 	}
@@ -492,25 +467,33 @@ func TestEntityType_FindTraitsSchemaInChain(t *testing.T) {
 	tests := []struct {
 		name       string
 		obj        *EntityType
-		wantResult map[string]interface{}
+		wantResult *jsonschema.JSONSchemaCTI
 	}{
 		{
 			name: "schema in object",
 			obj: &EntityType{
-				TraitsSchema: map[string]interface{}{"type": "object"},
+				TraitsSchema: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+					Type: "object",
+				}},
 			},
-			wantResult: map[string]interface{}{"type": "object"},
+			wantResult: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+				Type: "object",
+			}},
 		},
 		{
 			name: "schema in parent",
 			obj: &EntityType{
 				entity: entity{
 					parent: &EntityType{
-						TraitsSchema: map[string]interface{}{"type": "object"},
+						TraitsSchema: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+							Type: "object",
+						}},
 					},
 				},
 			},
-			wantResult: map[string]interface{}{"type": "object"},
+			wantResult: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+				Type: "object",
+			}},
 		},
 		{
 			name:       "schema not found",
@@ -593,7 +576,7 @@ func TestEntityType_ReplacePointer(t *testing.T) {
 			obj:  &EntityType{},
 			src: &EntityType{
 				entity: entity{
-					Cti: "cti.vendor.app.test.v1.0",
+					CTI: "cti.vendor.app.test.v1.0",
 				},
 			},
 			wantErr: false,
@@ -615,7 +598,7 @@ func TestEntityType_ReplacePointer(t *testing.T) {
 				require.Equal(t, tt.expectedErr, err.Error())
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tt.src.(*EntityType).Cti, tt.obj.Cti)
+				require.Equal(t, tt.src.(*EntityType).CTI, tt.obj.CTI)
 			}
 		})
 	}
@@ -646,7 +629,7 @@ func TestEntityInstance_ReplacePointer(t *testing.T) {
 			obj:  &EntityInstance{},
 			src: &EntityInstance{
 				entity: entity{
-					Cti: "cti.vendor.app.test.v1.0",
+					CTI: "cti.vendor.app.test.v1.0",
 				},
 			},
 			wantErr: false,
@@ -668,7 +651,7 @@ func TestEntityInstance_ReplacePointer(t *testing.T) {
 				require.Equal(t, tt.expectedErr, err.Error())
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tt.src.(*EntityInstance).Cti, tt.obj.Cti)
+				require.Equal(t, tt.src.(*EntityInstance).CTI, tt.obj.CTI)
 			}
 		})
 	}
@@ -862,7 +845,7 @@ func TestAnnotations_ReadCti(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := Annotations{Cti: tt.cti}
+			a := Annotations{CTI: tt.cti}
 			result := a.ReadCti()
 			require.ElementsMatch(t, tt.expected, result)
 		})
@@ -870,45 +853,35 @@ func TestAnnotations_ReadCti(t *testing.T) {
 }
 
 func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
-	// Helper for minimal JSON schema for testing
-	makeSchema := func(defName string, props map[string]any) map[string]any {
-		return map[string]any{
-			"$schema": "http://json-schema.org/draft-07/schema",
-			"$ref":    "#/definitions/" + defName,
-			"definitions": map[string]any{
-				defName: map[string]any{
-					"type":       "object",
-					"properties": props,
-				},
-			},
-		}
-	}
-
 	tests := []struct {
 		name           string
 		entityType     *EntityType
 		selector       string
-		want           map[string]any
+		want           *jsonschema.JSONSchemaCTI
 		wantErr        bool
 		wantErrContain string
 	}{
 		{
 			name: "returns property schema for valid selector",
 			entityType: &EntityType{
-				Schema: makeSchema("Test", map[string]any{
-					"foo": map[string]any{"type": "string"},
-					"bar": map[string]any{"type": "integer"},
+				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{
+					"Test": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+						{Key: "foo", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+						{Key: "bar", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"}}},
+					}),
 				}),
 			},
 			selector: "foo",
-			want:     map[string]any{"type": "string"},
+			want:     &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
 			wantErr:  false,
 		},
 		{
 			name: "returns error for invalid selector",
 			entityType: &EntityType{
-				Schema: makeSchema("Test", map[string]any{
-					"foo": map[string]any{"type": "string"},
+				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{
+					"Test": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+						{Key: "foo", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+					}),
 				}),
 			},
 			selector:       ".foo",
@@ -925,10 +898,7 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 		{
 			name: "returns error if schema definition extraction fails",
 			entityType: &EntityType{
-				Schema: map[string]any{
-					"$schema": "http://json-schema.org/draft-07/schema",
-					"$ref":    "#/definitions/Test",
-				},
+				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{}),
 			},
 			selector:       "foo",
 			wantErr:        true,
@@ -937,8 +907,10 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 		{
 			name: "returns error if selector not found",
 			entityType: &EntityType{
-				Schema: makeSchema("Test", map[string]any{
-					"foo": map[string]any{"type": "string"},
+				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{
+					"Test": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+						{Key: "foo", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+					}),
 				}),
 			},
 			selector:       "notfound",
@@ -1036,50 +1008,50 @@ func TestEntityInstance_GetValueByAttributeSelector(t *testing.T) {
 func TestEntity_IsA(t *testing.T) {
 	tests := []struct {
 		name       string
-		entityCti  string
-		parentCti  string
+		entityCTI  string
+		parentCTI  string
 		parentNil  bool
 		wantResult bool
 	}{
 		{
 			name:       "parent is nil",
-			entityCti:  "cti.v.a.parent.v1.0",
-			parentCti:  "",
+			entityCTI:  "cti.v.a.parent.v1.0",
+			parentCTI:  "",
 			parentNil:  true,
 			wantResult: false,
 		},
 		{
 			name:       "entity is direct child of parent",
-			entityCti:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCti:  "cti.v.a.parent.v1.0",
+			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCTI:  "cti.v.a.parent.v1.0",
 			parentNil:  false,
 			wantResult: true,
 		},
 		{
 			name:       "entity is same as parent",
-			entityCti:  "cti.v.a.parent.v1.0",
-			parentCti:  "cti.v.a.parent.v1.0",
+			entityCTI:  "cti.v.a.parent.v1.0",
+			parentCTI:  "cti.v.a.parent.v1.0",
 			parentNil:  false,
 			wantResult: true,
 		},
 		{
 			name:       "entity is not child of parent",
-			entityCti:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCti:  "cti.v.b.parent.v1.0",
+			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCTI:  "cti.v.b.parent.v1.0",
 			parentNil:  false,
 			wantResult: false,
 		},
 		{
 			name:       "entity Cti is empty",
-			entityCti:  "",
-			parentCti:  "cti.v.a.parent.v1.0",
+			entityCTI:  "",
+			parentCTI:  "cti.v.a.parent.v1.0",
 			parentNil:  false,
 			wantResult: false,
 		},
 		{
 			name:       "parent Cti is empty",
-			entityCti:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCti:  "",
+			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCTI:  "",
 			parentNil:  false,
 			wantResult: true,
 		},
@@ -1087,11 +1059,11 @@ func TestEntity_IsA(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := &entity{Cti: tt.entityCti}
+			e := &entity{CTI: tt.entityCTI}
 			var parent *EntityType
 			if !tt.parentNil {
 				parent = &EntityType{}
-				parent.Cti = tt.parentCti
+				parent.CTI = tt.parentCTI
 			}
 			got := e.IsA(parent)
 			require.Equal(t, tt.wantResult, got)

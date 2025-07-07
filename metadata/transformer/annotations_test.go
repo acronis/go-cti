@@ -5,14 +5,22 @@ import (
 	"testing"
 
 	"github.com/acronis/go-cti/metadata"
+	"github.com/acronis/go-cti/metadata/jsonschema"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 func TestAnnotationsCollector_Collect_NoAnnotations(t *testing.T) {
 	collector := NewAnnotationsCollector()
-	schema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"foo": map[string]any{"type": "string"},
+	schema := &jsonschema.JSONSchemaCTI{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+			Type: "object",
+			Properties: func() *orderedmap.OrderedMap[string, *jsonschema.JSONSchemaCTI] {
+				props := orderedmap.New[string, *jsonschema.JSONSchemaCTI]()
+				props.Set("foo", &jsonschema.JSONSchemaCTI{
+					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"},
+				})
+				return props
+			}(),
 		},
 	}
 	result := collector.Collect(schema)
@@ -23,13 +31,17 @@ func TestAnnotationsCollector_Collect_NoAnnotations(t *testing.T) {
 
 func TestAnnotationsCollector_Collect_SingleAnnotation(t *testing.T) {
 	collector := NewAnnotationsCollector()
-	schema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"foo": map[string]any{
-				"type":          "string",
-				metadata.XFinal: true,
-			},
+	schema := &jsonschema.JSONSchemaCTI{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+			Type: "object",
+			Properties: func() *orderedmap.OrderedMap[string, *jsonschema.JSONSchemaCTI] {
+				props := orderedmap.New[string, *jsonschema.JSONSchemaCTI]()
+				props.Set("foo", &jsonschema.JSONSchemaCTI{
+					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"},
+					Annotations:       jsonschema.Annotations{CTIFinal: &[]bool{true}[0]},
+				})
+				return props
+			}(),
 		},
 	}
 	result := collector.Collect(schema)
@@ -43,15 +55,21 @@ func TestAnnotationsCollector_Collect_SingleAnnotation(t *testing.T) {
 
 func TestAnnotationsCollector_Collect_MultipleAnnotations(t *testing.T) {
 	collector := NewAnnotationsCollector()
-	schema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"bar": map[string]any{
-				"type":                "integer",
-				metadata.XFinal:       false,
-				metadata.XResilient:   true,
-				metadata.XDisplayName: true,
-			},
+	schema := &jsonschema.JSONSchemaCTI{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+			Type: "object",
+			Properties: func() *orderedmap.OrderedMap[string, *jsonschema.JSONSchemaCTI] {
+				props := orderedmap.New[string, *jsonschema.JSONSchemaCTI]()
+				props.Set("bar", &jsonschema.JSONSchemaCTI{
+					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"},
+					Annotations: jsonschema.Annotations{
+						CTIFinal:       &[]bool{false}[0],
+						CTIResilient:   &[]bool{true}[0],
+						CTIDisplayName: &[]bool{true}[0],
+					},
+				})
+				return props
+			}(),
 		},
 	}
 	result := collector.Collect(schema)
@@ -73,15 +91,17 @@ func TestAnnotationsCollector_Collect_MultipleAnnotations(t *testing.T) {
 
 func TestAnnotationsCollector_Collect_UnionShape(t *testing.T) {
 	collector := NewAnnotationsCollector()
-	schema := map[string]any{
-		"anyOf": []any{
-			map[string]any{
-				"type":          "string",
-				metadata.XFinal: true,
-			},
-			map[string]any{
-				"type":              "integer",
-				metadata.XResilient: false,
+	schema := &jsonschema.JSONSchemaCTI{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+			AnyOf: []*jsonschema.JSONSchemaCTI{
+				{
+					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"},
+					Annotations:       jsonschema.Annotations{CTIFinal: &[]bool{true}[0]},
+				},
+				{
+					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"},
+					Annotations:       jsonschema.Annotations{CTIResilient: &[]bool{false}[0]},
+				},
 			},
 		},
 	}
@@ -106,11 +126,13 @@ func TestAnnotationsCollector_Collect_UnionShape(t *testing.T) {
 
 func TestAnnotationsCollector_Collect_ArrayShape(t *testing.T) {
 	collector := NewAnnotationsCollector()
-	schema := map[string]any{
-		"type": "array",
-		"items": map[string]any{
-			"type":          "string",
-			metadata.XFinal: true,
+	schema := &jsonschema.JSONSchemaCTI{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+			Type: "array",
+			Items: &jsonschema.JSONSchemaCTI{
+				JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"},
+				Annotations:       jsonschema.Annotations{CTIFinal: &[]bool{true}[0]},
+			},
 		},
 	}
 	result := collector.Collect(schema)
@@ -127,13 +149,17 @@ func TestAnnotationsCollector_Collect_ArrayShape(t *testing.T) {
 func TestAnnotationsCollector_Collect_PropertyNamesAnnotation(t *testing.T) {
 	collector := NewAnnotationsCollector()
 	propertyNames := map[string]any{"foo": "bar"}
-	schema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"baz": map[string]any{
-				"type":                  "string",
-				metadata.XPropertyNames: propertyNames,
-			},
+	schema := &jsonschema.JSONSchemaCTI{
+		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
+			Type: "object",
+			Properties: func() *orderedmap.OrderedMap[string, *jsonschema.JSONSchemaCTI] {
+				props := orderedmap.New[string, *jsonschema.JSONSchemaCTI]()
+				props.Set("baz", &jsonschema.JSONSchemaCTI{
+					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"},
+					Annotations:       jsonschema.Annotations{CTIPropertyNames: propertyNames},
+				})
+				return props
+			}(),
 		},
 	}
 	result := collector.Collect(schema)

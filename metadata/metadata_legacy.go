@@ -1,14 +1,18 @@
 package metadata
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/acronis/go-cti/metadata/consts"
+)
 
 type LegacyEntities []LegacyEntity
 
 type LegacyEntity struct {
 	Final             bool                       `json:"final"`
-	Cti               string                     `json:"cti"`
+	CTI               string                     `json:"cti"`
 	Resilient         bool                       `json:"resilient"`
-	Access            AccessModifier             `json:"access"`
+	Access            consts.AccessModifier      `json:"access"`
 	DisplayName       string                     `json:"display_name,omitempty"`
 	Description       string                     `json:"description,omitempty"`
 	Dictionaries      map[string]any             `json:"dictionaries,omitempty"` // Deprecated
