@@ -70,7 +70,6 @@ type Entity interface {
 }
 
 type Annotations struct {
-	// TODO: Refactor Cti into CTI
 	CTI           any                   `json:"cti.cti,omitempty" yaml:"cti.cti,omitempty"` // string or []string
 	ID            *bool                 `json:"cti.id,omitempty" yaml:"cti.id,omitempty"`   // bool?
 	Access        consts.AccessModifier `json:"cti.access,omitempty" yaml:"cti.access,omitempty"`
@@ -104,7 +103,7 @@ type InstanceAnnotationReference struct {
 	AnnotationType *AnnotationType `json:"$annotationType,omitempty"`
 }
 
-func (a Annotations) ReadCti() []string {
+func (a Annotations) ReadCTI() []string {
 	if a.CTI == nil {
 		return []string{}
 	}
@@ -120,7 +119,7 @@ func (a Annotations) ReadCti() []string {
 	return vals
 }
 
-func (a Annotations) ReadCtiSchema() []string {
+func (a Annotations) ReadCTISchema() []string {
 	if a.Schema == nil {
 		return []string{}
 	}
@@ -136,14 +135,22 @@ func (a Annotations) ReadCtiSchema() []string {
 	return vals
 }
 
-func (a Annotations) ReadReference() string {
-	if a.Reference == nil {
-		return ""
+func (a Annotations) ReadReference() []string {
+	switch t := a.Reference.(type) {
+	case bool:
+		return []string{strconv.FormatBool(t)}
+	case string:
+		return []string{t}
+	case []any:
+		var vals []string
+		for _, val := range t {
+			if strVal, ok := val.(string); ok {
+				vals = append(vals, strVal)
+			}
+		}
+		return vals
 	}
-	if val, ok := a.Reference.(bool); ok {
-		return strconv.FormatBool(val)
-	}
-	return a.Reference.(string)
+	return nil
 }
 
 type GJsonPath string
@@ -432,6 +439,10 @@ type EntityType struct {
 
 	mergedSchema *jsonschema.JSONSchemaCTI `json:"-" yaml:"-"` // Cached merged schema, if any
 
+	// FIXME: Need to remove. Raw values are only needed for GJSON, but it works with bytes.
+	// Need custom visitor for Go interface based on GJSON.
+	rawTraitValues []byte `json:"-" yaml:"-"` // Raw trait values, if any
+
 	SourceMap EntityTypeSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
 
@@ -577,6 +588,17 @@ func (e *EntityType) FindTraitsSchemaInChain() *jsonschema.JSONSchemaCTI {
 
 func (e *EntityType) GetTraits() any {
 	return e.Traits
+}
+
+func (e *EntityType) GetRawTraits() ([]byte, error) {
+	if e.rawTraitValues == nil {
+		if b, err := json.Marshal(e.Traits); err == nil {
+			e.rawTraitValues = b
+		} else {
+			return nil, fmt.Errorf("marshal values: %w", err)
+		}
+	}
+	return e.rawTraitValues, nil
 }
 
 func (e *EntityType) FindTraitsInChain() any {

@@ -29,7 +29,7 @@ func makeAnyOfSchema(members []*jsonschema.JSONSchemaCTI) *jsonschema.JSONSchema
 	return &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{AnyOf: members}}
 }
 
-func TestEntity_GetCti(t *testing.T) {
+func TestEntity_GetCTI(t *testing.T) {
 	obj := &entity{CTI: "cti.vendor.app.test.v1.0"}
 	require.Equal(t, "cti.vendor.app.test.v1.0", obj.GetCTI())
 }
@@ -769,7 +769,7 @@ func Test_GJsonPathGetValue(t *testing.T) {
 		})
 	}
 }
-func TestAnnotations_ReadCtiSchema(t *testing.T) {
+func TestAnnotations_ReadCTISchema(t *testing.T) {
 	tests := []struct {
 		name     string
 		schema   interface{}
@@ -805,39 +805,39 @@ func TestAnnotations_ReadCtiSchema(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a := Annotations{Schema: tt.schema}
-			result := a.ReadCtiSchema()
+			result := a.ReadCTISchema()
 			require.ElementsMatch(t, tt.expected, result)
 		})
 	}
 }
-func TestAnnotations_ReadCti(t *testing.T) {
+func TestAnnotations_ReadCTI(t *testing.T) {
 	tests := []struct {
 		name     string
 		cti      interface{}
 		expected []string
 	}{
 		{
-			name:     "nil Cti",
+			name:     "nil CTI",
 			cti:      nil,
 			expected: []string{},
 		},
 		{
-			name:     "Cti as string",
+			name:     "CTI as string",
 			cti:      "cti.vendor.app.test.v1.0",
 			expected: []string{"cti.vendor.app.test.v1.0"},
 		},
 		{
-			name:     "Cti as []interface{} with strings",
+			name:     "CTI as []interface{} with strings",
 			cti:      []interface{}{"cti.vendor.app.test.v1.0", "cti.vendor.app.test.v2.0"},
 			expected: []string{"cti.vendor.app.test.v1.0", "cti.vendor.app.test.v2.0"},
 		},
 		{
-			name:     "Cti as []interface{} with mixed types",
+			name:     "CTI as []interface{} with mixed types",
 			cti:      []interface{}{"cti.vendor.app.test.v1.0", 123, "cti.vendor.app.test.v2.0"},
 			expected: []string{"cti.vendor.app.test.v1.0", "cti.vendor.app.test.v2.0"},
 		},
 		{
-			name:     "Cti as []interface{} with no strings",
+			name:     "CTI as []interface{} with no strings",
 			cti:      []interface{}{123, 456},
 			expected: []string{},
 		},
@@ -846,7 +846,7 @@ func TestAnnotations_ReadCti(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a := Annotations{CTI: tt.cti}
-			result := a.ReadCti()
+			result := a.ReadCTI()
 			require.ElementsMatch(t, tt.expected, result)
 		})
 	}
@@ -1042,14 +1042,14 @@ func TestEntity_IsA(t *testing.T) {
 			wantResult: false,
 		},
 		{
-			name:       "entity Cti is empty",
+			name:       "entity CTI is empty",
 			entityCTI:  "",
 			parentCTI:  "cti.v.a.parent.v1.0",
 			parentNil:  false,
 			wantResult: false,
 		},
 		{
-			name:       "parent Cti is empty",
+			name:       "parent CTI is empty",
 			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
 			parentCTI:  "",
 			parentNil:  false,
@@ -1067,6 +1067,58 @@ func TestEntity_IsA(t *testing.T) {
 			}
 			got := e.IsA(parent)
 			require.Equal(t, tt.wantResult, got)
+		})
+	}
+}
+
+func TestAnnotations_ReadReference(t *testing.T) {
+	tests := []struct {
+		name      string
+		reference interface{}
+		expected  []string
+	}{
+		{
+			name:      "nil reference",
+			reference: nil,
+			expected:  nil,
+		},
+		{
+			name:      "reference as bool true",
+			reference: true,
+			expected:  []string{"true"},
+		},
+		{
+			name:      "reference as bool false",
+			reference: false,
+			expected:  []string{"false"},
+		},
+		{
+			name:      "reference as string",
+			reference: "ref.value",
+			expected:  []string{"ref.value"},
+		},
+		{
+			name:      "reference as []any with strings",
+			reference: []any{"ref.one", "ref.two"},
+			expected:  []string{"ref.one", "ref.two"},
+		},
+		{
+			name:      "reference as []any with mixed types",
+			reference: []any{"ref.one", 123, "ref.two"},
+			expected:  []string{"ref.one", "ref.two"},
+		},
+		{
+			name:      "reference as []any with no strings",
+			reference: []any{123, 456},
+			expected:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := Annotations{Reference: tt.reference}
+			result := a.ReadReference()
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }

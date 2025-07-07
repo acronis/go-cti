@@ -62,7 +62,7 @@ func (c *RAMLXCollector) Collect() (*registry.MetadataRegistry, error) {
 		ref := pair.Value
 		for pair := ref.Link.Types.Oldest(); pair != nil; pair = pair.Next() {
 			shape := pair.Value
-			if err := c.readCtiType(shape); err != nil {
+			if err := c.ReadCTIType(shape); err != nil {
 				return nil, fmt.Errorf("read cti type: %w", err)
 			}
 		}
@@ -307,7 +307,7 @@ func (c *RAMLXCollector) readMetadataCti(base *raml.BaseShape) ([]string, error)
 	return nil, errors.New("cti.cti must be string or array of strings")
 }
 
-func (c *RAMLXCollector) readCtiType(base *raml.BaseShape) error {
+func (c *RAMLXCollector) ReadCTIType(base *raml.BaseShape) error {
 	ctis, err := c.readMetadataCti(base)
 	if err != nil {
 		return fmt.Errorf("read cti.cti: %w", err)
