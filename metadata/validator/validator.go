@@ -40,12 +40,6 @@ type MetadataValidator struct {
 }
 
 func MakeMetadataValidator(gr, lr *registry.MetadataRegistry) *MetadataValidator {
-	// NOTE: gojsonschema loads and compiles the meta-schema from the URL without caching on each validation.
-	// Here we pre-compile the meta-schema from local source to avoid network calls and recompilation.
-	metaSchema, err := gojsonschema.NewSchemaLoader().Compile(gojsonschema.NewStringLoader(jsonschema.MetaSchemaDraft07))
-	if err != nil {
-		panic(fmt.Errorf("failed to compile metaSchema: %w", err))
-	}
 	return &MetadataValidator{
 		ctiParser:      cti.NewParser(),
 		globalRegistry: gr,
@@ -59,7 +53,9 @@ func MakeMetadataValidator(gr, lr *registry.MetadataRegistry) *MetadataValidator
 
 		CustomData: make(map[string]any),
 
-		metaSchema:              metaSchema,
+		// NOTE: gojsonschema loads and compiles the meta-schema from the URL without caching on each validation.
+		// Here we pre-compile the meta-schema from local source to avoid network calls and recompilation.
+		metaSchema:              MustCompileSchema(jsonschema.MetaSchemaDraft07),
 		schemaLoaderCache:       make(map[string]*gojsonschema.Schema),
 		traitsSchemaLoaderCache: make(map[string]*gojsonschema.Schema),
 	}
