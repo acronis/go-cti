@@ -38,9 +38,6 @@ type context struct {
 
 	// history is used to prevent infinite recursion in CTI types.
 	history history
-
-	// isExternalRecursion indicates if the current context is a recursion within a schema.
-	isExternalRecursion bool
 }
 
 func New(r *registry.MetadataRegistry) *Transformer {
@@ -197,21 +194,16 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSche
 			// Otherwise, that's an external recursion and we need to insert the schema into definitions.
 			// NOTE: We need to escape the tilde (~) according to JSON Pointer spec.
 			escapedCTI := strings.Replace(cti, "~", "~0", -1)
-			// If we are already inside the recursion, we need to return the reference to avoid infinite loop.
-			if ctx.isExternalRecursion {
+			if _, ok := ctx.entity.Schema.Definitions[escapedCTI]; ok {
+				// If the schema is already in definitions, we can return a ref to it.
 				return &jsonschema.JSONSchemaCTI{
 					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#/definitions/" + escapedCTI},
 					Annotations:       s.Annotations,
 				}, nil
 			}
-			// For a nested recursion, we need to create a new inner context with the current path and entity.
-			newCtx := context{
-				path:                ctx.path,
-				entity:              ctx.entity,
-				history:             make(history, 0),
-				isExternalRecursion: true,
-			}
-			recursiveSchema, err := t.findAndInsertCtiSchema(newCtx, s)
+			ctx.entity.Schema.Definitions[escapedCTI] = nil // Initialize with an empty value to reserve the key and avoid recursion.
+			ctx.history = make(history, 0)                  // Reset history for the new context to keep traversing nested recursion.
+			recursiveSchema, err := t.findAndInsertCtiSchema(ctx, s)
 			if err != nil {
 				return nil, fmt.Errorf("find and insert cti schema for %s at %s: %w", cti, ctx.path, err)
 			}
