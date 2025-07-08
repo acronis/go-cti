@@ -195,7 +195,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 	if err != nil {
 		return fmt.Errorf("failed to get merged schema for %s: %w", currentCti, err)
 	}
-	if err := v.validateJSONDocument(v.metaSchema, gojsonschema.NewRawLoader(mergedSchema.Map())); err != nil {
+	if _, err := v.getOrCacheSchema(entity.CTI, mergedSchema, v.schemaLoaderCache); err != nil {
 		return fmt.Errorf("%s contains invalid schema: %w", entity.CTI, err)
 	}
 
