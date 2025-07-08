@@ -194,20 +194,20 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSche
 			// Otherwise, that's an external recursion and we need to insert the schema into definitions.
 			// NOTE: We need to escape the tilde (~) according to JSON Pointer spec.
 			escapedCTI := strings.Replace(cti, "~", "~0", -1)
-			if _, ok := ctx.entity.Schema.Definitions[escapedCTI]; ok {
+			if _, ok := ctx.entity.Schema.Definitions[cti]; ok {
 				// If the schema is already in definitions, we can return a ref to it.
 				return &jsonschema.JSONSchemaCTI{
 					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#/definitions/" + escapedCTI},
 					Annotations:       s.Annotations,
 				}, nil
 			}
-			ctx.entity.Schema.Definitions[escapedCTI] = nil // Initialize with an empty value to reserve the key and avoid recursion.
-			ctx.history = make(history, 0)                  // Reset history for the new context to keep traversing nested recursion.
+			ctx.entity.Schema.Definitions[cti] = nil // Initialize with an empty value to reserve the key and avoid recursion.
+			ctx.history = make(history, 0)           // Reset history for the new context to keep traversing nested recursion.
 			recursiveSchema, err := t.findAndInsertCtiSchema(ctx, s)
 			if err != nil {
 				return nil, fmt.Errorf("find and insert cti schema for %s at %s: %w", cti, ctx.path, err)
 			}
-			ctx.entity.Schema.Definitions[escapedCTI] = recursiveSchema
+			ctx.entity.Schema.Definitions[cti] = recursiveSchema
 			return &jsonschema.JSONSchemaCTI{
 				JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#/definitions/" + escapedCTI},
 				Annotations:       s.Annotations,
