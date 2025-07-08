@@ -226,19 +226,22 @@ func (t *Transformer) getCtiSchema(ctx context, val any) (*jsonschema.JSONSchema
 	case []any:
 		schemas := make([]*jsonschema.JSONSchemaCTI, len(vv))
 		for i, v := range vv {
-			ref, ok := v.(string)
-			if !ok {
-				return nil, fmt.Errorf("expected string in x-%s, got %T", consts.Schema, v)
+			switch v := v.(type) {
+			case string:
+				schema, err := t.resolveCtiSchema(v)
+				if err != nil {
+					return nil, fmt.Errorf("get cti schema for %s: %w", v, err)
+				}
+				schema, err = t.findAndInsertCtiSchema(ctx, schema)
+				if err != nil {
+					return nil, fmt.Errorf("find and insert cti schema for %s: %w", v, err)
+				}
+				schemas[i] = schema
+			case nil:
+				schemas[i] = &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "null"}}
+			default:
+				return nil, fmt.Errorf("expected string or nil in x-%s, got %T", consts.Schema, v)
 			}
-			schema, err := t.resolveCtiSchema(ref)
-			if err != nil {
-				return nil, fmt.Errorf("get cti schema for %s: %w", ref, err)
-			}
-			schema, err = t.findAndInsertCtiSchema(ctx, schema)
-			if err != nil {
-				return nil, fmt.Errorf("find and insert cti schema for %s: %w", ref, err)
-			}
-			schemas[i] = schema
 		}
 		return &jsonschema.JSONSchemaCTI{
 			JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{AnyOf: schemas},
