@@ -437,6 +437,71 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 			},
 			expectedError: "failed to extract parent schema definition: invalid schema",
 		},
+		{
+			name: "complex nested schema merge",
+			root: &EntityType{
+				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
+					"Child": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+						{Key: "fieldA", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+						{Key: "nested", Value: makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+							{Key: "subFieldA", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "boolean"}}},
+						})},
+					}),
+				}),
+				entity: entity{
+					parent: &EntityType{
+						Schema: makeSchemaWithDefs("Parent", map[string]*jsonschema.JSONSchemaCTI{
+							"Parent": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+								{Key: "fieldB", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"}}},
+								{Key: "nested", Value: makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+									{Key: "subFieldB", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "number"}}},
+								})},
+							}),
+						}),
+					},
+				},
+			},
+			validate: func(t *testing.T, parentSchema, childSchema, mergedSchema *jsonschema.JSONSchemaCTI) {
+				// Parent schema checks
+				parent := parentSchema.Definitions["Parent"]
+				_, ok := parent.Properties.Get("fieldB")
+				require.True(t, ok)
+				_, ok = parent.Properties.Get("fieldA")
+				require.False(t, ok)
+				nestedParent, ok := parent.Properties.Get("nested")
+				require.True(t, ok)
+				_, ok = nestedParent.Properties.Get("subFieldB")
+				require.True(t, ok)
+				_, ok = nestedParent.Properties.Get("subFieldA")
+				require.False(t, ok)
+
+				// Child schema checks
+				child := childSchema.Definitions["Child"]
+				_, ok = child.Properties.Get("fieldA")
+				require.True(t, ok)
+				_, ok = child.Properties.Get("fieldB")
+				require.False(t, ok)
+				nestedChild, ok := child.Properties.Get("nested")
+				require.True(t, ok)
+				_, ok = nestedChild.Properties.Get("subFieldA")
+				require.True(t, ok)
+				_, ok = nestedChild.Properties.Get("subFieldB")
+				require.False(t, ok)
+
+				// Merged schema checks
+				merged := mergedSchema.Definitions["Child"]
+				_, ok = merged.Properties.Get("fieldA")
+				require.True(t, ok)
+				_, ok = merged.Properties.Get("fieldB")
+				require.True(t, ok)
+				nestedMerged, ok := merged.Properties.Get("nested")
+				require.True(t, ok)
+				_, ok = nestedMerged.Properties.Get("subFieldA")
+				require.True(t, ok)
+				_, ok = nestedMerged.Properties.Get("subFieldB")
+				require.True(t, ok)
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -451,6 +516,97 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEntityType_MultipleChildrenMergedFromCommonParent(t *testing.T) {
+	parent := &EntityType{
+		Schema: makeSchemaWithDefs("Parent", map[string]*jsonschema.JSONSchemaCTI{
+			"Parent": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+				{Key: "fieldP", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"}}},
+				{Key: "nested", Value: makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+					{Key: "subFieldP", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "number"}}},
+				})},
+			}),
+		}),
+	}
+
+	child1 := &EntityType{
+		Schema: makeSchemaWithDefs("Child1", map[string]*jsonschema.JSONSchemaCTI{
+			"Child1": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+				{Key: "fieldA", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+				{Key: "nested", Value: makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+					{Key: "subFieldA", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "boolean"}}},
+				})},
+			}),
+		}),
+		entity: entity{parent: parent},
+	}
+
+	child2 := &EntityType{
+		Schema: makeSchemaWithDefs("Child2", map[string]*jsonschema.JSONSchemaCTI{
+			"Child2": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+				{Key: "fieldB", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
+				{Key: "nested", Value: makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
+					{Key: "subFieldB", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "boolean"}}},
+				})},
+			}),
+		}),
+		entity: entity{parent: parent},
+	}
+
+	merged1, err := child1.GetMergedSchema()
+	require.NoError(t, err)
+	merged2, err := child2.GetMergedSchema()
+	require.NoError(t, err)
+
+	// Parent schema must not have any fields from children
+	parentDef := parent.Schema.Definitions["Parent"]
+	_, ok := parentDef.Properties.Get("fieldA")
+	require.False(t, ok)
+	_, ok = parentDef.Properties.Get("fieldB")
+	require.False(t, ok)
+	nestedParent, ok := parentDef.Properties.Get("nested")
+	require.True(t, ok)
+	_, ok = nestedParent.Properties.Get("subFieldA")
+	require.False(t, ok)
+	_, ok = nestedParent.Properties.Get("subFieldB")
+	require.False(t, ok)
+
+	// Child1 merged schema must have both parent and child1 fields
+	mergedDef1 := merged1.Definitions["Child1"]
+	_, ok = mergedDef1.Properties.Get("fieldA")
+	require.True(t, ok)
+	_, ok = mergedDef1.Properties.Get("fieldP")
+	require.True(t, ok)
+	nestedMerged1, ok := mergedDef1.Properties.Get("nested")
+	require.True(t, ok)
+	_, ok = nestedMerged1.Properties.Get("subFieldA")
+	require.True(t, ok)
+	_, ok = nestedMerged1.Properties.Get("subFieldP")
+	require.True(t, ok)
+
+	// Child2 merged schema must have both parent and child2 fields
+	mergedDef2 := merged2.Definitions["Child2"]
+	_, ok = mergedDef2.Properties.Get("fieldB")
+	require.True(t, ok)
+	_, ok = mergedDef2.Properties.Get("fieldP")
+	require.True(t, ok)
+	nestedMerged2, ok := mergedDef2.Properties.Get("nested")
+	require.True(t, ok)
+	_, ok = nestedMerged2.Properties.Get("subFieldB")
+	require.True(t, ok)
+	_, ok = nestedMerged2.Properties.Get("subFieldP")
+	require.True(t, ok)
+
+	// Parent schema must still not have child fields after both merges
+	_, ok = parentDef.Properties.Get("fieldA")
+	require.False(t, ok)
+	_, ok = parentDef.Properties.Get("fieldB")
+	require.False(t, ok)
+	_, ok = nestedParent.Properties.Get("subFieldA")
+	require.False(t, ok)
+	_, ok = nestedParent.Properties.Get("subFieldB")
+	require.False(t, ok)
 }
 
 func TestEntityType_GetTraitsSchema(t *testing.T) {

@@ -19,7 +19,7 @@ type EntityTypeMap map[string]*EntityType
 type EntityInstanceMap map[string]*EntityInstance
 type EntityMap map[string]Entity
 
-// TODO: For future use
+// TODO: For future use. Need to create a context and move all creation methods there.
 type MContext struct{}
 
 // PtrReplacer is an interface for objects that can replace their pointers with another object of the same type.
@@ -437,8 +437,6 @@ type EntityType struct {
 	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty" yaml:"traits_annotations,omitempty"`
 	Traits            any                        `json:"traits,omitempty" yaml:"traits,omitempty"`
 
-	mergedSchema *jsonschema.JSONSchemaCTI `json:"-" yaml:"-"` // Cached merged schema, if any
-
 	// FIXME: Need to remove. Raw values are only needed for GJSON, but it works with bytes.
 	// Need custom visitor for Go interface based on GJSON.
 	rawTraitValues []byte `json:"-" yaml:"-"` // Raw trait values, if any
@@ -469,8 +467,6 @@ func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 	}
 	if e.parent == nil {
 		return e.Schema, nil
-	} else if e.mergedSchema != nil {
-		return e.mergedSchema, nil
 	}
 
 	// Copy the child schema since it will be modified during the merge process.
@@ -494,7 +490,8 @@ func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 
 	parent := e.Parent()
 	for parent != nil {
-		parentRootSchema := parent.Schema
+		// Copy the parent schema since it may be modified during the merge process.
+		parentRootSchema := parent.Schema.DeepCopy()
 
 		parentSchema, parentRefType, err := parentRootSchema.GetRefSchema()
 		if err != nil {
@@ -530,17 +527,13 @@ func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 		}
 	}
 
-	outSchema := &jsonschema.JSONSchemaCTI{
+	return &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			Version:     "http://json-schema.org/draft-07/schema",
 			Ref:         origSelfRefType,
 			Definitions: definitions,
 		},
-	}
-
-	e.mergedSchema = outSchema
-
-	return e.mergedSchema, nil
+	}, nil
 }
 
 func (e *EntityType) GetTraitsSchema() *jsonschema.JSONSchemaCTI {
