@@ -437,9 +437,10 @@ type EntityType struct {
 	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty" yaml:"traits_annotations,omitempty"`
 	Traits            any                        `json:"traits,omitempty" yaml:"traits,omitempty"`
 
+	rawSchema []byte `json:"-" yaml:"-"` // Cached raw schema
 	// FIXME: Need to remove. Raw values are only needed for GJSON, but it works with bytes.
 	// Need custom visitor for Go interface based on GJSON.
-	rawTraitValues []byte `json:"-" yaml:"-"` // Raw trait values, if any
+	rawTraitValues []byte `json:"-" yaml:"-"` // Cached raw trait values
 
 	SourceMap EntityTypeSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
@@ -581,6 +582,17 @@ func (e *EntityType) FindTraitsSchemaInChain() *jsonschema.JSONSchemaCTI {
 
 func (e *EntityType) GetTraits() any {
 	return e.Traits
+}
+
+func (e *EntityType) GetRawSchema() ([]byte, error) {
+	if e.rawSchema == nil {
+		if b, err := json.Marshal(e.Schema); err == nil {
+			e.rawSchema = b
+		} else {
+			return nil, fmt.Errorf("marshal values: %w", err)
+		}
+	}
+	return e.rawSchema, nil
 }
 
 func (e *EntityType) GetRawTraits() ([]byte, error) {
