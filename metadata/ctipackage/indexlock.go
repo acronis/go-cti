@@ -15,6 +15,8 @@ const (
 
 type IndexLock struct {
 	Version string `json:"version"`
+	// Hash of the index.json file
+	Hash string `json:"hash,omitempty"`
 	// Reverse map: key - package id, value - source
 	DependentPackages map[string]string `json:"depends"`
 	// Direct map: key - source, value - Info

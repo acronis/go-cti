@@ -11,10 +11,10 @@ import (
 )
 
 type PackageManager interface {
-	// Add new dependencies to index.lock
+	// Add new dependencies to index-lock
 	Add(pkg *ctipackage.Package, depends map[string]string) error
-	// Install dependencies from index.lock
-	Install(pkg *ctipackage.Package) error
+	// Install dependencies from index or index-lock, force will ignore index-lock and install dependencies from index
+	Install(pkg *ctipackage.Package, force bool) error
 	// Download dependencies and their sub-dependencies
 	Download(depends map[string]string) ([]CachedDependencyInfo, error)
 }
@@ -61,7 +61,7 @@ func WithPackagesCache(cacheDir string) Option {
 
 func (pm *packageManager) Add(pkg *ctipackage.Package, depends map[string]string) error {
 	// Validate dependencies
-	if err := pm.installDependencies(pkg, depends); err != nil {
+	if err := pm.installDependencies(pkg, depends, true); err != nil {
 		return fmt.Errorf("install dependencies: %w", err)
 	}
 
@@ -85,91 +85,123 @@ func (pm *packageManager) Add(pkg *ctipackage.Package, depends map[string]string
 	return nil
 }
 
-func (pm *packageManager) Install(pkg *ctipackage.Package) error {
-	if err := pm.installDependencies(pkg, pkg.Index.Depends); err != nil {
-		return fmt.Errorf("install index dependencies: %w", err)
+func (pm *packageManager) Install(pkg *ctipackage.Package, force bool) error {
+	useIndex := force
+
+	// Check if index-lock exists and has the same hash as index
+	if pkg.IndexLock != nil && pkg.Index.Hash() != pkg.IndexLock.Hash {
+		if !force {
+			slog.Error("Package index hash mismatch, please run 'pkg tidy' to update index-lock",
+				slog.String("package_id", pkg.Index.PackageID),
+			)
+			return fmt.Errorf("package index hash mismatch")
+		}
+
+		slog.Warn("Package index hash mismatch, updating index-lock",
+			slog.String("package_id", pkg.Index.PackageID),
+		)
+		useIndex = true
 	}
-	if err := pkg.SaveIndexLock(); err != nil {
-		return fmt.Errorf("save index lock: %w", err)
+
+	if useIndex {
+		slog.Info("Installing dependencies from index",
+			slog.String("package_id", pkg.Index.PackageID),
+			slog.Any("depends", pkg.Index.Depends),
+		)
+
+		if err := pm.installDependencies(pkg, pkg.Index.Depends, true); err != nil {
+			return fmt.Errorf("install index dependencies: %w", err)
+		}
+
+		if err := pkg.SaveIndexLock(); err != nil {
+			return fmt.Errorf("save index lock: %w", err)
+		}
+	} else {
+		slog.Info("Installing dependencies from index-lock",
+			slog.String("package_id", pkg.Index.PackageID),
+			slog.Any("depends", pkg.IndexLock.DependentPackages),
+		)
+
+		// TODO check if index-lock is correct
+		return pm.installDependencies(pkg, pkg.IndexLock.DependentPackages, false)
 	}
+
 	return nil
 }
 
-func (pm *packageManager) download(depends map[string]string, installed []CachedDependencyInfo) ([]CachedDependencyInfo, error) {
+func (pm *packageManager) download(depends map[string]string, recursive bool, installed map[string]CachedDependencyInfo) ([]CachedDependencyInfo, error) {
 	subDepends := map[string]string{}
-	for source, version := range depends {
-		info, err := pm.downloadDependency(source, version)
+
+	current := make(map[string]CachedDependencyInfo)
+	for source, ver := range depends {
+		info, err := pm.downloadDependency(source, ver)
 		if err != nil {
-			return nil, fmt.Errorf("download dependency %s %s: %w", source, version, err)
+			return nil, fmt.Errorf("download dependency %s %s: %w", source, ver, err)
 		}
 
-		installed = append(installed, info)
-		// TODO check for cyclic dependencies or duplicates
-		for subSource, subTag := range info.Index.Depends {
-			installedDep := func() CachedDependencyInfo {
-				for _, info := range installed {
-					if info.Source == subSource {
-						return info
-					}
-				}
-				return CachedDependencyInfo{}
-			}()
-			if installedDep.Source != "" {
-				slog.Info("Dependency already installed",
-					slog.String("source", source),
-					slog.String("package", subSource),
-					slog.String("version", subTag))
+		installed[source] = info
+		current[source] = info
+	}
 
-				// compare versions
-				installedVers, err := semver.Parse(installedDep.Version)
-				if err != nil {
-					return nil, fmt.Errorf("parse installed version %s: %w", installedDep.Version, err)
-				}
-				depVers, err := semver.Parse(subTag)
-				if err != nil {
-					return nil, fmt.Errorf("parse dependency version %s: %w", subTag, err)
-				}
-
-				if installedVers.LT(depVers) {
-					slog.Info("Installed version is older, update",
-						slog.String("source", source),
-						slog.String("package", subSource),
-						slog.String("installed", installedDep.Version),
-						slog.String("dependency", subTag))
-				} else {
-					logText := func() string {
-						if installedVers.GT(depVers) {
-							return "newer"
-						}
-						return "the same"
-					}()
-
-					slog.Info(fmt.Sprintf("Installed version is %s, skip", logText),
-						slog.String("source", source),
-						slog.String("package", subSource),
-						slog.String("installed", installedDep.Version),
-						slog.String("dependency", subTag))
-					continue
-				}
+	// Add sub-dependencies to resolve
+	for source, info := range current {
+		for s, v := range info.Index.Depends {
+			version, err := semver.Parse(v)
+			if err != nil {
+				return nil, fmt.Errorf("parse package %s version %s: %w", s, v, err)
 			}
 
-			subDepends[subSource] = subTag
+			if existing, ok := installed[s]; ok {
+				// Compare versions and keep the latest one
+				if version.LE(existing.Version) {
+					slog.Info("Found lower or equal version of dependency",
+						slog.String("_pkg", s),
+						slog.String("_ver", existing.Version.String()),
+						slog.String("new", v),
+						slog.String("origin", source),
+					)
+					continue
+				}
+
+				// TODO: add major version check
+
+				slog.Info("Found greater dependency version",
+					slog.String("_pkg", s),
+					slog.String("_ver", existing.Version.String()),
+					slog.String("new", v),
+					slog.String("origin", source),
+				)
+
+			} else {
+				slog.Info("AFound new dependency",
+					slog.String("_pkg", s),
+					slog.String("_ver", v),
+					slog.String("origin", source),
+				)
+			}
+
+			subDepends[s] = v
 		}
 	}
 
-	// Recursively download sub-dependencies
-	if len(subDepends) != 0 {
-		slog.Info("Download sub-dependencies")
-		inst, err := pm.download(subDepends, installed)
-		if err != nil {
+	// Collect sub-dependencies
+	if recursive && len(subDepends) > 0 {
+		slog.Info("Found sub-dependencies",
+			slog.Any("sub-depends", subDepends),
+		)
+
+		if _, err := pm.download(subDepends, recursive, installed); err != nil {
 			return nil, fmt.Errorf("download sub-dependencies: %w", err)
 		}
-		installed = inst
 	}
 
-	return installed, nil
+	res := []CachedDependencyInfo{}
+	for _, dep := range installed {
+		res = append(res, dep)
+	}
+	return res, nil
 }
 
 func (pm *packageManager) Download(depends map[string]string) ([]CachedDependencyInfo, error) {
-	return pm.download(depends, []CachedDependencyInfo{})
+	return pm.download(depends, true, map[string]CachedDependencyInfo{})
 }

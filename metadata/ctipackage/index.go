@@ -1,6 +1,7 @@
 package ctipackage
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -111,6 +112,13 @@ func (idx *Index) Clone() *Index {
 func (idx *Index) ToBytes() []byte {
 	bytes, _ := json.Marshal(idx)
 	return bytes
+}
+
+func (idx *Index) Hash() string {
+	h := sha256.New()
+	h.Write(idx.ToBytes())
+
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func (idx *Index) Save(baseDir string) error {
