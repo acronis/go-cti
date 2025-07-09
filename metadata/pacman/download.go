@@ -2,20 +2,18 @@ package pacman
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/acronis/go-cti/metadata/ctipackage"
 	"github.com/acronis/go-cti/metadata/filesys"
+	"github.com/blang/semver/v4"
 )
 
 func (pm *packageManager) downloadDependency(source, version string) (CachedDependencyInfo, error) {
 	info, err := pm.Storage.Discover(source, version)
 	if err != nil {
-		return CachedDependencyInfo{}, fmt.Errorf("discover source %s version %s: %w", source, version, err)
+		return CachedDependencyInfo{}, fmt.Errorf("discover package %s version %s: %w", source, version, err)
 	}
-
-	slog.Info("Discovered dependency", slog.String("package", source), slog.String("version", version))
 
 	// Pre-download integrity check
 	if err := pm.validateSourceInformation(source, version, info); err != nil {
@@ -71,10 +69,15 @@ func (pm *packageManager) downloadDependency(source, version string) (CachedDepe
 		return CachedDependencyInfo{}, fmt.Errorf("compute directory hash: %w", err)
 	}
 
+	ver, err := semver.Parse(version)
+	if err != nil {
+		return CachedDependencyInfo{}, fmt.Errorf("parse version %s: %w", version, err)
+	}
+
 	return CachedDependencyInfo{
 		Path:      targetDir,
 		Source:    source,
-		Version:   version,
+		Version:   ver,
 		Integrity: hash,
 		Index:     *movedIndex,
 	}, nil

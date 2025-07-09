@@ -36,6 +36,7 @@ func New(baseDir string, options ...InitializeOption) (*Package, error) {
 		Index:   &Index{},
 		IndexLock: &IndexLock{
 			Version:           IndexLockVersion,
+			Hash:              "",
 			DependentPackages: make(map[string]string),
 			SourceInfo:        make(map[string]Info),
 		},
@@ -90,10 +91,18 @@ func (pkg *Package) Read() error {
 
 	pkg.Index = idx
 	pkg.IndexLock = idxLock
+
 	return nil
 }
 
 func (pkg *Package) SaveIndexLock() error {
+	if pkg.Index == nil {
+		return fmt.Errorf("index is not initialized")
+	}
+
+	// make sure that index hash in lock file is up to date
+	pkg.IndexLock.Hash = pkg.Index.Hash()
+
 	if err := pkg.IndexLock.Save(pkg.BaseDir); err != nil {
 		return fmt.Errorf("save index lock: %w", err)
 	}

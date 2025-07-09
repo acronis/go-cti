@@ -7,17 +7,18 @@ import (
 
 	"github.com/acronis/go-cti/metadata/ctipackage"
 	"github.com/acronis/go-cti/metadata/filesys"
+	"github.com/blang/semver/v4"
 )
 
 type CachedDependencyInfo struct {
 	Path      string
 	Source    string
-	Version   string
+	Version   semver.Version
 	Integrity string
 	Index     ctipackage.Index
 }
 
-func (pm *packageManager) installDependencies(pkg *ctipackage.Package, depends map[string]string) error {
+func (pm *packageManager) installDependencies(pkg *ctipackage.Package, depends map[string]string, transitive bool) error {
 	// Make sure that package is valid i.e. ramlx spec is in place
 	if err := pkg.Sync(); err != nil {
 		return fmt.Errorf("sync package: %w", err)
@@ -85,7 +86,7 @@ func (pm *packageManager) installFromCache(target *ctipackage.Package, depends [
 		target.IndexLock.DependentPackages[info.Index.PackageID] = info.Source
 		target.IndexLock.SourceInfo[info.Source] = ctipackage.Info{
 			PackageID: info.Index.PackageID,
-			Version:   info.Version,
+			Version:   info.Version.String(),
 			Integrity: checksum,
 			Source:    info.Source,
 			Depends:   info.Index.Depends,
