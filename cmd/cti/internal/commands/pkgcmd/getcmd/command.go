@@ -64,7 +64,7 @@ func addPackages(_ context.Context, baseDir string, pm pacman.PackageManager, pa
 }
 
 func installAll(_ context.Context, baseDir string, pm pacman.PackageManager) error {
-	slog.Info("Install all packages",
+	slog.Info("Install dependent packages",
 		slog.String("path", baseDir),
 	)
 
@@ -76,7 +76,7 @@ func installAll(_ context.Context, baseDir string, pm pacman.PackageManager) err
 		return fmt.Errorf("read package: %w", err)
 	}
 
-	if err := pm.Install(pkg); err != nil {
+	if err := pm.Install(pkg, true); err != nil {
 		return fmt.Errorf("install dependencies: %w", err)
 	}
 
