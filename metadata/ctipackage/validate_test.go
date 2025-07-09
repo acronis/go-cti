@@ -159,7 +159,8 @@ types:
           "cross_recursion",
           "self_recursion"
         ],
-        "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+        "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+        "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
       }
     }
   },
@@ -260,7 +261,8 @@ types:
         },
         "additionalProperties": false,
         "type": "object",
-        "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+        "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+        "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
       },
       "cti.x.y.self_recursive_parent.v1.0": {
         "properties": {
@@ -293,7 +295,8 @@ types:
           "cross_recursion",
           "self_recursion"
         ],
-        "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+        "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+        "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
       }
     }
   },
@@ -365,7 +368,8 @@ types:
         },
         "additionalProperties": false,
         "type": "object",
-        "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+        "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+        "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
       }
     }
   }
