@@ -67,10 +67,17 @@ annotationTypes:
     allowedTargets: TypeDeclaration
 
   schema:
-    type: CTIAttribute | CTIAttribute[]
+    type: CTIAttribute | (CTIAttribute | nil)[]
     description: >
       Following annotation could be applied to the field with `object` type to define that this object schema should conform schema of cti type referenced
       in annotation value. It is an error if entity CTI is provided as a value.
+    examples:
+      Nullable anyOf:
+      - cti.a.p.wm.workload.v1.0~a.p.aspect.v1.0~a.p.machine.v1.0@id
+      - null
+      anyOf:
+      - cti.a.p.wm.workload.v1.0~a.p.aspect.v1.0~a.p.machine.v1.0
+      - cti.a.p.wr.report_config.v1.0
 
   embed:
     type: string

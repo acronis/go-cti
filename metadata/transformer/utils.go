@@ -35,7 +35,7 @@ func (t *Transformer) resolveCtiSchema(ref string) (*jsonschema.JSONSchemaCTI, e
 	if attributeSelector != "" {
 		ref = ref[:len(ref)-len(attributeSelector)-1]
 	}
-	entity, ok := t.registry.Types[ref]
+	schema, ok := t.schemas[ref]
 	if !ok {
 		return nil, fmt.Errorf("cti type %s not found in registry", ref)
 	}
@@ -43,11 +43,7 @@ func (t *Transformer) resolveCtiSchema(ref string) (*jsonschema.JSONSchemaCTI, e
 	if err != nil {
 		return nil, fmt.Errorf("parse cti type %s attribute selector: %w", ref, err)
 	}
-	schema, err := entity.GetMergedSchema()
-	if err != nil {
-		return nil, fmt.Errorf("get merged schema for cti type %s: %w", ref, err)
-	}
-	schema, _, err = schema.GetRefSchema()
+	schema, _, err = schema.DeepCopy().GetRefSchema()
 	if err != nil {
 		return nil, fmt.Errorf("extract schema definition for cti type %s: %w", ref, err)
 	}
