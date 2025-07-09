@@ -203,7 +203,7 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSche
 			}
 			ctx.entity.Schema.Definitions[cti] = nil // Initialize with an empty value to reserve the key and avoid recursion.
 			ctx.history = make(history, 0)           // Reset history for the new context to keep traversing nested recursion.
-			recursiveSchema, err := t.findAndInsertCtiSchema(ctx, s)
+			recursiveSchema, err := t.getCtiSchema(ctx, cti)
 			if err != nil {
 				return nil, fmt.Errorf("find and insert cti schema for %s at %s: %w", cti, ctx.path, err)
 			}
