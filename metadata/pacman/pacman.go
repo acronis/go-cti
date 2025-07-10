@@ -117,13 +117,19 @@ func (pm *packageManager) Install(pkg *ctipackage.Package, force bool) error {
 			return fmt.Errorf("save index lock: %w", err)
 		}
 	} else {
+		// collect depends from index-lock
+		depends := map[string]string{}
+		for name, source := range pkg.IndexLock.DependsInfo {
+			depends[name] = source.Version
+		}
+
 		slog.Info("Installing dependencies from index-lock",
 			slog.String("package_id", pkg.Index.PackageID),
-			slog.Any("depends", pkg.IndexLock.DependentPackages),
+			slog.Any("depends", depends),
 		)
 
 		// TODO check if index-lock is correct
-		return pm.installDependencies(pkg, pkg.IndexLock.DependentPackages, false)
+		return pm.installDependencies(pkg, depends, false)
 	}
 
 	return nil

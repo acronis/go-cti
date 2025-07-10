@@ -92,7 +92,7 @@ func (pkg *Package) Parse() error {
 // and returns a slice of package IDs in the order they should be processed.
 func (pkg *Package) resolveDependencyOrder() ([]string, error) {
 	var deps []string
-	for _, dep := range pkg.IndexLock.SourceInfo {
+	for _, dep := range pkg.IndexLock.DependsInfo {
 		// FIXME: Need a proper detection of the package type.
 		var depIndexFile string
 		if strings.Contains(pkg.BaseDir, "/.dep/") {
