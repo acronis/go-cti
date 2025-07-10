@@ -73,26 +73,29 @@ func mergeSchemas(source, target *JSONSchemaCTI) (*JSONSchemaCTI, error) {
 }
 
 // mergeRequired merges two "required" arrays
-func mergeRequired(source, target *JSONSchemaCTI) ([]string, error) {
+func mergeRequired(source, target *JSONSchemaCTI) []string {
+	maxLen := len(source.Required) + len(target.Required)
 	// Use maps to simulate sets
-	requiredSet := make(map[string]struct{})
+	requiredSet := make(map[string]struct{}, maxLen)
+	targetRequired := make([]string, 0, maxLen)
 
 	// Extract source required fields
 	for _, item := range source.Required {
-		requiredSet[item] = struct{}{}
+		if _, value := requiredSet[item]; !value {
+			requiredSet[item] = struct{}{}
+			targetRequired = append(targetRequired, item)
+		}
 	}
 
 	// Extract target required fields
 	for _, item := range target.Required {
-		requiredSet[item] = struct{}{}
+		if _, value := requiredSet[item]; !value {
+			requiredSet[item] = struct{}{}
+			targetRequired = append(targetRequired, item)
+		}
 	}
 
-	targetRequired := make([]string, 0, len(requiredSet))
-	for key := range requiredSet {
-		targetRequired = append(targetRequired, key)
-	}
-
-	return targetRequired, nil
+	return targetRequired
 }
 
 func mergeString(source, target *JSONSchemaCTI) (*JSONSchemaCTI, error) {
@@ -166,9 +169,8 @@ func mergeObjects(source, target *JSONSchemaCTI) (*JSONSchemaCTI, error) {
 		target.MaxProperties = source.MaxProperties
 	}
 
-	if required, err := mergeRequired(source, target); err != nil {
-		return nil, fmt.Errorf("failed to merge required fields: %w", err)
-	} else if len(required) > 0 {
+	required := mergeRequired(source, target)
+	if len(required) > 0 {
 		target.Required = required
 	}
 
