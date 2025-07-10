@@ -1,14 +1,10 @@
 package ctipackage
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"path"
 	"path/filepath"
 
-	"github.com/acronis/go-cti/metadata/filesys"
 	"github.com/acronis/go-cti/metadata/registry"
 )
 
@@ -109,38 +105,4 @@ func (pkg *Package) SaveIndex() error {
 		return fmt.Errorf("save index: %w", err)
 	}
 	return nil
-}
-
-func (pkg *Package) GetDictionaries() (Dictionaries, error) {
-	dictionaries := Dictionaries{
-		Dictionaries: make(map[LangCode]Entry),
-	}
-
-	for _, dict := range pkg.Index.Dictionaries {
-		file, err := os.Open(path.Join(pkg.BaseDir, dict))
-		if err != nil {
-			return Dictionaries{}, fmt.Errorf("open dictionary file: %w", err)
-		}
-		defer file.Close()
-
-		entry, err := validateDictionary(file)
-		if err != nil {
-			return Dictionaries{}, fmt.Errorf("validate dictionary: %w", err)
-		}
-		lang := filesys.GetBaseName(file.Name())
-		dictionaries.Dictionaries[LangCode(lang)] = entry
-	}
-
-	return dictionaries, nil
-}
-
-func validateDictionary(input io.Reader) (Entry, error) {
-	decoder := json.NewDecoder(input)
-
-	var config Entry
-	if err := decoder.Decode(&config); err != nil {
-		return nil, fmt.Errorf("decode dictionary: %w", err)
-	}
-
-	return config, nil
 }
