@@ -25,7 +25,6 @@ type Index struct {
 	Apis                 []string          `json:"apis,omitempty"`
 	Entities             []string          `json:"entities,omitempty"`
 	Assets               []string          `json:"assets,omitempty"`
-	Dictionaries         []string          `json:"dictionaries,omitempty"`
 	Depends              map[string]string `json:"depends,omitempty"`
 	Examples             []string          `json:"examples,omitempty"`
 	AdditionalProperties interface{}       `json:"additional_properties,omitempty"`
