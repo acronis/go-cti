@@ -55,7 +55,11 @@ func (pkg *Package) Parse() error {
 		}
 		// Dependent packages are safe to parse with cache since they are not modified
 		// by the user. Cache is updated when the package is installed.
-		if err = depPkg.parseWithCache(); err != nil {
+		// FIXME: Temporarily disabled since requires better cache management.
+		// if err = depPkg.parseWithCache(); err != nil {
+		// 	return fmt.Errorf("parse dependent package: %w", err)
+		// }
+		if err = depPkg.parse(); err != nil {
 			return fmt.Errorf("parse dependent package: %w", err)
 		}
 		if err = pkg.GlobalRegistry.CopyFrom(depPkg.LocalRegistry); err != nil {
