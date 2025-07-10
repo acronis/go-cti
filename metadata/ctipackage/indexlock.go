@@ -18,9 +18,9 @@ type IndexLock struct {
 	// Hash of the index.json file
 	Hash string `json:"hash,omitempty"`
 	// Reverse map: key - package id, value - source
-	DependentPackages map[string]string `json:"depends"`
+	Depends map[string]string `json:"depends"`
 	// Direct map: key - source, value - Info
-	SourceInfo map[string]Info `json:"dependsInfo"`
+	DependsInfo map[string]Info `json:"dependsInfo"`
 }
 
 func (idx *IndexLock) Save(baseDir string) error {
@@ -43,9 +43,9 @@ type Info struct {
 func ReadIndexLock(pkgDir string) (*IndexLock, error) {
 	filePath := filepath.Join(pkgDir, IndexLockFileName)
 	idxLock := &IndexLock{
-		Version:           IndexLockVersion,
-		DependentPackages: make(map[string]string),
-		SourceInfo:        make(map[string]Info),
+		Version:     IndexLockVersion,
+		Depends:     make(map[string]string),
+		DependsInfo: make(map[string]Info),
 	}
 
 	if err := filesys.ReadJSON(filePath, idxLock); os.IsNotExist(err) {

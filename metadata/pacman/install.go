@@ -39,7 +39,7 @@ func (pm *packageManager) installFromCache(target *ctipackage.Package, depends [
 	// put new dependencies from cache and replace links
 	for _, info := range depends {
 		// Validate integrity with installed package
-		if source, ok := target.IndexLock.DependentPackages[info.Index.PackageID]; ok {
+		if source, ok := target.IndexLock.Depends[info.Index.PackageID]; ok {
 			// TODO check integrity
 			if source != info.Source {
 				slog.Error("Package from different source was already installed",
@@ -83,8 +83,8 @@ func (pm *packageManager) installFromCache(target *ctipackage.Package, depends [
 			return fmt.Errorf("compute directory hash: %w", err)
 		}
 
-		target.IndexLock.DependentPackages[info.Index.PackageID] = info.Source
-		target.IndexLock.SourceInfo[info.Source] = ctipackage.Info{
+		target.IndexLock.Depends[info.Index.PackageID] = info.Source
+		target.IndexLock.DependsInfo[info.Source] = ctipackage.Info{
 			PackageID: info.Index.PackageID,
 			Version:   info.Version.String(),
 			Integrity: checksum,

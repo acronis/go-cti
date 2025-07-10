@@ -35,10 +35,10 @@ func New(baseDir string, options ...InitializeOption) (*Package, error) {
 		BaseDir: filepath.ToSlash(absPath),
 		Index:   &Index{},
 		IndexLock: &IndexLock{
-			Version:           IndexLockVersion,
-			Hash:              "",
-			DependentPackages: make(map[string]string),
-			SourceInfo:        make(map[string]Info),
+			Version:     IndexLockVersion,
+			Hash:        "",
+			Depends:     make(map[string]string),
+			DependsInfo: make(map[string]Info),
 		},
 	}
 
