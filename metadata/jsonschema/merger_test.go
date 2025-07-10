@@ -17,37 +17,28 @@ func TestMergeRequired(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name:          "simple required merge",
-			source:        &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"foo", "bar"}}},
-			target:        &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"baz", "bar"}}},
-			expected:      []string{"foo", "bar", "baz"},
-			expectedError: false,
+			name:     "simple required merge",
+			source:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"foo", "bar"}}},
+			target:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"baz", "bar"}}},
+			expected: []string{"foo", "bar", "baz"},
 		},
 		{
-			name:          "empty source required",
-			source:        &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{}},
-			target:        &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"baz", "bar"}}},
-			expected:      []string{"baz", "bar"},
-			expectedError: false,
+			name:     "empty source required",
+			source:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{}},
+			target:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"baz", "bar"}}},
+			expected: []string{"baz", "bar"},
 		},
 		{
-			name:          "empty target required",
-			source:        &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"foo", "bar"}}},
-			target:        &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{}},
-			expected:      []string{"foo", "bar"},
-			expectedError: false,
+			name:     "empty target required",
+			source:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"foo", "bar"}}},
+			target:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{}},
+			expected: []string{"foo", "bar"},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			required, err := mergeRequired(tc.source, tc.target)
-			if tc.expectedError {
-				require.Error(t, err)
-				require.Nil(t, required)
-			} else {
-				require.NoError(t, err)
-				require.ElementsMatch(t, tc.expected, required)
-			}
+			required := mergeRequired(tc.source, tc.target)
+			require.Equal(t, tc.expected, required)
 		})
 	}
 }
