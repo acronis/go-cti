@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/acronis/go-cti/metadata/storage"
-
-	"golang.org/x/mod/semver"
+	"github.com/blang/semver/v4"
 )
 
 type storageImpl struct {
@@ -20,7 +19,7 @@ func (g *storageImpl) Origin() storage.Origin {
 }
 
 func (g *storageImpl) Discover(name string, version string) (storage.Origin, error) {
-	if !semver.IsValid(version) {
+	if _, err := semver.Parse(version); err != nil {
 		return nil, fmt.Errorf("invalid version %s", version)
 	}
 
