@@ -55,8 +55,8 @@ type InitializeOption func(*Package) error
 
 func WithID(id string) InitializeOption {
 	return func(pkg *Package) error {
-		if ValidateID(id) != nil {
-			return fmt.Errorf("validate id: %w", ValidateID(id))
+		if ValidatePackageID(id) != nil {
+			return fmt.Errorf("validate id: %w", ValidatePackageID(id))
 		}
 		pkg.Index.PackageID = id
 		return nil
