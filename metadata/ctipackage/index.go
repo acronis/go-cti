@@ -3,7 +3,6 @@ package ctipackage
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/acronis/go-cti/metadata/filesys"
+	"github.com/blang/semver/v4"
 )
 
 const (
@@ -54,9 +54,6 @@ func ReadIndexFile(fPath string) (*Index, error) {
 		return nil, fmt.Errorf("check index file: %w", err)
 	}
 	packageIDChunks := strings.Split(idx.PackageID, ".")
-	if len(packageIDChunks) != 2 {
-		return nil, fmt.Errorf("package id %s is invalid, expected format: vendor.package", idx.PackageID)
-	}
 	idx.Vendor = packageIDChunks[0]
 	idx.Pkg = packageIDChunks[1]
 
@@ -74,8 +71,8 @@ func DecodeIndex(input io.Reader) (*Index, error) {
 }
 
 func (idx *Index) Check() error {
-	if idx.PackageID == "" {
-		return errors.New("package id is missing")
+	if err := ValidatePackageID(idx.PackageID); err != nil {
+		return fmt.Errorf("validate package ID: %w", err)
 	}
 	for i, p := range idx.Apis {
 		if p == "" {
@@ -99,6 +96,14 @@ func (idx *Index) Check() error {
 		}
 		if ext := filepath.Ext(p); ext != RAMLExt && ext != YAMLExt {
 			return fmt.Errorf("$.examples[%d]: invalid example extension: %s", i, ext)
+		}
+	}
+	for name, version := range idx.Depends {
+		if err := ValidateDependencyName(name); err != nil {
+			return fmt.Errorf("$.depends[%s]: %w", name, err)
+		}
+		if _, err := semver.Parse(version); err != nil {
+			return fmt.Errorf("$.depends[%s]: invalid version %s: %w", name, version, err)
 		}
 	}
 	return nil

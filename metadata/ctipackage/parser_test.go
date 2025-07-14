@@ -39,7 +39,7 @@ func Test_EmptyIndex(t *testing.T) {
 
 	pkg, err := New(testPath)
 	require.NoError(t, err)
-	require.ErrorContains(t, pkg.Read(), "read index file: check index file: package id is missing")
+	require.ErrorContains(t, pkg.Read(), "invalid package ID")
 }
 
 func Test_GenerateIndexRaml(t *testing.T) {

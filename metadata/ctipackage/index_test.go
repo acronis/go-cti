@@ -26,7 +26,7 @@ func Test_ReadIndexFile(t *testing.T) {
 		"entities": ["entity.raml"],
 		"assets": ["asset.png"],
 		"dictionaries": ["dict.json"],
-		"depends": {"dep": "1.0"},
+		"depends": {"dep": "1.0.0"},
 		"examples": ["example.raml"],
 		"serialized": [".cache.json"]
 	}`)
@@ -38,7 +38,7 @@ func Test_ReadIndexFile(t *testing.T) {
 		"entities": ["entity.raml"],
 		"assets": ["asset.png"],
 		"dictionaries": ["dict.json"],
-		"depends": {"dep": "1.0"},
+		"depends": {"dep": "1.0.0"},
 		"examples": ["example.raml"],
 		"serialized": [".cache.json"]
 	}`)
