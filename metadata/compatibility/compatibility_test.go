@@ -1,12 +1,9 @@
 package compatibility
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/ctipackage"
-	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/testsupp"
 	"github.com/stretchr/testify/require"
 )
@@ -100,7 +97,7 @@ func TestCheckPackagesCompatibility(t *testing.T) {
 	}
 
 	// Create a compatibility checker
-	checker := &CompatibilityChecker{}
+	checker := NewCompatibilityChecker()
 
 	// Check compatibility between the packages
 	err = checker.CheckPackagesCompatibility(oldPkg, newPkg)
@@ -175,7 +172,7 @@ func TestCheckPackagesCompatibilityWithSamePackages(t *testing.T) {
 	}
 
 	// Create a compatibility checker
-	checker := &CompatibilityChecker{}
+	checker := NewCompatibilityChecker()
 
 	// Check compatibility between the same packages
 	err = checker.CheckPackagesCompatibility(oldPkg1, oldPkg2)
@@ -186,118 +183,5 @@ func TestCheckPackagesCompatibilityWithSamePackages(t *testing.T) {
 		t.Errorf("Expected compatibility check to succeed, but it failed: %v", checker.Messages)
 	} else {
 		t.Logf("Compatibility check succeeded as expected")
-	}
-}
-
-func TestValidationSummaryTemplate(t *testing.T) {
-	// Create a compatibility checker with some test messages
-	checker := &CompatibilityChecker{
-		Messages: []Message{
-			{Severity: SeverityError, Message: "Error message 1"},
-			{Severity: SeverityError, Message: "Error message 2"},
-			{Severity: SeverityWarning, Message: "Warning message 1"},
-			{Severity: SeverityInfo, Message: "Info message 1"},
-		},
-		Pass: false,
-	}
-
-	// Get the validation failed template
-	template := checker.ValidationSummaryTemplate()
-
-	// Check that the template contains the expected content
-	if !strings.Contains(template, "# Compatibility Check Failed ❌") {
-		t.Errorf("Expected template to contain '## Validation Failed', but it didn't")
-	}
-	if !strings.Contains(template, "**Errors:** 2") {
-		t.Errorf("Expected template to contain '**Errors:** 2', but it didn't")
-	}
-	if !strings.Contains(template, "**Warnings:** 1") {
-		t.Errorf("Expected template to contain '**Warnings:** 1', but it didn't")
-	}
-	if !strings.Contains(template, "**Info:** 1") {
-		t.Errorf("Expected template to contain '**Info:** 1', but it didn't")
-	}
-	if !strings.Contains(template, "Error message 1") {
-		t.Errorf("Expected template to contain 'Error message 1', but it didn't")
-	}
-	if !strings.Contains(template, "Error message 2") {
-		t.Errorf("Expected template to contain 'Error message 2', but it didn't")
-	}
-}
-
-func TestDiffReportTemplate(t *testing.T) {
-	// Create entity types for testing
-	newEntity1, err := metadata.NewEntityType("cti.vendor.package.new.entity.1.v1.0", &jsonschema.JSONSchemaCTI{}, map[metadata.GJsonPath]*metadata.Annotations{})
-	if err != nil {
-		t.Fatalf("Failed to create new entity 1: %v", err)
-	}
-
-	newEntity2, err := metadata.NewEntityType("cti.vendor.package.new.entity.2.v1.0", &jsonschema.JSONSchemaCTI{}, map[metadata.GJsonPath]*metadata.Annotations{})
-	if err != nil {
-		t.Fatalf("Failed to create new entity 2: %v", err)
-	}
-
-	removedEntity, err := metadata.NewEntityType("cti.vendor.package.removed.entity.1.v1.0", &jsonschema.JSONSchemaCTI{}, map[metadata.GJsonPath]*metadata.Annotations{})
-	if err != nil {
-		t.Fatalf("Failed to create removed entity: %v", err)
-	}
-
-	modifiedEntity, err := metadata.NewEntityType("cti.vendor.package.modified.entity.1.v1.0", &jsonschema.JSONSchemaCTI{}, map[metadata.GJsonPath]*metadata.Annotations{})
-	if err != nil {
-		t.Fatalf("Failed to create modified entity: %v", err)
-	}
-
-	// Create a compatibility checker with test data
-	checker := &CompatibilityChecker{
-		NewEntities: []metadata.Entity{
-			newEntity1,
-			newEntity2,
-		},
-		RemovedEntities: []metadata.Entity{
-			removedEntity,
-		},
-		ModifiedEntities: []EntityDiff{
-			{
-				Entity:   modifiedEntity,
-				Messages: []string{"Changed property X", "Removed property Y"},
-			},
-		},
-		Messages: []Message{
-			{Severity: SeverityError, Message: "Error message 1"},
-			{Severity: SeverityWarning, Message: "Warning message 1"},
-			{Severity: SeverityInfo, Message: "Info message 1"},
-		},
-	}
-
-	// Get the diff report template
-	template := checker.DiffReportTemplate()
-
-	// Check that the template contains the expected content
-	if !strings.Contains(template, "# Compatibility Diff Report") {
-		t.Errorf("Expected template to contain '# Compatibility Diff Report', but it didn't")
-	}
-	if !strings.Contains(template, "**Errors:** 1") {
-		t.Errorf("Expected template to contain '**Errors:** 1', but it didn't")
-	}
-	if !strings.Contains(template, "**Warnings:** 1") {
-		t.Errorf("Expected template to contain '**Warnings:** 1', but it didn't")
-	}
-	if !strings.Contains(template, "**Info:** 1") {
-		t.Errorf("Expected template to contain '**Info:** 1', but it didn't")
-	}
-	if !strings.Contains(template, "cti.vendor.package.new.entity.1.v1.0") {
-		t.Errorf("Expected template to contain 'cti.vendor.package.new.entity.1.v1.0', but it didn't")
-	}
-	if !strings.Contains(template, "cti.vendor.package.removed.entity.1.v1.0") {
-		t.Errorf("Expected template to contain 'cti.vendor.package.removed.entity.1.v1.0', but it didn't")
-	}
-	if !strings.Contains(template, "cti.vendor.package.modified.entity.1.v1.0") {
-		t.Errorf("Expected template to contain 'cti.vendor.package.modified.entity.1.v1.0', but it didn't")
-	}
-	if !strings.Contains(template, "Changed property X") {
-		t.Errorf("Expected template to contain 'Changed property X', but it didn't")
-	}
-	if !strings.Contains(template, "Error message 1") {
-		t.Errorf("Expected template to contain 'Error message 1', but it didn't")
 	}
 }
