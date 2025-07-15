@@ -79,6 +79,18 @@ func (c *RAMLXCollector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseSha
 		}
 	}
 
+	if objShape.PatternProperties != nil {
+		for pair := objShape.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
+			prop := pair.Value
+			us, err := c.raml.UnwrapShape(prop.Base)
+			if err != nil {
+				return nil, fmt.Errorf("object property unwrap: %w", err)
+			}
+			prop.Base = us
+			objShape.PatternProperties.Set(pair.Key, prop)
+		}
+	}
+
 	for pair := base.CustomShapeFacetDefinitions.Oldest(); pair != nil; pair = pair.Next() {
 		prop := pair.Value
 		us, err := c.raml.UnwrapShape(prop.Base)
