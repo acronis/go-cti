@@ -27,7 +27,6 @@ types:
     properties:
       val:
         type: cti.CTI
-        (cti.reference): cti.x.y.sample_entity.v1.0
 `
 
 const newPackageIndexJSON = `{
@@ -48,8 +47,8 @@ types:
     (cti.cti): cti.x.y.sample_entity.v1.0
     properties:
       val:
-        type: cti.CTI
-        (cti.reference): cti.x.y.sample_entity.v1.1
+        type: string
+        pattern: "^[a-zA-Z0-9]+$"
 `
 
 func TestCheckPackagesCompatibility(t *testing.T) {
