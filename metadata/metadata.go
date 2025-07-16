@@ -199,11 +199,14 @@ type entity struct {
 }
 
 type EntitySourceMap struct {
-	// SourcePath is a relative path to the RAML file where the CTI parent is defined.
+	// SourcePath is a relative path to the source file where the CTI parent is defined.
 	SourcePath string `json:"$sourcePath,omitempty" yaml:"$sourcePath,omitempty"`
 
-	// OriginalPath is a relative path to RAML fragment where the CTI entity is defined.
+	// OriginalPath is a relative path to source fragment where the CTI entity is defined.
 	OriginalPath string `json:"$originalPath,omitempty" yaml:"$originalPath,omitempty"`
+
+	// Line is the line number in the source file where the CTI entity is defined.
+	Line int `json:"$line,omitempty" yaml:"$line,omitempty"`
 }
 
 func (e *entity) GetCTI() string {

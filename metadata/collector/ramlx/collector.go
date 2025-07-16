@@ -170,6 +170,7 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 		EntitySourceMap: metadata.EntitySourceMap{
 			OriginalPath: filepath.ToSlash(originalPath),
 			SourcePath:   filepath.ToSlash(sourcePath),
+			Line:         shape.Line,
 		},
 	})
 
@@ -179,8 +180,8 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 func (c *RAMLXCollector) MakeMetadataInstance(
 	id string,
 	definedBy *raml.ArrayShape,
+	extension *raml.DomainExtension,
 	values map[string]any,
-	valuesLocation string,
 ) (*metadata.EntityInstance, error) {
 	entity, err := metadata.NewEntityInstance(id, values)
 	if err != nil {
@@ -212,7 +213,7 @@ func (c *RAMLXCollector) MakeMetadataInstance(
 		}
 	}
 
-	originalPath, _ := filepath.Rel(c.BaseDir, valuesLocation)
+	originalPath, _ := filepath.Rel(c.BaseDir, extension.Location)
 	reference, _ := filepath.Rel(c.BaseDir, definedBy.Location)
 
 	entity.SetSourceMap(metadata.EntityInstanceSourceMap{
@@ -224,6 +225,7 @@ func (c *RAMLXCollector) MakeMetadataInstance(
 		EntitySourceMap: metadata.EntitySourceMap{
 			OriginalPath: filepath.ToSlash(originalPath),
 			SourcePath:   filepath.ToSlash(originalPath),
+			Line:         extension.Line,
 		},
 	})
 
@@ -394,7 +396,7 @@ func (c *RAMLXCollector) readAndMakeCtiInstances(annotation *raml.DomainExtensio
 			return fmt.Errorf("child cti doesn't match parent cti: %w", err)
 		}
 
-		entity, err := c.MakeMetadataInstance(id, s, obj, annotation.Extension.Location)
+		entity, err := c.MakeMetadataInstance(id, s, annotation, obj)
 		if err != nil {
 			return fmt.Errorf("make cti instance: %w", err)
 		}
