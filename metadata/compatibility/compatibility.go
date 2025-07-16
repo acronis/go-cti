@@ -201,22 +201,33 @@ func (cc *CompatibilityChecker) checkAnnotationsCompatibility(ctx context, oldAn
 			cc.addMessage(ctx, SeverityWarning, fmt.Sprintf("annotations key `%s` not found", path))
 			continue
 		}
-		if oldAnnotation.Reference != newAnnotation.Reference {
-			cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.reference mismatch: `%v` -> `%v`", path, oldAnnotation.Reference, newAnnotation.Reference))
+		if oldAnnotation.Reference != nil && newAnnotation.Reference != nil {
+			oldReferences := oldAnnotation.ReadReference()
+			newReferences := ToSet(newAnnotation.ReadReference())
+			invalid := false
+			for _, v := range oldReferences {
+				if _, ok := newReferences[v]; !ok {
+					invalid = true
+					break
+				}
+			}
+			if invalid {
+				cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.reference has different values: `%v` -> `%v`", path, oldReferences, newReferences))
+			}
 		}
 		if oldAnnotation.Meta != newAnnotation.Meta {
 			cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.meta mismatch: `%s` -> `%s`", path, oldAnnotation.Meta, newAnnotation.Meta))
 		}
-		if oldAnnotation.PropertyNames != nil && newAnnotation.PropertyNames != nil {
-			for key, oldValue := range oldAnnotation.PropertyNames {
-				newValue, ok := newAnnotation.PropertyNames[key]
-				if !ok {
-					cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.propertyNames not found", key))
-				} else if oldValue != newValue {
-					cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.propertyNames mismatch: `%v` -> `%v`", key, oldValue, newValue))
-				}
-			}
-		}
+		// if oldAnnotation.PropertyNames != nil && newAnnotation.PropertyNames != nil {
+		// 	for key, oldValue := range oldAnnotation.PropertyNames {
+		// 		newValue, ok := newAnnotation.PropertyNames[key]
+		// 		if !ok {
+		// 			cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.propertyNames not found", key))
+		// 		} else if oldValue != newValue {
+		// 			cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.propertyNames mismatch: `%v` -> `%v`", key, oldValue, newValue))
+		// 		}
+		// 	}
+		// }
 		if oldAnnotation.ID != nil && newAnnotation.ID != nil {
 			if *oldAnnotation.ID != *newAnnotation.ID {
 				cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.id mismatch: `%v` -> `%v`", path, *oldAnnotation.ID, *newAnnotation.ID))
@@ -243,8 +254,17 @@ func (cc *CompatibilityChecker) checkAnnotationsCompatibility(ctx context, oldAn
 			}
 		}
 		if oldAnnotation.Schema != nil && newAnnotation.Schema != nil {
-			if oldAnnotation.Schema != newAnnotation.Schema {
-				cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.schema mismatch: `%v` -> `%v`", path, oldAnnotation.Schema, newAnnotation.Schema))
+			oldSchemas := oldAnnotation.ReadCTISchema()
+			newSchemas := ToSet(newAnnotation.ReadCTISchema())
+			invalid := false
+			for _, v := range oldSchemas {
+				if _, ok := newSchemas[v]; !ok {
+					invalid = true
+					break
+				}
+			}
+			if invalid {
+				cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.schema has different values: `%v` -> `%v`", path, oldSchemas, newSchemas))
 			}
 		}
 	}

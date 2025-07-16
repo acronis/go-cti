@@ -128,8 +128,11 @@ func (a Annotations) ReadCTISchema() []string {
 	}
 	var vals []string
 	for _, val := range a.Schema.([]any) {
-		if strVal, ok := val.(string); ok {
-			vals = append(vals, strVal)
+		switch v := val.(type) {
+		case string:
+			vals = append(vals, v)
+		case nil:
+			vals = append(vals, "null")
 		}
 	}
 	return vals

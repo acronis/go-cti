@@ -263,6 +263,9 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *metadata.Annotations, child, _ *metadata.EntityType) error {
 	schemaRefs := annotation.ReadCTISchema()
 	for _, schemaRef := range schemaRefs {
+		if schemaRef == "null" {
+			continue
+		}
 		expr, err := v.getOrCacheExpression(schemaRef, v.ctiParser.Parse)
 		if err != nil {
 			return fmt.Errorf("failed to parse parent cti.schema %s: %w", schemaRef, err)
