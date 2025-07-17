@@ -101,7 +101,7 @@ func (pkg *Package) SaveIndexLock() error {
 	}
 
 	// make sure that index hash in lock file is up to date
-	pkg.IndexLock.Hash = pkg.Index.Hash()
+	pkg.IndexLock.Hash = pkg.Index.HashDepends()
 
 	if err := pkg.IndexLock.Save(pkg.BaseDir); err != nil {
 		return fmt.Errorf("save index lock: %w", err)

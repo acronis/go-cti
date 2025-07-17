@@ -1,7 +1,6 @@
 package ctipackage
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/acronis/go-cti/metadata/filesys"
 	"github.com/blang/semver/v4"
+	"github.com/zeebo/xxh3"
 )
 
 const (
@@ -119,9 +119,21 @@ func (idx *Index) ToBytes() []byte {
 	return bytes
 }
 
+func (idx *Index) ToBytesDepends() []byte {
+	bytes, _ := json.Marshal(idx.Depends)
+	return bytes
+}
+
 func (idx *Index) Hash() string {
-	h := sha256.New()
+	h := xxh3.New()
 	h.Write(idx.ToBytes())
+
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func (idx *Index) HashDepends() string {
+	h := xxh3.New()
+	h.Write(idx.ToBytesDepends())
 
 	return fmt.Sprintf("%x", h.Sum(nil))
 }

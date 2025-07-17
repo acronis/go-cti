@@ -89,7 +89,7 @@ func (pm *packageManager) Install(pkg *ctipackage.Package, force bool) error {
 	useIndex := force
 
 	// Check if index-lock exists and has the same hash as index
-	if pkg.IndexLock != nil && pkg.Index.Hash() != pkg.IndexLock.Hash {
+	if pkg.IndexLock != nil && pkg.Index.HashDepends() != pkg.IndexLock.Hash {
 		if !force {
 			slog.Error("Package index hash mismatch, please run 'pkg tidy' to update index-lock",
 				slog.String("package_id", pkg.Index.PackageID),
