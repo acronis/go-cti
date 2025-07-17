@@ -438,7 +438,7 @@ type EntityType struct {
 	Schema            *jsonschema.JSONSchemaCTI  `json:"schema" yaml:"schema"`
 	TraitsSchema      *jsonschema.JSONSchemaCTI  `json:"traits_schema,omitempty" yaml:"traits_schema,omitempty"`
 	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty" yaml:"traits_annotations,omitempty"`
-	Traits            any                        `json:"traits,omitempty" yaml:"traits,omitempty"`
+	Traits            map[string]any             `json:"traits,omitempty" yaml:"traits,omitempty"`
 
 	rawSchema []byte `json:"-" yaml:"-"` // Cached raw schema
 	// FIXME: Need to remove. Raw values are only needed for GJSON, but it works with bytes.
@@ -583,7 +583,7 @@ func (e *EntityType) FindTraitsSchemaInChain() *jsonschema.JSONSchemaCTI {
 	return nil
 }
 
-func (e *EntityType) GetTraits() any {
+func (e *EntityType) GetTraits() map[string]any {
 	return e.Traits
 }
 
@@ -609,7 +609,7 @@ func (e *EntityType) GetRawTraits() ([]byte, error) {
 	return e.rawTraitValues, nil
 }
 
-func (e *EntityType) FindTraitsInChain() any {
+func (e *EntityType) FindTraitsInChain() map[string]any {
 	root := e
 	for root != nil {
 		if root.Traits != nil {
@@ -644,7 +644,7 @@ func (e *EntityType) SetTraitsSchema(traitsSchema *jsonschema.JSONSchemaCTI, tra
 	e.TraitsAnnotations = traitsAnnotations
 }
 
-func (e *EntityType) SetTraits(traits any) {
+func (e *EntityType) SetTraits(traits map[string]any) {
 	e.Traits = traits
 }
 

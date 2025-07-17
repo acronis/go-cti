@@ -678,7 +678,7 @@ func TestEntityType_FindTraitsInChain(t *testing.T) {
 	tests := []struct {
 		name       string
 		obj        *EntityType
-		wantResult interface{}
+		wantResult map[string]interface{}
 	}{
 		{
 			name: "traits in object",
