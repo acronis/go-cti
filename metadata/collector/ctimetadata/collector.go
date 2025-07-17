@@ -47,7 +47,7 @@ func (c *CTIMetadataCollector) Collect() (*registry.MetadataRegistry, error) {
 		}
 		var entity metadata.Entity
 		switch head {
-		case "#%CTI Type v1.0":
+		case "#%CTI Type 1.0":
 			var typ metadata.EntityType
 			if err = yaml.Unmarshal(raw, &typ); err != nil {
 				return nil, fmt.Errorf("unmarshal type %s: %w", fragmentName, err)
@@ -59,7 +59,7 @@ func (c *CTIMetadataCollector) Collect() (*registry.MetadataRegistry, error) {
 				},
 			})
 			entity = &typ
-		case "#%CTI Instance v1.0":
+		case "#%CTI Instance 1.0":
 			var instance metadata.EntityInstance
 			if err = yaml.Unmarshal(raw, &instance); err != nil {
 				return nil, fmt.Errorf("unmarshal instance %s: %w", fragmentName, err)
