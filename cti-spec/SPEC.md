@@ -17,15 +17,18 @@
     - [Using wildcard](#using-wildcard)
     - [Using version](#using-version)
   - [Extended Backus-Naur form](#extended-backus-naur-form)
-- [CTI Metadata](#cti-metadata)
-- [Data types, instances and semantics](#data-types-instances-and-semantics)
-  - [Data types](#data-types)
+- [CTI and metadata](#cti-and-metadata)
+  - [Entity type schema language](#entity-type-schema-language)
+  - [Metadata structure](#metadata-structure)
+  - [Metadata format](#metadata-format)
+  - [Data types and traits](#data-types-and-traits)
   - [Instances](#instances)
-  - [References](#references)
-  - [Disallowing inheritance](#disallowing-inheritance)
-  - [Limiting type specialization](#limiting-type-specialization)
-  - [Access modifiers](#access-modifiers)
-  - [Traits](#traits)
+  - [CTI extensions](#cti-extensions)
+    - [References](#references)
+    - [Disallowing inheritance](#disallowing-inheritance)
+    - [Limiting type specialization](#limiting-type-specialization)
+    - [Access modifiers](#access-modifiers)
+    - [Inserting CTI schemas](#inserting-cti-schemas)
 - [Examples](#examples)
   - [Dynamic configuration through instances](#dynamic-configuration-through-instances)
   - [Extensible object types through type inheritance](#extensible-object-types-through-type-inheritance)
@@ -33,6 +36,11 @@
     - [Expressing a relationship without an intermediate mapping](#expressing-a-relationship-without-an-intermediate-mapping)
   - [Using CTI for data objects access control](#using-cti-for-data-objects-access-control)
 - [Types and instances definition with RAMLx 1.0](#types-and-instances-definition-with-ramlx-10)
+  - [Translation between RAMLx 1.0 and CTI metadata](#translation-between-ramlx-10-and-cti-metadata)
+    - [Type schema](#type-schema)
+    - [Instance](#instance)
+    - [Traits schema](#traits-schema)
+    - [Trait values](#trait-values)
   - [Typed annotations](#typed-annotations)
   - [User-defined facets](#user-defined-facets)
   - [Annotations overview](#annotations-overview)
@@ -332,87 +340,211 @@ A complete syntax of CTI is represented using the following Extended Backus-Naur
   wildcard = "*";
 ```
 
-## CTI Metadata
+## CTI and metadata
 
-CTI is also associated with a specific data type or data object. The information about this association is represented by a standard metadata structure defined in this specification.
+A CTI serves solely as a unique identifier for an entity and establishes a syntactic relationship between the entities via inheritance.
+It does not encode the information about the domain model (or data that conforms to the domain model) of the entity.
+To express this information for a CTI, metadata is used. Metadata defines the structure, constraints, and configurable traits of the entity.
 
-The metadata has the following structure:
+This approach aligns with Domain-Driven Design (DDD) principles: platform developers define the domain model declaratively using CTIs as identifiers,
+and combine them with metadata to establish a contract between the domain and the implementation. Vendors can then extend this domain model
+by deriving their own types, inheriting the semantics and behavior, and specifying behavior by traits, if applicable.
 
-|   **Field**   | **Type** |                                   **Description**                                  |
-|---------------|----------|------------------------------------------------------------------------------------|
-| cti           | CTI      | Identifier of the CTI entity.                                                      |
-| final         | boolean  | Indicates that the CTI entity is final and cannot have derived entities.           |
-| display_name  | string   | A human-readable name of CTI entity.                                               |
-| description   | string   | A human-readable description of CTI entity.                                        |
-| schema        | object   | Data type schema. Only present for CTI types.                                      |
-| values        | any      | Arbitrary values that follow the parent schema. Only present for CTI instances.    |
-| traits_schema | object   | Traits schema. Only present for CTI types.                                         |
-| traits        | any      | Arbitrary values that follow the parent traits schema. Only present for CTI types. |
-| annotations   | object   | An object where key is a path to annotated property and value is an object.        |
-
-For examples that demonstrate the usage of CTI Metadata, see **Types, instances and semantics**.
-
-## Data types, instances and semantics
-
-A CTI may be used to express the following types of entities in the system:
+The specification defines the following two types of entities that can be represented by a CTI:
 
 1. Type - an extensible data type schema that expresses a domain object type.
-2. Instance - a static object that follows the parent data type schema and its semantics.
+2. Instance - a static data that conforms the parent data type schema and specifies its behavior.
 
-With the extension mechanism provided by CTI, each type can be extended through inheritance or an instance of that type can be created.
-Additionally, using an extensible type system such as RAML, additional semantics may be applied. For example:
+### Entity type schema language
 
-1. Allow or disallow inheritance (sealed type).
-2. Allow or disallow narrowing specific properties of the type.
-3. Express a relationship between objects by specifying a reference.
-4. Instantiate types with specific traits that controls specific behavior.
+CTI specification is not bound to a specific data type language. Instead, it integrates with existing data type
+languages such as [JSON Schema](https://json-schema.org/) and [RAMLx](https://raml.org/) (covered by this specification),
+while providing additional capabilities and metadata on top of them. For example, with CTI you can:
 
-This allows vendors to control the way in which their domains can be extended and whether they want them to be extended.
+1. Define inheritance relationship between types (not available in JSON Schema).
+2. Allow or disallow inheritance (sealed type) (not available in any language).
+3. Allow or disallow narrowing specific properties of the type (not available in any language).
+4. Express a relationship between objects by specifying a reference (not available in any language).
+5. Define traits schema and traits that control specific behavior of the type (not available in JSON Schema).
 
-### Data types
+All examples in this specification use [JSON Schema Draft-7](https://json-schema.org/) as a data type language, unless stated otherwise.
 
-A base CTI or its extension can be associated with a dynamically extensible data type schema that may be used in the following ways:
+### Metadata structure
 
-- Platform developers may define base types or extend existing types.
-- Vendors may extend existing types.
+The specification defines a standard metadata structure that implementations can use to describe CTI entities:
 
-Data type schemas may utilize the extension mechanism to build an inheritance relationship, similar to object-oriented languages.
-This allows platform developers to establish the interface (abstract data type schema) which vendors may use to dynamically
-introduce new types (concrete data type schema) in the platform.
+| **Field**     | **Type** | **Description**                                                                                                               |
+|---------------|----------|-------------------------------------------------------------------------------------------------------------------------------|
+| cti           | CTI      | Identifier of the CTI entity.                                                                                                 |
+| final         | boolean  | Indicates that the CTI entity is final and cannot have derived entities. CTI instances are final by default.                  |
+| access        | string   | Specifies an [access modifier](#access-modifiers) for the CTI metadata.                                                       |
+| display_name  | string   | A human-readable name of CTI entity.                                                                                          |
+| description   | string   | A human-readable description of CTI entity.                                                                                   |
+| schema        | object   | Data type schema. Only present for [CTI types](#data-types-and-traits).                                                       |
+| values        | any      | [Arbitrary values](#instances) that follow the parent schema. Only present for CTI instances.                                 |
+| traits_schema | object   | [Traits schema](#data-types-and-traits). Only present for CTI types.                                                          |
+| traits        | object   | [An object of arbitrary key-values](#data-types-and-traits) that follow the parent traits schema. Only present for CTI types. |
+| annotations   | object   | An object where key is a path to annotated property and value is an object.                                                   |
 
-However, CTI establishes not only a syntactic relationship, but also a semantic relationship. A base data type may imply a specific
-behavior that is preserved by the entire inheritance chain and that derived types cannot change, or provide **Traits**
-that allow the type to control the behavior.
+### Metadata format
 
-For example, a platform developer may introduce a generic alert type that would introduce standard alerts management semantics
-like dismissal flow, rendering flow, alert generation rules, etc. Derived alert types would have the same semantics applied,
-but may also imply additional semantics like specific alerts aggregation/processing rules implemented by the service that
-works with objects of this type.
+A standard metadata format that is defined by this specification is a YAML 1.2 document with a corresponding header.
+There are two types of document headers:
+
+- `#%CTI Type 1.0` for CTI types.
+- `#%CTI Instance 1.0` for CTI instances.
+
+A header must have no leading or trailing spaces and must be the first line of the document.
+
+An example of a CTI type metadata document:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.topic.v1.0
+final: false
+access: public
+display_name: Event Topic
+description: An event topic that is used to group events.
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/Topic"
+  definitions:
+    Topic:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A name of the topic.
+        retention:
+          type: string
+          description: A retention duration of the events created in this topic.
+      required: [ name, retention ]
+```
+
+An example of a CTI instance metadata document (based on the schema above):
+
+```yaml
+#%CTI Instance 1.0
+cti: cti.a.p.topic.v1.0~a.p.user.v1.0
+final: true
+access: public
+display_name: User-related events topic
+description: A topic for user-related events.
+values:
+  name: User-related events topic.
+  retention: 30d
+```
+
+### Data types and traits
+
+A CTI can be associated with a data type schema that may be used in the following ways:
+
+- Platform developers may define base (abstract) types that represent a contract between the domain and the implementation.
+  To make the domain configurable, platform developers may also specify a **traits schema** to allow vendors to manage the behavior of the domain.
+- Vendors may derive concrete types (or another abstract type depending on the domain complexity), inheriting the semantics and behavior.
+  If supported by the domain, additionally specifying the behavior by **traits**.
+
+This allows platform developers to control the way in which their domains can be extended and configured.
+
+For example, a platform developer may introduce an abstract alert type that provides configurable alert generation rules
+and standard alert behaviors such as dismissal flow, rendering flow, etc. Concrete alert types derived by the vendor
+will preserve these behaviors and will also have an ability to configure the alert generation rules via traits.
 
 ### Instances
 
-A CTI extension can be associated with an object instance derived from a parent data type.
+A CTI can be associated with a static data that conforms the parent data type schema and specifies its behavior.
 
-CTI instances are static objects and follow semantics defined by the parent data type. They are particularly
-useful for defining static configuration, such as predefined service configuration, intermediate mapping entity, etc.
+CTI instances are particularly useful for defining static configuration, such as predefined service configuration,
+intermediate mapping, templates, rules, etc.
 
-Platform developers and vendors may create instances to dynamically extend the domain.
+Platform developers and vendors may create instances to dynamically configure the behavior of the domain.
 
-### References
+### CTI extensions
 
-In addition to inheritance, platform developers can express relationship between different CTIs.
+#### References
 
-### Disallowing inheritance
+In addition to inheritance, platform developers can express relationship between different CTIs
+within the schema and validate the values using the `x-cti.reference` (JSON Schema) or `(cti.reference)` (RAMLx 1.0) extension.
+For example, a schema may specify that a specific field is a reference to a CTI:
 
-Vendors may disallow inheritance of specific types to avoid extending types that are not meant to be extended.
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.event.v1.0
+# ...
+traits_schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/cti-traits"
+  definitions:
+    cti-traits:
+      type: object
+      properties:
+        topic_id:
+          type: string
+          description: A CTI reference to the event topic.
+          x-cti.reference: cti.a.p.topic.v1.0 # CTI validator will validate that the value matches this CTI.
+```
 
-### Limiting type specialization
+A concrete event type will then be able to specify the `topic_id` field as a reference to a specific topic:
 
-Vendors may limit type specialization by allowing other vendors to specialize only specific properties.
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.event.v1.0~a.p.user.log_in_attempt.v1.0
+# ...
+traits:
+  # A valid value since cti.a.p.topic.v1.0~a.p.user.v1.0 matches cti.a.p.topic.v1.0
+  topic_id: cti.a.p.topic.v1.0~a.p.user.v1.0
+```
 
-### Access modifiers
+#### Disallowing inheritance
 
-Vendors may use access modifiers, akin to object-oriented programming languages, to limit access to specific types and instances to prevent other vendors from extending private parts of the domain.
+Vendors may disallow inheritance of specific types to avoid deriving from types that are not meant to be extended.
+This is controlled by the `final` property in the metadata. By default, all types are final and cannot be extended.
+For example, the following type schema defines a final type that cannot be extended:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.topic.v1.0
+final: true
+# ...
+```
+
+This makes the following type schema invalid:
+
+```yaml
+#%CTI Type 1.0
+# Invalid since cti.a.p.topic.v1.0 is final and cannot be extended
+cti: cti.a.p.topic.v1.0~a.p.user.v1.0
+# ...
+```
+
+Note that this does not prevent instances from being created based on the final type. It only prevents other types from extending it.
+
+#### Limiting type specialization
+
+Platform developers and vendors may limit type specialization by allowing other vendors to specialize only specific properties.
+By default, all properties of a type are not allowed to be specialized. For example, the following type schema defines a type that allows specialization of the `data` property only:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.topic.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/Topic"
+  definitions:
+    Topic:
+      type: object
+      properties:
+        # ...
+        data:
+          type: object
+          description: An event payload.
+          x-cti.overridable: true # This property can be specialized by other vendors.
+```
+
+#### Access modifiers
+
+Vendors may use access modifiers, akin to object-oriented programming languages, to limit access to specific types and instances to prevent other vendors from extending private parts of the domain. This is controlled by the `access` property in the metadata.
 
 The following access modifiers are available:
 
@@ -420,18 +552,45 @@ The following access modifiers are available:
 - Protected - allowed to be referenced only by the same vendor.
 - Private - allowed to be referenced only by the same package.
 
-Access modifiers do not prevent derived types and instances from being less restrictive than their parents. Developers are encouraged to limit the accessibility level of lower-level entities and expose only higher-level entities where applicable.
+When deriving a type, the access modifier must be the same or more restrictive than the parent type. Setting a less restrictive access modifier is not allowed.
 
-### Traits
+By default, all types and instances are protected, meaning that they can be referenced only by the same vendor. This is done to prevent accidental exposure of types and instances to other vendors.
 
-Platform developers may define traits that express domain-specific semantics and vendors
-may introduce an extension that uses traits to specify these semantics. This is similar to CTI instances,
-but does not require an intermediate entity.
+#### Inserting CTI schemas
+
+Platform developers and vendors may insert CTI schemas within their data type schemas to reuse existing types, enabling schema composition using CTI types. This is done by using the `x-cti.schema` (JSON Schema) or `(cti.schema)` (RAMLx 1.0) extension.
+
+For example, the following type schema defines a type that uses the `cti.a.p.topic.v1.0` type schema as a base:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.event.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/Event"
+  definitions:
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          description: A unique identifier of the event.
+          format: uuid
+        topic_id:
+          type: string
+          description: A unique identifier of the event topic.
+          x-cti.schema: cti.a.p.topic.v1.0 # This will insert the topic schema into the event schema.
+        type:
+          type: string
+          description: A CTI that was used to create the event.
+        data:
+          type: object
+          description: An event payload.
+      required: [ id, topic_id, type, data ]
+```
 
 ## Examples
-
-> [!NOTE]
-> All examples of type schemas use **CTI Metadata** structure where all schemas are presented in JSON Schema format.
 
 ### Dynamic configuration through instances
 
@@ -448,24 +607,31 @@ By introducing CTI, a vendor may easily introduce a new event topic object witho
 For example, let us assume that the **CTI** table contains the following CTI with the base event type schema:
 
 ```yaml
+#%CTI Type 1.0
 cti: cti.a.p.topic.v1.0
+# ...
 schema:
   $schema: http://json-schema.org/draft-07/schema#
-  type: object
-  properties:
-    name:
-      type: string
-      description: A name of the topic.
-    retention:
-      type: string
-      description: A retention duration of the events created in this topic.
-  required: [ name, retention ]
+  $ref: "#/definitions/Topic"
+  definitions:
+    Topic:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A name of the topic.
+        retention:
+          type: string
+          description: A retention duration of the events created in this topic.
+      required: [ name, retention ]
 ```
 
 Now, we can dynamically create a new event topic by simply creating a new instance based on this data type:
 
 ```yaml
+#%CTI Instance 1.0
 cti: cti.a.p.topic.v1.0~a.p.user.v1.0
+# ...
 values:
   name: User-related events topic.
   retention: 30d
@@ -486,44 +652,54 @@ In an extensible system, this structure is impossible to validate since `data` p
 By introducing CTI, a vendor may define a base data type for the event that can be extended further by anyone. For example, let us assume that the **CTI** table contains the following CTI with the base event schema:
 
 ```yaml
+#%CTI Type 1.0
 cti: cti.a.p.event.v1.0
+# ...
 schema:
   $schema: http://json-schema.org/draft-07/schema#
-  type: object
-  properties:
-    id:
-      type: string
-      description: A unique identifier of the event.
-      format: uuid
-    topic_id:
-      type: string
-      description: A unique identifier of the event topic.
-    type:
-      type: string 
-      description: A CTI that was used to create the event.
-    data:
+  $ref: "#/definitions/Event"
+  definitions:
+    Event:
       type: object
-      description: An event payload.
-  required: [ id, topic_id, type, data ]
+      properties:
+        id:
+          type: string
+          description: A unique identifier of the event.
+          format: uuid
+        topic_id:
+          type: string
+          description: A unique identifier of the event topic.
+        type:
+          type: string
+          description: A CTI that was used to create the event.
+        data:
+          type: object
+          description: An event payload.
+          x-cti.overridable: true # This property can be specialized by other vendors.
+      required: [ id, topic_id, type, data ]
 ```
 
 Now, the same or the other vendor may specify a concrete `data` schema and therefore dynamically register a new event that adheres to the domain:
 
 ```yaml
+#%CTI Type 1.0
 cti: cti.a.p.event.v1.0~a.p.user.log_in_attempt.v1.0
+# ...
 schema:
   $schema: http://json-schema.org/draft-07/schema#
-  type: object
-  properties:
-    data:
+  $ref: "#/definitions/UserLogInAttemptEvent"
+  definitions:
+    UserLogInAttemptEvent:
       type: object
-      description: An event payload.
       properties:
-        user_agent:
-          type: string
-          description: A User-Agent of the browser that was used in log in attempt.
-      required: [ user_agent ]
-  required: [ data ]
+        data:
+          type: object
+          properties:
+            user_agent:
+              type: string
+              description: A User-Agent of the browser that was used in log in attempt.
+          required: [ user_agent ]
+      required: [ data ]
 ```
 
 ### Controlling the type behavior
@@ -546,27 +722,32 @@ By introducing CTI, we can express this association via type traits. A base type
 For example, let us assume that the **CTI** table contains the following CTI with the base event schema:
 
 ```yaml
+#%CTI Type 1.0
 cti: cti.a.p.event.v1.0
+# ...
 schema:
   $schema: http://json-schema.org/draft-07/schema#
-  type: object
-  properties:
-    id:
-      type: string
-      description: A unique identifier of the event.
-      format: uuid
-    topic_id:
-      # NOTE: An object may carry a topic ID to allow the clients to identify the topic. 
-      # It is not directly related to the trait defined along with the schema.
-      type: string
-      description: A unique identifier of the event topic.
-    type:
-      type: string 
-      description: A CTI that was used to create the event.
-    data:
-      type: object
-      description: An event payload.
-  required: [ id, topic_id, type ]
+  $ref: "#/definitions/UserLogInAttemptEvent"
+  definitions:
+    Event:
+      properties:
+        id:
+          type: string
+          description: A unique identifier of the event.
+          format: uuid
+        topic_id:
+          # NOTE: An object may carry a topic ID to allow the clients to identify the topic.
+          # It is not directly related to the trait defined along with the schema.
+          type: string
+          description: A unique identifier of the event topic.
+        type:
+          type: string
+          description: A CTI that was used to create the event.
+        data:
+          type: object
+          description: An event payload.
+          x-cti.overridable: true # This property can be specialized by other vendors.
+      required: [ id, topic_id, type ]
 traits_schema:
   $schema: http://json-schema.org/draft-07/schema#
   type: object
@@ -580,20 +761,24 @@ traits_schema:
 Now, other vendors may not only specify a concrete `data` schema, but also specify the CTI of the topic that will be associated with this event:
 
 ```yaml
+#%CTI Type 1.0
 cti: cti.a.p.event.v1.0~a.p.user.log_in_attempt.v1.0
 schema:
   $schema: http://json-schema.org/draft-07/schema#
-  type: object
-  properties:
-    data:
+  $ref: "#/definitions/UserLogInAttemptEvent"
+  definitions:
+    UserLogInAttemptEvent:
       type: object
-      description: An event payload.
       properties:
-        user_agent:
-          type: string
-          description: A User-Agent of the browser that was used in log in attempt.
-      required: [ user_agent ]
-  required: [ data ]
+        data:
+          type: object
+          description: An event payload.
+          properties:
+            user_agent:
+              type: string
+              description: A User-Agent of the browser that was used in log in attempt.
+          required: [ user_agent ]
+      required: [ data ]
 traits:
   topic_id: cti.a.p.topic.v1.0~a.p.user.v1.0
 ```
@@ -604,19 +789,31 @@ The CTI identifier notation is a powerful tool for managing data access control 
 
 ```json
 {
-  "iss": "cti.vendor.platform.auth.v1.0",           // Token issuer identifier is Vendor's Platform
-  "sub": "e0d31952-f46f-4e2a-9327-ee04a0eef544",    // Subject: API client (or user) identifier
-  "exp": 1700000000,                                // Expiration time (Unix timestamp)
-  "iat": 1690000000,                                // Issued at time (Unix timestamp)
-  "scope": [                                        // ABAC example
-    "cti.vendor.platform.task.v1.0~*:read",         // Grant access to read all the objects with type inherited from cti.vendor.platform.task.v1.0
-    "cti.partner_vendor.integration_app.*:read"     // Read-only access to all the objects introduced by 'Integration App' from 'Partner Vendor'
-    "cti.vendor.platform.alert.v1.0~2181ab50-a526-4507-901a-64af98b3be53:admin", // Admin access to specific alert object with given UUID
-    "cti.vendor.platform.alert.v1.0~vendor.platform.license_expired.v1.0:admin", // Additional Admin access to all alerts with ~vendor.platform.license_expired.v1.0 type
+  // Token issuer identifier is Vendor's Platform
+  "iss": "cti.vendor.platform.auth.v1.0",
+  // Subject: API client (or user) identifier
+  "sub": "e0d31952-f46f-4e2a-9327-ee04a0eef544",
+  // Expiration time (Unix timestamp)
+  "exp": 1700000000,
+  // Issued at time (Unix timestamp)
+  "iat": 1690000000,
+  // ABAC example
+  "scope": [
+    // Grant access to read all the objects with type inherited from cti.vendor.platform.task.v1.0
+    "cti.vendor.platform.task.v1.0~*:read",
+    // Read-only access to all the objects introduced by 'Integration App' from 'Partner Vendor'
+    "cti.partner_vendor.integration_app.*:read"
+    // Admin access to specific alert object with given UUID
+    "cti.vendor.platform.alert.v1.0~2181ab50-a526-4507-901a-64af98b3be53:admin",
+    // Additional Admin access to all alerts with ~vendor.platform.license_expired.v1.0 type
+    "cti.vendor.platform.alert.v1.0~vendor.platform.license_expired.v1.0:admin",
   ],
-  "roles": [                                        // RBAC example
-     "cti.vendor.platform.role.v1.0~vendor.platform.read_only_admin.v1.0", // The API client (or user) gets the read-only admin permissions for Platform services
-     "cti.vendor.platform.role.v1.0~partner_vendor.integration_app.support_engineer.v1.0" // Additionally, it gets some 'support engineer' permissions in the 'Integration App'
+  // RBAC example
+  "roles": [
+    // The API client (or user) gets the read-only admin permissions for Platform services
+     "cti.vendor.platform.role.v1.0~vendor.platform.read_only_admin.v1.0",
+     // Additionally, it gets some 'support engineer' permissions in the 'Integration App'
+     "cti.vendor.platform.role.v1.0~partner_vendor.integration_app.support_engineer.v1.0"
   ]
 }
 ```
@@ -634,10 +831,187 @@ that an identity may have access to. The following table shows of claims and the
 
 ## Types and instances definition with RAMLx 1.0
 
-To express CTI semantics and describe domain object types and define static object instances, CTI uses RAMLx 1.0, an extension of [RAML 1.0](https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md/).
+To express CTI semantics and describe domain object types and define static object instances using [RAML 1.0](https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md/), CTI specification defines a RAMLx 1.0 extension.
 RAML 1.0 provides a data type system capable of working with inheritance and provides means to extend semantics of the types.
 
 To express types, traits, and instances as well as additional semantics defined in RAMLx, RAMLx utilizes two RAML features: [annotations](https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md#annotations) and [user-defined facets](https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md#user-defined-facets).
+
+### Translation between RAMLx 1.0 and CTI metadata
+
+In RAMLx 1.0, the CTI metadata is represented as a RAML 1.0 library that contains type definitions, annotations, and annotation types.
+Instead of defining dedicated metadata structure, the metadata is expressed using RAML 1.0 annotations and bound directly to the type definitions.
+The following sections describe how RAMLx 1.0 maps CTI metadata to RAML 1.0 constructs.
+
+#### Type schema
+
+RAMLx 1.0:
+
+```yaml
+#%RAML 1.0 Library
+
+uses:
+  cti: cti.raml
+
+types:
+  A:
+    (cti.cti): cti.a.p.aaa.v1.0
+    properties:
+      attr: string
+```
+
+CTI metadata type `A`:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.aaa.v1.0
+final: true
+access: protected
+display_name: A
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/A"
+  definitions:
+    A:
+      type: object
+      properties:
+        attr:
+          type: string
+      required: [ attr ]
+```
+
+#### Instance
+
+RAMLx 1.0:
+
+```yaml
+#%RAML 1.0 Library
+
+uses:
+  cti: cti.raml
+
+annotationTypes:
+  Instances:
+    type: A[]
+
+types:
+  A:
+    (cti.cti): cti.a.p.aaa.v1.0
+    properties:
+      id:
+        type: cti.CTI
+        (cti.id): true
+      name:
+        type: string
+        (cti.display_name): true
+
+(Instances):
+- id: cti.a.p.aaa.v1.0~a.p.bbb.v1.0
+  name: Instance of A
+```
+
+CTI metadata type `A`:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.aaa.v1.0
+final: false
+access: protected
+display_name: A
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/A"
+  definitions:
+    A:
+      type: object
+      properties:
+        attr:
+          type: string
+      required: [ attr ]
+```
+
+CTI metadata instance of `A`:
+
+```yaml
+#%CTI Instance 1.0
+cti: cti.a.p.aaa.v1.0~a.p.bbb.v1.0
+final: true
+access: protected
+display_name: Instance of A
+values:
+  id: cti.a.p.aaa.v1.0~a.p.bbb.v1.0
+  name: Instance of A
+```
+
+#### Traits schema
+
+RAMLx 1.0:
+
+```yaml
+#%RAML 1.0 Library
+uses:
+  cti: cti.raml
+types:
+  A:
+    (cti.cti): cti.a.p.aaa.v1.0
+    facets:
+      cti-traits:
+        properties:
+          val: integer
+```
+
+CTI metadata type `A`:
+
+```yaml
+#%CTI Type 1.0
+
+cti: cti.a.p.aaa.v1.0
+final: false
+access: protected
+display_name: A
+traits_schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/cti-traits"
+  definitions:
+    cti-traits:
+      type: object
+      properties:
+        val:
+          type: integer
+          description: A trait value.
+      required: [ val ]
+```
+
+#### Trait values
+
+RAMLx 1.0:
+
+```yaml
+#%RAML 1.0 Library
+
+uses:
+  cti: cti.raml
+
+types:
+  A: # As defined above
+  B:
+    type: A
+    (cti.cti): cti.a.p.aaa.v1.0~a.p.bbb.v1.0
+    cti-traits:
+      val: 10
+```
+
+CTI metadata type `B`:
+
+```yaml
+#%CTI Type 1.0
+
+cti: cti.a.p.aaa.v1.0~a.p.bbb.v1.0
+final: true
+access: protected
+display_name: B
+traits:
+  val: 10
+```
 
 ### Typed annotations
 
@@ -649,10 +1023,10 @@ The `cti.overridable` specifies that the object property can be specialized by t
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 types:
   Category:
     (cti.cti): cti.a.p.category.v1.0
@@ -673,10 +1047,10 @@ RAMLx also uses annotations to specify type instances together with type definit
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 types:
   Category:
     (cti.cti): cti.a.p.category.v1.0
@@ -691,17 +1065,17 @@ types:
       description:
         type: string
         description: A human-readable description of the abstract category.
- 
-annotationTypes:  
+
+annotationTypes:
   Categories:
     type: Category[]
     allowedTargets: [ Library ]
- 
+
 (Categories):
 - id: cti.a.p.category.v1.0~a.p.general.v1.0
   name: General
   description: A general-purpose category that can apply to anything.
- 
+
 - id: cti.a.p.category.v1.0~a.p.security.v1.0
   name: Security
   description: A security category that includes everything for efficient cyber protection.
@@ -711,7 +1085,7 @@ RAMLx additionally provides the `cti.type` annotation that allows validating the
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 types:
   Message:
     (cti.cti): cti.a.p.message.v1.0
@@ -723,22 +1097,23 @@ types:
       payload:
         type: object
         (cti.overridable): true
- 
+
   WeatherForecast:
     type: Message
     (cti.cti): cti.a.p.message.v1.0~a.p.weather_forecast.v1.0
     properties:
-      payload:    
+      payload:
         date: datetime
         location: string
         temperature: number
- 
+
 annotationTypes:
   WeatherForecastMessages:
     type: WeatherForecast[]
     allowedTargets: [ Library ]
- 
-(WeatherForecastMessages):                             # RAMLx will provide static validation according to the type specified in annotation.
+
+# RAMLx will provide static validation according to the type specified in annotation.
+(WeatherForecastMessages):
 - id: 1bbf7975-f87a-440a-96c1-42c1e41bd505
   type: cti.a.p.message.v1.0~a.p.weather_forecast.v1.0 # Service may use this field to validate the payload.
   payload:
@@ -760,10 +1135,10 @@ RAML 1.0 [user-defined facets](https://github.com/raml-org/raml-spec/blob/master
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 types:
   Message:
     (cti.cti): cti.a.p.message.v1.0
@@ -779,17 +1154,17 @@ types:
       payload:
         type: object
         (cti.overridable): true
- 
+
   WeatherForecast:
     type: Message
     (cti.cti): cti.a.p.message.v1.0~a.p.weather_forecast.v1.0
- 
+
     cti-traits:
       retention: 10d
- 
+
     properties:
-      payload:    
-        date: datetime       
+      payload:
+        date: datetime
         location: string
         temperature: number
 ```
@@ -811,10 +1186,10 @@ types:
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 types:
   Message:
     # Defines a CTI type named cti.a.p.message.v1.0.
@@ -824,7 +1199,7 @@ types:
       payload: # An object with arbitrary properties
         type: object
         (cti.overridable): true
- 
+
   WeatherForecast:
     type: Message
     # Defines a CTI type named cti.a.p.message.v1.0~a.p.weather_forecast.v1.0.
@@ -849,15 +1224,15 @@ When specified, this allows for the creation of CTI instances that are derived f
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 annotationTypes:
   # Define a typed annotation.
   # The type must be an array of CTI type.
   Messages: MessageSettings[]
- 
+
 # Derive instances of the Message type
 (MessageSettings):
   # Since the instance is derived from the Message type, it's CTI starts with cti.a.p.message_configuration.v1.0
@@ -867,7 +1242,7 @@ annotationTypes:
   - id: cti.a.p.message_configuration.v1.0~a.p.timer_message.v1.0
     settings:
       format: application/xml
- 
+
 types:
   MessageSettings:
     # Defines a CTI type named cti.a.p.message_configuration.v1.0.
@@ -894,23 +1269,23 @@ Example:
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 annotationTypes:
   # Define a typed annotation.
   # The type must be an array of CTI type.
   Messages: MessageSettings[]
- 
+
 # Derive instances of the Message type
 (MessageSettings):
   # Since the instance is derived from the Message type, it's CTI starts with cti.a.p.message_configuration.v1.0
-  - id: cti.a.p.message_configuration.v1.0~a.p.weather_message.v1.0    
+  - id: cti.a.p.message_configuration.v1.0~a.p.weather_message.v1.0
     description: Defines configuration for the weather message.
   - id: cti.a.p.message_configuration.v1.0~a.p.timer_message.v1.0
     description: Defines configuration for the timer message.
- 
+
 types:
   MessageSettings:
     # Defines a CTI type named cti.a.p.message_configuration.v1.0.
@@ -933,57 +1308,57 @@ Example:
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 annotationTypes:
   # Define a typed annotation.
   # The type must be an array of CTI type.
   MessageSettings: MessageSettings[]
- 
+
 # Derive instances of the MessageSettings type
 (MessageSettings):
     # Since the instance is derived from the MessageSettings type, it's CTI starts with cti.a.p.message_configuration.v1.0
   - id: cti.a.p.message_configuration.v1.0~a.p.weather_message.v1.0
     settings:
       format: application/json
- 
+
 types:
   Message:
     # Defines a CTI type named cti.a.p.message.v1.0.
     (cti.cti): cti.a.p.message.v1.0
-    (cti.final): false   
- 
+    (cti.final): false
+
     # Derived type must be instanciated with a reference to settings
     facets:
       cti-traits:
         settings:
           type: cti.CTI
           (cti.reference): cti.a.p.message_configuration.v1.0
- 
+
     properties:
       payload:
-  
+
   WeatherForecast:
     type: Message
     (cti.cti): cti.a.p.message.v1.0~a.p.weather_forecast.v1.0
     (cti.final): false
- 
+
     # Derived type instanciates the values according to the traits schema of the parent type.
     cti-traits:
       # Since the value must be a reference to cti.a.p.message_configuration.v1.0,
       # the instance of cti.a.p.message_configuration.v1.0~a.p.weather_message.v1.0 is used.
       settings: cti.a.p.message_configuration.v1.0~a.p.weather_message.v1.0
- 
+
     properties:
       payload:
- 
+
   MessageSettings:
     # Defines a CTI type named cti.a.p.message_configuration.v1.0
     (cti.cti): cti.a.p.message_configuration.v1.0
     (cti.final): false
- 
+
     properties:
       id:
         type: cti.CTI
@@ -1007,49 +1382,49 @@ This annotation has no effect when used in non-CTI types.
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 annotationTypes:
   # Define a typed annotation.
   # The type must be an array of CTI type.
   MessageSettings: MessageSettings[]
- 
+
 # Derive instances of the MessageSettings type
 (MessageSettings):
   # Since the instance is derived from the MessageSettings type, it's CTI starts with cti.a.p.message_configuration.v1.0
   - id: cti.a.p.message_configuration.v1.0~a.p.weather_message.v1.0
     settings:
       format: application/json
- 
+
 types:
   Message:
     # Defines a CTI type named cti.a.p.message.v1.0.
     (cti.cti): cti.a.p.message.v1.0
     # (cti.final): true by default. Does not allow any inheritance.
- 
+
     properties:
       payload:
         type: object
         (cti.overridable): true
- 
+
   WeatherForecast:
     # This type inheritance will result in an error since cti.a.p.message.v1.0 is final.
     type: Message
     (cti.cti): cti.a.p.message.v1.0~a.p.weather_forecast.v1.0
- 
+
     properties:
       payload:
         type: object
         properties:
           temperature: number
- 
+
    MessageSettings:
     # Defines a CTI type named cti.a.p.message_configuration.v1.0
     (cti.cti): cti.a.p.message_configuration.v1.0
     (cti.final): false # Allow inheritance from the Message type
- 
+
     properties:
       id:
         type: cti.CTI
@@ -1071,16 +1446,16 @@ The following diagram demonstrates the entity relationship that will be created 
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 types:
   MessageSettings:
     # Defines a CTI type named cti.a.p.message_configuration.v1.0
     (cti.cti): cti.a.p.message_configuration.v1.0
     (cti.final): false # Allow inheritance from the MessageSettings type
- 
+
     properties:
       id:
         type: cti.CTI
@@ -1090,39 +1465,39 @@ types:
         format:
           type: string
           enum: ['application/json', 'application/xml']
- 
+
   CustomMessageSettings:
     (cti.cti): cti.a.p.message_configuration.v1.0~a.p.custom_configuration.v1.0
-     
+
     properties:
       settings:
         # This will result in an error. Extension of non-overridable object properties is not allowed.
         format:
           type: string
           enum: ['application/json', 'application/xml', 'text/plain']
- 
+
   Message:
     # Defines a CTI type named cti.a.p.message.v1.0.
     (cti.cti): cti.a.p.message.v1.0
     (cti.final): false
- 
+
     properties:
       payload:
         type: object
         (cti.overridable): true
- 
+
   SystemNotification:
     type: Message
     (cti.cti): cti.a.p.message.v1.0~a.p.system_notification.v1.0
- 
+
     properties:
       # This will result in an error. Extension of non-overridable CTI types is not allowed.
       message: string
- 
+
   WeatherForecast:
     type: Message
     (cti.cti): cti.a.p.message.v1.0~a.p.weather_forecast.v1.0
- 
+
     properties:
       payload:
         temperature: number
@@ -1140,25 +1515,25 @@ Example:
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 types:
   Message:
     # Defines a CTI type named cti.a.p.message.v1.0.
     (cti.cti): cti.a.p.message.v1.0
-     
+
     properties:
       payload:
         type: object
         (cti.schema): cti.a.p.weather_schema.v1.0
- 
+
   # This is an abstract type just for demo purposes.
   WeatherSchema:
     # Defines a CTI type named cti.a.p.weather_schema.v1.0.
     (cti.cti): cti.a.p.weather_schema.v1.0
- 
+
     properties:
       type:
         type: string
@@ -1170,15 +1545,15 @@ As a result, this example may be expanded and written as follows:
 
 ```yaml
 #%RAML 1.0 Library
- 
+
 uses:
   cti: cti.raml
- 
+
 types:
   Message:
     # Defines a CTI type named cti.a.p.message.v1.0.
     (cti.cti): cti.a.p.message.v1.0
- 
+
     properties:
       payload:
         type: object
@@ -1246,7 +1621,7 @@ The following example demonstrates such a file:
     "types.raml"
   ],
   "depends": {
-    "github.com/vendor/pkg": "v1.0"
+    "github.com/vendor/pkg": "1.0.0"
   }
 }
 ```
