@@ -33,13 +33,10 @@ func New(baseDir string, options ...InitializeOption) (*Package, error) {
 	}
 	b := &Package{
 		BaseDir: filepath.ToSlash(absPath),
-		Index:   &Index{},
-		IndexLock: &IndexLock{
-			Version:     IndexLockVersion,
-			Hash:        "",
-			Depends:     make(map[string]string),
-			DependsInfo: make(map[string]Info),
+		Index: &Index{
+			Depends: map[string]string{},
 		},
+		IndexLock: NewIndexLock(),
 	}
 
 	for _, opt := range options {
@@ -84,24 +81,26 @@ func (pkg *Package) Read() error {
 	if err != nil {
 		return fmt.Errorf("read index file: %w", err)
 	}
+	pkg.Index = idx
+
 	idxLock, err := ReadIndexLock(pkg.BaseDir)
 	if err != nil {
 		return fmt.Errorf("read index lock: %w", err)
 	}
-
-	pkg.Index = idx
 	pkg.IndexLock = idxLock
 
 	return nil
 }
 
-func (pkg *Package) SaveIndexLock() error {
+func (pkg *Package) SaveIndexLock(lock *IndexLock) error {
 	if pkg.Index == nil {
 		return fmt.Errorf("index is not initialized")
 	}
 
 	// make sure that index hash in lock file is up to date
-	pkg.IndexLock.Hash = pkg.Index.HashDepends()
+	lock.Hash = pkg.Index.HashDepends()
+
+	pkg.IndexLock = lock
 
 	if err := pkg.IndexLock.Save(pkg.BaseDir); err != nil {
 		return fmt.Errorf("save index lock: %w", err)

@@ -16,7 +16,7 @@ type PackageManager interface {
 	// Install dependencies from index or index-lock, force will ignore index-lock and install dependencies from index
 	Install(pkg *ctipackage.Package, force bool) error
 	// Download dependencies and their sub-dependencies
-	Download(depends map[string]string) ([]CachedDependencyInfo, error)
+	Download(depends map[string]string, recursive bool) ([]CachedDependencyInfo, error)
 }
 
 type Option func(*packageManager)
@@ -59,26 +59,50 @@ func WithPackagesCache(cacheDir string) Option {
 	}
 }
 
+func addInstalledDepends(lock *ctipackage.IndexLock, depends []CachedDependencyInfo) *ctipackage.IndexLock {
+	for _, info := range depends {
+		lock.Depends[info.Index.PackageID] = info.Source
+		lock.DependsInfo[info.Source] = ctipackage.Info{
+			PackageID: info.Index.PackageID,
+			Version:   info.Version.String(),
+			Integrity: info.Integrity,
+			Source:    info.Source,
+			Depends:   info.Index.Depends,
+		}
+	}
+	return lock
+}
+
 func (pm *packageManager) Add(pkg *ctipackage.Package, depends map[string]string) error {
 	// Validate dependencies
-	if err := pm.installDependencies(pkg, depends, true); err != nil {
+	newDeps, err := pm.installDependencies(pkg.BaseDir, depends)
+	if err != nil {
 		return fmt.Errorf("install dependencies: %w", err)
 	}
 
+	// update index
 	for source, version := range depends {
-		if _, ok := pkg.Index.Depends[source]; ok {
-			slog.Info("Added direct dependency", slog.String("package", source), slog.String("version", version))
-			pkg.Index.Depends[source] = version
+		if oldVersion, ok := pkg.Index.Depends[source]; ok {
+			slog.Info("Dependency already exists in index, updating version",
+				slog.String("package", source),
+				slog.String("version", oldVersion+" -> "+version),
+			)
+		} else {
+			slog.Info("Adding new dependency to index",
+				slog.String("package", source),
+				slog.String("version", version),
+			)
 		}
-		// TODO check if depends version were updated
-		// is possible?
+
+		pkg.Index.Depends[source] = version
 	}
 
+	lock := addInstalledDepends(pkg.IndexLock, newDeps)
 	if err := pkg.SaveIndex(); err != nil {
 		return fmt.Errorf("save index: %w", err)
 	}
 
-	if err := pkg.SaveIndexLock(); err != nil {
+	if err := pkg.SaveIndexLock(lock); err != nil {
 		return fmt.Errorf("save index lock: %w", err)
 	}
 
@@ -86,52 +110,48 @@ func (pm *packageManager) Add(pkg *ctipackage.Package, depends map[string]string
 }
 
 func (pm *packageManager) Install(pkg *ctipackage.Package, force bool) error {
-	useIndex := force
-
-	// Check if index-lock exists and has the same hash as index
-	if pkg.IndexLock != nil && pkg.Index.HashDepends() != pkg.IndexLock.Hash {
-		if !force {
-			slog.Error("Package index hash mismatch, please run 'pkg tidy' to update index-lock",
-				slog.String("package_id", pkg.Index.PackageID),
-			)
-			return fmt.Errorf("package index hash mismatch")
-		}
-
-		slog.Warn("Package index hash mismatch, updating index-lock",
-			slog.String("package_id", pkg.Index.PackageID),
-		)
-		useIndex = true
-	}
-
-	if useIndex {
-		slog.Info("Installing dependencies from index",
+	if force {
+		slog.Info("Installing dependencies from index, ignoring index-lock",
 			slog.String("package_id", pkg.Index.PackageID),
 			slog.Any("depends", pkg.Index.Depends),
 		)
 
-		if err := pm.installDependencies(pkg, pkg.Index.Depends, true); err != nil {
+		installed, err := pm.installDependencies(pkg.BaseDir, pkg.Index.Depends)
+		if err != nil {
 			return fmt.Errorf("install index dependencies: %w", err)
 		}
 
-		if err := pkg.SaveIndexLock(); err != nil {
+		// Create new index-lock from installed dependencies
+		lock := addInstalledDepends(ctipackage.NewIndexLock(), installed)
+
+		if err := pkg.SaveIndexLock(lock); err != nil {
 			return fmt.Errorf("save index lock: %w", err)
 		}
-	} else {
-		// collect depends from index-lock
-		depends := map[string]string{}
-		for name, source := range pkg.IndexLock.DependsInfo {
-			depends[name] = source.Version
-		}
-
-		slog.Info("Installing dependencies from index-lock",
-			slog.String("package_id", pkg.Index.PackageID),
-			slog.Any("depends", depends),
-		)
-
-		// TODO check if index-lock is correct
-		return pm.installDependencies(pkg, depends, false)
+		return nil
 	}
 
+	// Check index-lock
+	if pkg.IndexLock == nil {
+		slog.Error("Index-lock is not found, please run 'pkg tidy' to update index-lock")
+		return fmt.Errorf("package index lock missing")
+	}
+
+	if !pkg.Index.CompareHash(pkg.IndexLock.Hash) {
+		slog.Error("Package index hash mismatch, please run 'pkg tidy' to update index-lock",
+			slog.String("package_id", pkg.Index.PackageID),
+		)
+		return fmt.Errorf("package index hash mismatch")
+	}
+
+	slog.Info("Installing dependencies from index-lock",
+		slog.String("package_id", pkg.Index.PackageID),
+		slog.Any("depends", pkg.IndexLock.DependsInfo),
+	)
+
+	// install dependencies from index-lock but do not update it
+	if _, err := pm.installDependenciesInfo(pkg.BaseDir, pkg.IndexLock.DependsInfo); err != nil {
+		return fmt.Errorf("install index-lock dependencies: %w", err)
+	}
 	return nil
 }
 
@@ -208,6 +228,6 @@ func (pm *packageManager) download(depends map[string]string, recursive bool, in
 	return res, nil
 }
 
-func (pm *packageManager) Download(depends map[string]string) ([]CachedDependencyInfo, error) {
-	return pm.download(depends, true, map[string]CachedDependencyInfo{})
+func (pm *packageManager) Download(depends map[string]string, recursive bool) ([]CachedDependencyInfo, error) {
+	return pm.download(depends, recursive, map[string]CachedDependencyInfo{})
 }

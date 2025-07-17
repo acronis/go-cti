@@ -23,6 +23,15 @@ type IndexLock struct {
 	DependsInfo map[string]Info `json:"dependsInfo"`
 }
 
+func NewIndexLock() *IndexLock {
+	return &IndexLock{
+		Version:     IndexLockVersion,
+		Hash:        "",
+		Depends:     make(map[string]string),
+		DependsInfo: make(map[string]Info),
+	}
+}
+
 func (idx *IndexLock) Save(baseDir string) error {
 	return filesys.WriteJSON(filepath.Join(baseDir, IndexLockFileName), idx)
 }

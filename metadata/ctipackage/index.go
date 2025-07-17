@@ -138,6 +138,10 @@ func (idx *Index) HashDepends() string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+func (idx *Index) CompareHash(hash string) bool {
+	return idx.HashDepends() == hash || idx.Hash() == hash
+}
+
 func (idx *Index) Save(baseDir string) error {
 	return filesys.WriteJSON(filepath.Join(baseDir, IndexFileName), idx)
 }
