@@ -202,11 +202,12 @@ func (cc *CompatibilityChecker) checkAnnotationsCompatibility(ctx context, oldAn
 			continue
 		}
 		if oldAnnotation.Reference != nil && newAnnotation.Reference != nil {
-			oldReferences := oldAnnotation.ReadReference()
-			newReferences := ToSet(newAnnotation.ReadReference())
+			oldReferences := ToSet(oldAnnotation.ReadReference())
+			newReferences := newAnnotation.ReadReference()
 			invalid := false
-			for _, v := range oldReferences {
-				if _, ok := newReferences[v]; !ok {
+			// Check if new references are a subset of old references
+			for _, v := range newReferences {
+				if _, ok := oldReferences[v]; !ok {
 					invalid = true
 					break
 				}
@@ -254,11 +255,12 @@ func (cc *CompatibilityChecker) checkAnnotationsCompatibility(ctx context, oldAn
 			}
 		}
 		if oldAnnotation.Schema != nil && newAnnotation.Schema != nil {
-			oldSchemas := oldAnnotation.ReadCTISchema()
-			newSchemas := ToSet(newAnnotation.ReadCTISchema())
+			oldSchemas := ToSet(oldAnnotation.ReadCTISchema())
+			newSchemas := newAnnotation.ReadCTISchema()
 			invalid := false
-			for _, v := range oldSchemas {
-				if _, ok := newSchemas[v]; !ok {
+			// Check if new CTI schemas are a subset of old CTI schemas
+			for _, v := range newSchemas {
+				if _, ok := oldSchemas[v]; !ok {
 					invalid = true
 					break
 				}
@@ -287,12 +289,13 @@ func (cc *CompatibilityChecker) checkValuesCompatibility(ctx context, oldValues,
 		}
 		for key, oldValue := range oldVal {
 			newValue, ok := newVal[key]
+			p := fmt.Sprintf("%s.%s", path, key)
 			if !ok {
-				cc.addMessage(ctx, SeverityError, fmt.Sprintf("key %s not found in new values for %s", key, path))
+				cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` key was removed", p))
 				continue
 			}
-			if err := cc.checkValuesCompatibility(ctx, oldValue, newValue, fmt.Sprintf("%s.%s", path, key)); err != nil {
-				return fmt.Errorf("check values compatibility for key %s: %w", key, err)
+			if err := cc.checkValuesCompatibility(ctx, oldValue, newValue, p); err != nil {
+				return fmt.Errorf("check values compatibility for key %s: %w", p, err)
 			}
 		}
 	case []any:
@@ -307,7 +310,7 @@ func (cc *CompatibilityChecker) checkValuesCompatibility(ctx context, oldValues,
 		}
 		for i, oldValue := range oldVal {
 			newValue := newVal[i]
-			if err := cc.checkValuesCompatibility(ctx, oldValue, newValue, fmt.Sprintf("`%s`[%d]", path, i)); err != nil {
+			if err := cc.checkValuesCompatibility(ctx, oldValue, newValue, fmt.Sprintf("%s[%d]", path, i)); err != nil {
 				return fmt.Errorf("check values compatibility for index %d: %w", i, err)
 			}
 		}
@@ -389,10 +392,11 @@ func (cc *CompatibilityChecker) traverseAndCheckSchemas(ctx context, oldSchema, 
 	if oldSchema.Enum != nil && newSchema.Enum == nil {
 		cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` removed 'enum' field", path))
 	} else if oldSchema.Enum != nil && newSchema.Enum != nil {
-		newEnumSet := ToSet(newSchema.Enum)
+		oldEnumSet := ToSet(oldSchema.Enum)
 		invalid := false
-		for _, v := range oldSchema.Enum {
-			if _, ok := newEnumSet[v]; !ok {
+		// Check if new enum is a subset of old enum
+		for _, v := range newSchema.Enum {
+			if _, ok := oldEnumSet[v]; !ok {
 				invalid = true
 				break
 			}
@@ -410,9 +414,10 @@ func (cc *CompatibilityChecker) traverseAndCheckSchemas(ctx context, oldSchema, 
 		if oldSchema.Required != nil && newSchema.Required == nil {
 			cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` removed 'required' field", path))
 		} else if oldSchema.Required != nil && newSchema.Required != nil {
-			requiredSet = ToSet(newSchema.Required)
+			requiredSet = ToSet(oldSchema.Required)
 			invalid := false
-			for _, v := range oldSchema.Required {
+			// Check if new required properties are subset of old required properties
+			for _, v := range newSchema.Required {
 				if _, ok := requiredSet[v]; !ok {
 					invalid = true
 					break
