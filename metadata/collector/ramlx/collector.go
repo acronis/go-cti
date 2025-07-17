@@ -149,7 +149,11 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 	}
 	if shape.CustomShapeFacets != nil {
 		if t, ok := shape.CustomShapeFacets.Get(consts.Traits); ok {
-			entity.SetTraits(t.Value)
+			traits, ok := t.Value.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("traits must be a map[string]any, got %T", t.Value)
+			}
+			entity.SetTraits(traits)
 		}
 	}
 	if t, ok := shape.CustomShapeFacetDefinitions.Get(consts.Traits); ok {
