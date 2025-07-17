@@ -18,79 +18,129 @@ type CachedDependencyInfo struct {
 	Index     ctipackage.Index
 }
 
-func (pm *packageManager) installDependencies(pkg *ctipackage.Package, depends map[string]string, transitive bool) error {
-	// Make sure that package is valid i.e. ramlx spec is in place
-	if err := pkg.Sync(); err != nil {
-		return fmt.Errorf("sync package: %w", err)
-	}
-
-	installed, err := pm.Download(depends)
+func (pm *packageManager) installDependencies(targetDir string, depends map[string]string) ([]CachedDependencyInfo, error) {
+	installed, err := pm.Download(depends, true)
 	if err != nil {
-		return fmt.Errorf("download dependencies: %w", err)
+		return nil, fmt.Errorf("download dependencies: %w", err)
 	}
 
-	if err := pm.installFromCache(pkg, installed); err != nil {
-		return fmt.Errorf("install from cache: %w", err)
-	}
-	return nil
+	return pm.installFromCache(targetDir, installed)
 }
 
-func (pm *packageManager) installFromCache(target *ctipackage.Package, depends []CachedDependencyInfo) error {
+// TODO add tests
+func validateDependencies(expected map[string]ctipackage.Info, installed []CachedDependencyInfo) bool {
+	valid := true
+	for _, info := range installed {
+		if existingInfo, ok := expected[info.Source]; ok {
+			if info.Index.PackageID != existingInfo.PackageID {
+				slog.Error("Package ID mismatch",
+					slog.String("source", info.Source),
+					slog.String("expected", existingInfo.PackageID),
+					slog.String("got", info.Index.PackageID),
+				)
+				valid = false
+			}
+			// if info.Integrity != existingInfo.Integrity {
+			// 	slog.Error("Package hash mismatch",
+			// 		slog.String("source", info.Source),
+			// 		slog.String("package_id", info.Index.PackageID),
+			// 		slog.String("expected", existingInfo.Integrity),
+			// 		slog.String("got", info.Integrity),
+			// 	)
+			// 	valid = false
+			// }
+		} else {
+			slog.Error("Package downloaded but not found in index-lock",
+				slog.String("source", info.Source),
+				slog.String("package_id", info.Index.PackageID),
+				slog.String("version", info.Version.String()),
+				slog.String("integrity", info.Integrity),
+			)
+			valid = false
+		}
+	}
+	for source, info := range expected {
+		found := func() bool {
+			for _, inst := range installed {
+				if inst.Source == source {
+					return true
+				}
+			}
+			return false
+		}()
+		if !found {
+			slog.Error("Package from index-lock was not downloaded",
+				slog.String("source", source),
+				slog.String("package_id", info.PackageID),
+				slog.String("version", info.Version),
+				slog.String("integrity", info.Integrity),
+			)
+			valid = false
+		}
+	}
+	return valid
+}
+
+func (pm *packageManager) installDependenciesInfo(targetDir string, infos map[string]ctipackage.Info) ([]CachedDependencyInfo, error) {
+	depends := make(map[string]string, len(infos))
+	for source, info := range infos {
+		depends[source] = info.Version
+	}
+
+	// Download only direct dependencies
+	installed, err := pm.Download(depends, false)
+	if err != nil {
+		return nil, fmt.Errorf("download dependencies: %w", err)
+	}
+
+	// check package integrity
+	if !validateDependencies(infos, installed) {
+		return nil, fmt.Errorf("depends integrity mismatch")
+	}
+
+	return pm.installFromCache(targetDir, installed)
+}
+
+func (pm *packageManager) installFromCache(targetDir string, depends []CachedDependencyInfo) ([]CachedDependencyInfo, error) {
 	// put new dependencies from cache and replace links
 	for _, info := range depends {
-		// Validate integrity with installed package
-		if source, ok := target.IndexLock.Depends[info.Index.PackageID]; ok {
-			// TODO check integrity
-			if source != info.Source {
-				slog.Error("Package from different source was already installed",
-					slog.String("id", info.Index.PackageID),
-					slog.String("known", source),
-					slog.String("new", info.Source))
-				return fmt.Errorf("package from different source was already installed")
-			}
-
-			// TODO if the same source was already installed, skip
-		}
-
 		// Replace the dependency in the root package
-		depPath := filepath.Join(target.BaseDir, ctipackage.DependencyDirName, info.Index.PackageID)
+		depPath := filepath.Join(targetDir, ctipackage.DependencyDirName, info.Index.PackageID)
 		if err := filesys.ReplaceWithCopy(info.Path, depPath); err != nil {
-			return fmt.Errorf("replace with copy: %w", err)
+			return nil, fmt.Errorf("replace with copy: %w", err)
 		}
 	}
 
-	// Install RAMLX spec
-
-	// Pre-build dependencies and update target's index lock
+	// Pre-build dependencies
+	result := make([]CachedDependencyInfo, 0, len(depends))
 	for _, info := range depends {
-		depPath := filepath.Join(target.BaseDir, ctipackage.DependencyDirName, info.Index.PackageID)
+		depPath := filepath.Join(targetDir, ctipackage.DependencyDirName, info.Index.PackageID)
 
 		pkg, err := ctipackage.New(depPath)
 		if err != nil {
-			return fmt.Errorf("new package: %w", err)
+			return nil, fmt.Errorf("new package: %w", err)
 		}
 
 		if err := pkg.Read(); err != nil {
-			return fmt.Errorf("read package: %w", err)
+			return nil, fmt.Errorf("read package: %w", err)
 		}
 
 		if err := pkg.Parse(); err != nil {
-			return fmt.Errorf("parse package: %w", err)
+			return nil, fmt.Errorf("parse package: %w", err)
 		}
 
 		checksum, err := filesys.ComputeDirectoryHash(depPath)
 		if err != nil {
-			return fmt.Errorf("compute directory hash: %w", err)
+			return nil, fmt.Errorf("compute directory hash: %w", err)
 		}
 
-		target.IndexLock.Depends[info.Index.PackageID] = info.Source
-		target.IndexLock.DependsInfo[info.Source] = ctipackage.Info{
-			PackageID: info.Index.PackageID,
-			Version:   info.Version.String(),
-			Integrity: checksum,
+		result = append(result, CachedDependencyInfo{
+			Path:      depPath,
 			Source:    info.Source,
-			Depends:   info.Index.Depends,
-		}
+			Version:   info.Version,
+			Integrity: checksum,
+			Index:     info.Index,
+		})
 	}
-	return nil
+	return result, nil
 }

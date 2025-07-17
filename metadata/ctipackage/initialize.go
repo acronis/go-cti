@@ -47,7 +47,8 @@ func (pkg *Package) Initialize() error {
 	if err := pkg.SaveIndex(); err != nil {
 		return fmt.Errorf("save index: %w", err)
 	}
-	if err := pkg.SaveIndexLock(); err != nil {
+	// Save empty lock file
+	if err := pkg.SaveIndexLock(NewIndexLock()); err != nil {
 		return fmt.Errorf("save index lock: %w", err)
 	}
 
