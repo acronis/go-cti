@@ -44,7 +44,7 @@ type MetadataValidator struct {
 	expressionsCache map[string]*cti.Expression
 }
 
-func MakeMetadataValidator(vendor, pkg string, gr, lr *registry.MetadataRegistry) *MetadataValidator {
+func New(vendor, pkg string, gr, lr *registry.MetadataRegistry) *MetadataValidator {
 	return &MetadataValidator{
 		ctiParser:      cti.NewParser(),
 		globalRegistry: gr,
