@@ -612,15 +612,20 @@ func (e *EntityType) GetRawTraits() ([]byte, error) {
 	return e.rawTraitValues, nil
 }
 
-func (e *EntityType) FindTraitsInChain() map[string]any {
+func (e *EntityType) GetMergedTraits() map[string]any {
+	mergedTraits := make(map[string]any)
 	root := e
 	for root != nil {
 		if root.Traits != nil {
-			return root.Traits
+			for k, v := range root.Traits {
+				if _, exists := mergedTraits[k]; !exists {
+					mergedTraits[k] = v
+				}
+			}
 		}
 		root = root.parent
 	}
-	return nil
+	return mergedTraits
 }
 
 func (e *EntityType) Validate() error {
