@@ -674,41 +674,108 @@ func TestEntityType_GetTraits(t *testing.T) {
 	require.Equal(t, traits, obj.GetTraits())
 }
 
-func TestEntityType_FindTraitsInChain(t *testing.T) {
+func TestEntityType_GetMergedTraits(t *testing.T) {
 	tests := []struct {
-		name       string
-		obj        *EntityType
-		wantResult map[string]interface{}
+		name        string
+		traitsChain []*EntityType
+		expected    map[string]any
 	}{
 		{
-			name: "traits in object",
-			obj: &EntityType{
-				Traits: map[string]interface{}{"trait1": "value1"},
+			name: "single entity with traits",
+			traitsChain: []*EntityType{
+				{
+					Traits: map[string]any{"trait1": "value1", "trait2": 2},
+				},
 			},
-			wantResult: map[string]interface{}{"trait1": "value1"},
+			expected: map[string]any{"trait1": "value1", "trait2": 2},
 		},
 		{
-			name: "traits in parent",
-			obj: &EntityType{
-				entity: entity{
-					parent: &EntityType{
-						Traits: map[string]interface{}{"trait1": "value1"},
+			name: "entity with parent traits, no overlap",
+			traitsChain: []*EntityType{
+				{
+					Traits: map[string]any{"trait1": "child"},
+					entity: entity{
+						parent: &EntityType{
+							Traits: map[string]any{"trait2": "parent"},
+						},
 					},
 				},
 			},
-			wantResult: map[string]interface{}{"trait1": "value1"},
+			expected: map[string]any{"trait1": "child", "trait2": "parent"},
 		},
 		{
-			name:       "traits not found",
-			obj:        &EntityType{},
-			wantResult: nil,
+			name: "entity with parent traits, child overrides parent",
+			traitsChain: []*EntityType{
+				{
+					Traits: map[string]any{"trait1": "child"},
+					entity: entity{
+						parent: &EntityType{
+							Traits: map[string]any{"trait1": "parent", "trait2": "parent2"},
+						},
+					},
+				},
+			},
+			expected: map[string]any{"trait1": "child", "trait2": "parent2"},
+		},
+		{
+			name: "entity with multiple parent chain",
+			traitsChain: []*EntityType{
+				{
+					Traits: map[string]any{
+						"trait1": "child",
+					},
+					entity: entity{
+						parent: &EntityType{
+							Traits: map[string]any{"trait2": "parent"},
+							entity: entity{
+								parent: &EntityType{
+									Traits: map[string]any{"trait3": "grandparent"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: map[string]any{"trait1": "child", "trait2": "parent", "trait3": "grandparent"},
+		},
+		{
+			name: "entity with nil traits and parent",
+			traitsChain: []*EntityType{
+				{
+					Traits: nil,
+					entity: entity{
+						parent: &EntityType{
+							Traits: map[string]any{"trait1": "parent"},
+						},
+					},
+				},
+			},
+			expected: map[string]any{"trait1": "parent"},
+		},
+		{
+			name: "entity and all parents have nil traits",
+			traitsChain: []*EntityType{
+				{
+					Traits: nil,
+					entity: entity{
+						parent: &EntityType{
+							Traits: nil,
+							entity: entity{
+								parent: &EntityType{Traits: nil},
+							},
+						},
+					},
+				},
+			},
+			expected: map[string]any{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.obj.FindTraitsInChain()
-			require.Equal(t, tt.wantResult, result)
+			obj := tt.traitsChain[0]
+			result := obj.GetMergedTraits()
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
