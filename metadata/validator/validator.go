@@ -30,8 +30,8 @@ type MetadataValidator struct {
 	typeHooks     map[string][]TypeHook
 	instanceHooks map[string][]InstanceHook
 
-	typeCache     map[string][]TypeHook
-	instanceCache map[string][]InstanceHook
+	aggregateTypeHooks     map[*cti.Expression][]TypeHook
+	aggregateInstanceHooks map[*cti.Expression][]InstanceHook
 
 	// CustomData is a map of custom data that can be used by hooks.
 	CustomData map[string]any
@@ -52,11 +52,8 @@ func MakeMetadataValidator(vendor, pkg string, gr, lr *registry.MetadataRegistry
 		vendor:         vendor,
 		pkg:            pkg,
 
-		typeHooks:     make(map[string][]TypeHook),
-		instanceHooks: make(map[string][]InstanceHook),
-
-		typeCache:     make(map[string][]TypeHook),
-		instanceCache: make(map[string][]InstanceHook),
+		aggregateTypeHooks:     make(map[*cti.Expression][]TypeHook),
+		aggregateInstanceHooks: make(map[*cti.Expression][]InstanceHook),
 
 		CustomData: make(map[string]any),
 
@@ -69,6 +66,10 @@ func MakeMetadataValidator(vendor, pkg string, gr, lr *registry.MetadataRegistry
 }
 
 func (v *MetadataValidator) ValidateAll() error {
+	if err := v.aggregateHooks(); err != nil {
+		return fmt.Errorf("failed to aggregate hooks: %w", err)
+	}
+
 	st := stacktrace.StackTrace{}
 	for _, object := range v.localRegistry.Index {
 		if err := v.Validate(object); err != nil {
@@ -82,48 +83,68 @@ func (v *MetadataValidator) ValidateAll() error {
 	return nil
 }
 
-func (v *MetadataValidator) OnType(id string, h TypeHook) error {
-	if _, ok := v.localRegistry.Types[id]; !ok {
-		return fmt.Errorf("type %s not found in local registry", id)
+func (v *MetadataValidator) aggregateHooks() error {
+	if v.typeHooks == nil {
+		v.typeHooks = make(map[string][]TypeHook)
+		for k, typ := range v.localRegistry.Types {
+			secondExpr, err := typ.Expression()
+			if err != nil {
+				return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
+			}
+			for expr, hooks := range v.aggregateTypeHooks {
+				if ok, _ := expr.Match(*secondExpr); !ok {
+					continue
+				}
+				v.typeHooks[k] = append(v.typeHooks[k], hooks...)
+			}
+		}
 	}
-	v.typeHooks[id] = append(v.typeHooks[id], h)
-	delete(v.typeCache, id)
+
+	if v.instanceHooks == nil {
+		v.instanceHooks = make(map[string][]InstanceHook)
+		for k, typ := range v.localRegistry.Instances {
+			secondExpr, err := typ.Expression()
+			if err != nil {
+				return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
+			}
+			for expr, hooks := range v.aggregateInstanceHooks {
+				if ok, _ := expr.Match(*secondExpr); !ok {
+					continue
+				}
+				v.instanceHooks[k] = append(v.instanceHooks[k], hooks...)
+			}
+		}
+	}
 	return nil
 }
 
-func (v *MetadataValidator) OnInstanceOfType(id string, h InstanceHook) error {
-	if _, ok := v.localRegistry.Instances[id]; !ok {
-		return fmt.Errorf("instance %s not found in local registry", id)
+// OnType registers a hook for a specific CTI type.
+// CTI can be a full CTI or an expression.
+// For example, "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*".
+func (v *MetadataValidator) OnType(cti string, h TypeHook) error {
+	expr, err := v.getOrCacheExpression(cti, v.ctiParser.Parse)
+	if err != nil {
+		return fmt.Errorf("failed to parse cti %s: %w", cti, err)
 	}
-	v.instanceHooks[id] = append(v.instanceHooks[id], h)
-	delete(v.instanceCache, id)
+	v.aggregateTypeHooks[expr] = append(v.aggregateTypeHooks[expr], h)
+	// Invalidate the type hooks cache if it was already initialized.
+	if v.typeHooks != nil {
+		v.typeHooks = make(map[string][]TypeHook)
+	}
 	return nil
 }
 
-func (v *MetadataValidator) collectTypeHooks(entity *metadata.EntityType) []TypeHook {
-	if hs, ok := v.typeCache[entity.CTI]; ok {
-		return hs
+func (v *MetadataValidator) OnInstanceOfType(cti string, h InstanceHook) error {
+	expr, err := v.getOrCacheExpression(cti, v.ctiParser.Parse)
+	if err != nil {
+		return fmt.Errorf("failed to parse cti %s: %w", cti, err)
 	}
-	var out []TypeHook
-	for root := entity; root != nil; root = root.Parent() {
-		out = append(out, v.typeHooks[root.CTI]...)
+	v.aggregateInstanceHooks[expr] = append(v.aggregateInstanceHooks[expr], h)
+	// Invalidate the instance hooks cache if it was already initialized.
+	if v.instanceHooks != nil {
+		v.instanceHooks = make(map[string][]InstanceHook)
 	}
-	v.typeCache[entity.CTI] = out
-	return out
-}
-
-func (v *MetadataValidator) collectInstanceHooks(entity *metadata.EntityInstance) []InstanceHook {
-	if hs, ok := v.instanceCache[entity.CTI]; ok {
-		return hs
-	}
-	var out []InstanceHook
-	// TODO: This means we cannot put a hook directly on an instance.
-	// But maybe it's not required anyway.
-	for root := entity.Parent(); root != nil; root = root.Parent() {
-		out = append(out, v.instanceHooks[root.CTI]...)
-	}
-	v.instanceCache[entity.CTI] = out
-	return out
+	return nil
 }
 
 func (v *MetadataValidator) Validate(object metadata.Entity) error {
@@ -179,7 +200,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		return fmt.Errorf("%s type has no schema", entity.CTI)
 	}
 
-	for _, h := range v.collectTypeHooks(entity) {
+	for _, h := range v.typeHooks[entity.CTI] {
 		if err := h(v, entity); err != nil {
 			return err
 		}
@@ -352,7 +373,7 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 		return fmt.Errorf("%s instance has no values", entity.CTI)
 	}
 
-	for _, h := range v.collectInstanceHooks(entity) {
+	for _, h := range v.instanceHooks[entity.CTI] {
 		if err := h(v, entity); err != nil {
 			return err
 		}
