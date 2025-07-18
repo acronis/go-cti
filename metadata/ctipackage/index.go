@@ -1,6 +1,7 @@
 package ctipackage
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -125,7 +126,7 @@ func (idx *Index) ToBytesDepends() []byte {
 }
 
 func (idx *Index) Hash() string {
-	h := xxh3.New()
+	h := sha256.New()
 	h.Write(idx.ToBytes())
 
 	return fmt.Sprintf("%x", h.Sum(nil))
