@@ -386,6 +386,150 @@ types:
 			},
 			wantError: false,
 		},
+		{
+			PackageTestCase: testsupp.PackageTestCase{
+				Name:     "error_reporting",
+				PkgId:    "a.p",
+				Entities: []string{"types.raml"},
+				Files: map[string]string{"types.raml": strings.TrimSpace(`
+#%RAML 1.0 Library
+
+uses:
+  cti: .ramlx/cti.raml
+
+annotationTypes:
+  ErrorReportings:
+    type: ErrorReporting[]
+    allowedTargets: [ Library ]
+
+(ErrorReportings):
+  - id: cti.a.p.dts.func.err_report.v1.0~a.p.legacy.v1.0
+    description: >
+      Test
+  
+  - id: cti.a.p.dts.func.err_report.v1.0~a.p.structured.v1.0
+    description: >
+      Test
+
+types:
+  ErrorReporting:
+    (cti.final): false
+    (cti.cti): cti.a.p.dts.func.err_report.v1.0
+    additionalProperties: false
+    properties:
+      id: 
+        type: cti.CTI
+        (cti.id): true
+      
+      description: 
+        type: string
+        (cti.description): true
+
+  Error:
+    (cti.cti): cti.a.p.err.v1.0
+    (cti.final): false
+    properties:
+      id:
+        description: Unique error ID
+        type: string
+      type:
+        description: The CTI type
+        type: cti.CTI
+        (cti.id): true
+      timestamp:
+        description: error occurrence timestamp
+        type: datetime
+      code?:
+        description: The error code, specific for given type of errors
+        type: integer
+      message?:
+        description: Custom error message
+        type: string
+      source?:
+        description: The source of the error e.g. the name of the service or CTI ID of serverless function or workflow that generated the error
+        type: string
+      action?:
+        type: string
+        examples:
+          1: "GET /api/v2/tenants?tenantid=123"
+          2: "open('/my/file')"
+      request?:
+        description: The client request ID (or UUID) causing the error, required to link the error to other system logs  
+        type: string
+      tenant?:
+        description: The client tenant ID (or token tenant ID) associated with the error  
+        type: string
+      upstream_error?:
+        type: object[]
+        (cti.schema): cti.a.p.err.v1.0
+      payload?:
+        type: any
+        (cti.overridable): true
+
+  TestingError:
+    (cti.cti): cti.a.p.err.v1.0~a.p.dts.testing.error.v1.0
+    type: Error
+ 
+  TestingError2:
+    (cti.cti): cti.a.p.err.v1.0~a.p.dts.testing2.error.v1.0
+    type: Error
+
+  DTSFunctionTraits:
+    additionalProperties: false
+    properties:
+      error_reporting?:
+        type: cti.CTI
+        (cti.reference): cti.a.p.dts.func.err_report.v1.0
+        default: cti.a.p.dts.func.err_report.v1.0~a.p.legacy.v1.0
+      error?:
+        type: array
+        items:
+          properties:
+            when: 
+              type: string
+            error:
+              type: object | string
+              (cti.schema): cti.a.p.err.v1.0
+  DTSFunction:
+    (cti.final): false
+    (cti.cti): cti.a.p.dts.func.v1.0
+    properties:
+      errors?:
+        type: object
+        (cti.schema):
+        - cti.a.p.err.v1.0
+    facets:
+      cti-traits?: DTSFunctionTraits
+
+  DTSTestFunction:
+    type: DTSFunction
+    (cti.cti): cti.a.p.dts.func.v1.0~a.p.test_function.v1.0
+    properties:
+      errors:
+        type: object
+        (cti.schema):
+          - cti.a.p.err.v1.0~a.p.dts.testing.error.v1.0
+          - cti.a.p.err.v1.0~a.p.dts.testing2.error.v1.0
+    cti-traits:
+      error_reporting: cti.a.p.dts.func.err_report.v1.0~a.p.legacy.v1.0
+      error:
+        - when: "$cel(.params.thing == 'world')"
+          error:
+            type: "cti.a.p.err.v1.0~a.p.dts.testing.error.v1.0"
+            id: "$uuid()"
+            code: 1001
+        - when: "$cel(.params.thing == 'gi')"
+          error:
+            type: "cti.a.p.err.v1.0~a.p.dts.testing2.error.v1.0"
+            id: "$uuid()"
+            code: 1005
+            payload:
+              test: "test"
+`)},
+			},
+			validate:  func(pkg *Package) {},
+			wantError: true,
+		},
 	}
 
 	for _, tc := range testCases {
