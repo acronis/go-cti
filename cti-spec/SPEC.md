@@ -375,18 +375,18 @@ All examples in this specification use [JSON Schema Draft-7](https://json-schema
 
 The specification defines a standard metadata structure that implementations can use to describe CTI entities:
 
-| **Field**     | **Type** | **Description**                                                                                                               |
-|---------------|----------|-------------------------------------------------------------------------------------------------------------------------------|
-| cti           | CTI      | Identifier of the CTI entity.                                                                                                 |
-| final         | boolean  | Indicates that the CTI entity is final and cannot have derived entities. CTI instances are final by default.                  |
-| access        | string   | Specifies an [access modifier](#access-modifiers) for the CTI metadata.                                                       |
-| display_name  | string   | A human-readable name of CTI entity.                                                                                          |
-| description   | string   | A human-readable description of CTI entity.                                                                                   |
-| schema        | object   | Data schema. Only present for [CTI types](#data-types-and-traits).                                                            |
-| values        | any      | [Arbitrary values](#instances) that follow the parent schema. Only present for CTI instances.                                 |
-| traits_schema | object   | [Traits schema](#data-types-and-traits). Only present for CTI types.                                                          |
-| traits        | object   | [An object of arbitrary key-values](#data-types-and-traits) that follow the parent traits schema. Only present for CTI types. |
-| annotations   | object   | An object where key is a path to annotated property and value is an object.                                                   |
+| **Field**     | **Type** | **Description**                                                                                                                      |
+|---------------|----------|--------------------------------------------------------------------------------------------------------------------------------------|
+| cti           | CTI      | Identifier of the CTI entity.                                                                                                        |
+| final         | boolean  | Indicates that the CTI entity is final and cannot have derived entities. CTI instances are final by default.                         |
+| access        | string   | Specifies an [access modifier](#access-modifiers) for the CTI metadata.                                                              |
+| display_name  | string   | A human-readable name of CTI entity.                                                                                                 |
+| description   | string   | A human-readable description of CTI entity.                                                                                          |
+| schema        | object   | Data schema. Only present for [CTI types](#data-types-and-traits).                                                                   |
+| values        | any      | [Arbitrary values](#instances) that follow the parent domain schema. Only present for CTI instances.                                 |
+| traits_schema | object   | [Traits schema](#data-types-and-traits). Only present for CTI types.                                                                 |
+| traits        | object   | [An object of arbitrary key-values](#data-types-and-traits) that follow the parent domain traits schema. Only present for CTI types. |
+| annotations   | object   | An object where key is a path to annotated property and value is an object.                                                          |
 
 ### Metadata format
 
@@ -502,7 +502,7 @@ traits:
 
 Vendors may disallow inheritance of specific types to avoid deriving from types that are not meant to be extended.
 This is controlled by the `final` property in the metadata. By default, all types are final and cannot be extended.
-For example, the following type schema defines a final type that cannot be extended:
+For example, the following domain type defines a final type that cannot be extended:
 
 ```yaml
 #%CTI Type 1.0
@@ -511,7 +511,7 @@ final: true
 # ...
 ```
 
-This makes the following type schema invalid:
+This makes the following domain type invalid:
 
 ```yaml
 #%CTI Type 1.0
@@ -525,7 +525,7 @@ Note that this does not prevent instances from being created based on the final 
 #### Limiting type specialization
 
 Platform developers and vendors may limit type specialization by allowing other vendors to specialize only specific properties.
-By default, all properties of a type are not allowed to be specialized. For example, the following type schema defines a type that allows specialization of the `data` property only:
+By default, all properties of a type are not allowed to be specialized. For example, the following domain type schema defines a type that allows specialization of the `data` property only:
 
 ```yaml
 #%CTI Type 1.0
@@ -560,39 +560,93 @@ When deriving a type, the access modifier must be the same or more restrictive t
 
 By default, all types and instances are protected, meaning that they can be referenced only by the same vendor. This is done to prevent accidental exposure of types and instances to other vendors.
 
-#### Inserting CTI type schemas
-
-Platform developers and vendors may insert CTI type schemas within their data schemas to reuse existing types, enabling composition of complex domains.
-This is done by using the `x-cti.schema` (JSON Schema) or `(cti.schema)` (RAMLx 1.0) extension.
-
-For example, the following type schema defines a type that uses the `cti.a.p.topic.v1.0` type schema as a base:
+For example, the following domain type sets `access` to `protected`:
 
 ```yaml
 #%CTI Type 1.0
-cti: cti.a.p.event.v1.0
+cti: cti.a.p.topic.v1.0
+access: protected
+# ...
+```
+
+This makes the following domain type invalid since it tries to extend a protected type from a different vendor:
+
+```yaml
+#%CTI Type 1.0
+# Invalid since cti.a.p.topic.v1.0 belongs to vendor 'a' and cannot be extended by vendor 'b'
+cti: cti.a.p.topic.v1.0~b.p.user.v1.0
+# ...
+```
+
+#### Inserting CTI type schemas
+
+Platform developers and vendors may insert CTI type schemas within their data schemas to reuse existing types, enabling composition of domains.
+This is done by using the `x-cti.schema` (JSON Schema) or `(cti.schema)` (RAMLx 1.0) extension.
+
+For example, given the following `cti.a.p.settings.v1.0` domain type schema that defines a generic settings type:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.settings.v1.0
 # ...
 schema:
   $schema: http://json-schema.org/draft-07/schema#
-  $ref: "#/definitions/Event"
+  $ref: "#/definitions/Settings"
   definitions:
-    Event:
+    Settings:
       type: object
       properties:
-        id:
-          type: string
-          description: A unique identifier of the event.
-          format: uuid
-        topic_id:
-          type: string
-          description: A unique identifier of the event topic.
-          x-cti.schema: cti.a.p.topic.v1.0 # This will insert the topic schema into the event schema.
-        type:
-          type: string
-          description: A CTI that was used to create the event.
         data:
           type: object
-          description: An event payload.
-      required: [ id, topic_id, type, data ]
+          description: Generic settings object.
+          x-cti.overridable: true # This property can be specialized by other vendors.
+      required: [ data ]
+```
+
+And the following domain type schema that defines a schema that inserts the `cti.a.p.settings.v1.0` domain type schema in the `settings` property:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.topic.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/Topic"
+  definitions:
+    Topic:
+      type: object
+      properties:
+        # ...
+        settings:
+          type: object
+          description: A topic settings.
+          x-cti.schema: cti.a.p.settings.v1.0
+      required: [ settings ]
+```
+
+This will expand into the following type schema:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.topic.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/Topic"
+  definitions:
+    Topic:
+      type: object
+      properties:
+        # ...
+        settings:
+          type: object
+          description: A topic settings.
+          properties:
+            data:
+              type: object
+              description: Generic settings object.
+              x-cti.overridable: true # This property can be specialized by other vendors.
+      required: [ settings ]
 ```
 
 ## Examples
