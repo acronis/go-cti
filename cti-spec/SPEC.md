@@ -18,20 +18,20 @@
     - [Using version](#using-version)
   - [Extended Backus-Naur form](#extended-backus-naur-form)
 - [CTI and metadata](#cti-and-metadata)
-  - [Entity type schema language](#entity-type-schema-language)
+  - [CTI type schema language](#cti-type-schema-language)
   - [Metadata structure](#metadata-structure)
   - [Metadata format](#metadata-format)
   - [Data types and traits](#data-types-and-traits)
   - [Instances](#instances)
-  - [CTI extensions](#cti-extensions)
+  - [CTI type extensions](#cti-type-extensions)
     - [References](#references)
     - [Disallowing inheritance](#disallowing-inheritance)
     - [Limiting type specialization](#limiting-type-specialization)
     - [Access modifiers](#access-modifiers)
-    - [Inserting CTI schemas](#inserting-cti-schemas)
+    - [Inserting CTI type schemas](#inserting-cti-type-schemas)
 - [Examples](#examples)
   - [Dynamic configuration through instances](#dynamic-configuration-through-instances)
-  - [Extensible object types through type inheritance](#extensible-object-types-through-type-inheritance)
+  - [Extensible domain types through type inheritance](#extensible-domain-types-through-type-inheritance)
   - [Controlling the type behavior](#controlling-the-type-behavior)
     - [Expressing a relationship without an intermediate mapping](#expressing-a-relationship-without-an-intermediate-mapping)
   - [Using CTI for data objects access control](#using-cti-for-data-objects-access-control)
@@ -101,14 +101,14 @@ Similar to other notation systems (like [Apple Uniform Type Identifiers (UTIs)](
 
 The following comparison table summarizes the comparison between the mentioned types:
 
-|                             | Apple UTI                                  | Amazon ARN                                               | CTI                                      | Universally Unique Identifier (UUID) |
-|-----------------------------|--------------------------------------------|----------------------------------------------------------|-----------------------------------------------------------|-------------------------------|
-| Unique identifier           | Yes                                        | Yes                                                      | Yes                                                       | Yes                           |
-| Provides access isolation   | Yes, UTI is scoped to an entity            | Yes, ARN is scoped to specific resource                  | Yes, CTI is scoped to specific vendor, package, entity    | No                            |
-| Associated with a data type | Yes, UTI has associated format of the data | No                                                       | Yes, CTI is associated domain data type or domain object  | No                            |
-| Extensible                  | No                                         | No                                                       | Yes, through inheritance                                  | No                            |
-| Versioned                   | No                                         | No                                                       | Yes, using semantic versioning                            | No                            |
-| Security                    | No, only handles file types                | Yes, can be used for IAM roles and permission management | Yes, can be used for IAM roles and permission management  | No                            |
+|                             | Apple UTI                                  | Amazon ARN                                               | CTI                                                      | Universally Unique Identifier (UUID) |
+|-----------------------------|--------------------------------------------|----------------------------------------------------------|----------------------------------------------------------|--------------------------------------|
+| Unique identifier           | Yes                                        | Yes                                                      | Yes                                                      | Yes                                  |
+| Provides access isolation   | Yes, UTI is scoped to an entity            | Yes, ARN is scoped to specific resource                  | Yes, CTI is scoped to specific vendor, package, entity   | No                                   |
+| Associated with a data type | Yes, UTI has associated format of the data | No                                                       | Yes, CTI is associated with domain type or an instance   | No                                   |
+| Extensible                  | No                                         | No                                                       | Yes, through inheritance                                 | No                                   |
+| Versioned                   | No                                         | No                                                       | Yes, using semantic versioning                           | No                                   |
+| Security                    | No, only handles file types                | Yes, can be used for IAM roles and permission management | Yes, can be used for IAM roles and permission management | No                                   |
 
 ### The CTI notation syntax
 
@@ -342,9 +342,10 @@ A complete syntax of CTI is represented using the following Extended Backus-Naur
 
 ## CTI and metadata
 
-A CTI serves solely as a unique identifier for an entity and establishes a syntactic relationship between the entities via inheritance.
+A CTI serves solely as a unique identifier for an entity and establishes a syntactic relationship between the entities via inheritance or instantiation.
 It does not encode the information about the domain model (or data that conforms to the domain model) of the entity.
-To express this information for a CTI, metadata is used. Metadata defines the structure, constraints, and configurable traits of the entity.
+To express this information for a CTI, a metadata is used. The CTI metadata constitutes a declarative domain modeling language
+designed to define domain types, inheritance, constraints, and configurable behavior.
 
 This approach aligns with Domain-Driven Design (DDD) principles: platform developers define the domain model declaratively using CTIs as identifiers,
 and combine them with metadata to establish a contract between the domain and the implementation. Vendors can then extend this domain model
@@ -352,19 +353,20 @@ by deriving their own types, inheriting the semantics and behavior, and specifyi
 
 The specification defines the following two types of entities that can be represented by a CTI:
 
-1. Type - an extensible data type schema that expresses a domain object type.
-2. Instance - a static data that conforms the parent data type schema and specifies its behavior.
+1. CTI type - an extensible domain type that carries a data schema and, optionally, traits schema and traits that control its behavior.
+   It can be used to define a base type (abstract type) or a concrete type (concrete type).
+2. CTI instance - a static data that conforms the parent domain type schema and specifies its behavior.
 
-### Entity type schema language
+### CTI type schema language
 
-CTI specification is not bound to a specific data type language. Instead, it integrates with existing data type
-languages such as [JSON Schema](https://json-schema.org/) and [RAMLx](https://raml.org/) (covered by this specification),
-while providing additional capabilities and metadata on top of them. For example, with CTI you can:
+CTI type is not bound to a specific data type language. Instead, it integrates with existing data type
+languages such as [JSON Schema](https://json-schema.org/) and [RAMLx 1.0](#types-and-instances-definition-with-ramlx-10) (covered by this specification),
+while providing additional capabilities on top of them. For example, with CTI you can:
 
 1. Define inheritance relationship between types (not available in JSON Schema).
 2. Allow or disallow inheritance (sealed type) (not available in any language).
 3. Allow or disallow narrowing specific properties of the type (not available in any language).
-4. Express a relationship between objects by specifying a reference (not available in any language).
+4. Express a relationship between entities by specifying a reference (not available in any language).
 5. Define traits schema and traits that control specific behavior of the type (not available in JSON Schema).
 
 All examples in this specification use [JSON Schema Draft-7](https://json-schema.org/) as a data type language, unless stated otherwise.
@@ -380,7 +382,7 @@ The specification defines a standard metadata structure that implementations can
 | access        | string   | Specifies an [access modifier](#access-modifiers) for the CTI metadata.                                                       |
 | display_name  | string   | A human-readable name of CTI entity.                                                                                          |
 | description   | string   | A human-readable description of CTI entity.                                                                                   |
-| schema        | object   | Data type schema. Only present for [CTI types](#data-types-and-traits).                                                       |
+| schema        | object   | Data schema. Only present for [CTI types](#data-types-and-traits).                                                            |
 | values        | any      | [Arbitrary values](#instances) that follow the parent schema. Only present for CTI instances.                                 |
 | traits_schema | object   | [Traits schema](#data-types-and-traits). Only present for CTI types.                                                          |
 | traits        | object   | [An object of arbitrary key-values](#data-types-and-traits) that follow the parent traits schema. Only present for CTI types. |
@@ -437,11 +439,12 @@ values:
 
 ### Data types and traits
 
-A CTI can be associated with a data type schema that may be used in the following ways:
+A CTI can be associated with an extensible domain type that carries a data schema and, optionally, traits schema and traits that control its behavior.
+It can be used in the following ways:
 
-- Platform developers may define base (abstract) types that represent a contract between the domain and the implementation.
-  To make the domain configurable, platform developers may also specify a **traits schema** to allow vendors to manage the behavior of the domain.
-- Vendors may derive concrete types (or another abstract type depending on the domain complexity), inheriting the semantics and behavior.
+- Platform developers may define base (abstract) domain types that represent a contract between the domain and the implementation.
+  To make the domain configurable, platform developers may also specify a **traits schema** to allow vendors to control the behavior of the domain.
+- Vendors may derive concrete domain types (or another abstract type depending on the domain complexity), inheriting the semantics and behavior.
   If supported by the domain, additionally specifying the behavior by **traits**.
 
 This allows platform developers to control the way in which their domains can be extended and configured.
@@ -459,11 +462,11 @@ intermediate mapping, templates, rules, etc.
 
 Platform developers and vendors may create instances to dynamically configure the behavior of the domain.
 
-### CTI extensions
+### CTI type extensions
 
 #### References
 
-In addition to inheritance, platform developers can express relationship between different CTIs
+Platform developers can express relationship between different CTIs
 within the schema and validate the values using the `x-cti.reference` (JSON Schema) or `(cti.reference)` (RAMLx 1.0) extension.
 For example, a schema may specify that a specific field is a reference to a CTI:
 
@@ -544,7 +547,8 @@ schema:
 
 #### Access modifiers
 
-Vendors may use access modifiers, akin to object-oriented programming languages, to limit access to specific types and instances to prevent other vendors from extending private parts of the domain. This is controlled by the `access` property in the metadata.
+Vendors may use access modifiers, akin to object-oriented programming languages, to limit access to specific types and instances to prevent other vendors from extending private parts of the domain.
+This is controlled by the `access` property in the metadata.
 
 The following access modifiers are available:
 
@@ -556,9 +560,10 @@ When deriving a type, the access modifier must be the same or more restrictive t
 
 By default, all types and instances are protected, meaning that they can be referenced only by the same vendor. This is done to prevent accidental exposure of types and instances to other vendors.
 
-#### Inserting CTI schemas
+#### Inserting CTI type schemas
 
-Platform developers and vendors may insert CTI schemas within their data type schemas to reuse existing types, enabling schema composition using CTI types. This is done by using the `x-cti.schema` (JSON Schema) or `(cti.schema)` (RAMLx 1.0) extension.
+Platform developers and vendors may insert CTI type schemas within their data schemas to reuse existing types, enabling composition of complex domains.
+This is done by using the `x-cti.schema` (JSON Schema) or `(cti.schema)` (RAMLx 1.0) extension.
 
 For example, the following type schema defines a type that uses the `cti.a.p.topic.v1.0` type schema as a base:
 
@@ -639,7 +644,7 @@ values:
 
 With a new topic registered through CTI, it now becomes possible to attach events to this topic without re-deploying or re-configuring the service.
 
-### Extensible object types through type inheritance
+### Extensible domain types through type inheritance
 
 Let us consider the following simple entity-relationship diagram that demonstrates the **event** structure.
 
@@ -704,7 +709,7 @@ schema:
 
 ### Controlling the type behavior
 
-Using **Traits**, it is possible to create concrete types with specific behavior that the service, that serves that domain, expects.
+Using **Traits**, it is possible to create concrete types with specific behavior that the service, that serves the domain, expects.
 
 #### Expressing a relationship without an intermediate mapping
 
@@ -785,7 +790,11 @@ traits:
 
 ### Using CTI for data objects access control
 
-The CTI identifier notation is a powerful tool for managing data access control and performing access checks at runtime. It can be effectively utilized for implementing **Attribute-Based Access Control** (ABAC) as well as defining roles for **Role-Based Access Control** (RBAC). Services implementing APIs can leverage CTI identifiers to grant or deny access to specific objects or categories of objects based on their types. For example [self-encoded JWT tokens](https://auth0.com/docs/secure/tokens/json-web-tokens) might have the list of granted `scopes` in form of CTIs, with support for wildcard shortcuts. Here’s a sample API JWT token:
+The CTI identifier notation is a powerful tool for managing data access control and performing access checks at runtime.
+It can be effectively utilized for implementing **Attribute-Based Access Control** (ABAC) as well as defining roles
+for **Role-Based Access Control** (RBAC). Services implementing APIs can leverage CTIs to grant or deny access
+to specific objects or categories of objects based on their types. For example, [self-encoded JWT tokens](https://auth0.com/docs/secure/tokens/json-web-tokens)
+might have the list of granted `scopes` in form of CTIs, with support for wildcard shortcuts. Here’s a sample API JWT token:
 
 ```jsonc
 {
@@ -831,7 +840,7 @@ that an identity may have access to. The following table shows of claims and the
 
 ## Types and instances definition with RAMLx 1.0
 
-To express CTI semantics and describe domain object types and define static object instances using [RAML 1.0](https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md/), CTI specification defines a RAMLx 1.0 extension.
+To express CTI semantics and describe domain types and define static object instances using [RAML 1.0](https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md/), CTI specification defines a RAMLx 1.0 extension.
 RAML 1.0 provides a data type system capable of working with inheritance and provides means to extend semantics of the types.
 
 To express types, traits, and instances as well as additional semantics defined in RAMLx, RAMLx utilizes two RAML features: [annotations](https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md#annotations) and [user-defined facets](https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md#user-defined-facets).
