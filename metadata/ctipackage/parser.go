@@ -23,6 +23,10 @@ const (
 )
 
 func (pkg *Package) Parse() error {
+	if err := pkg.Sync(); err != nil {
+		return fmt.Errorf("sync package: %w", err)
+	}
+
 	// TODO: Probably this can be combined into a single step during dependency resolution.
 	deps, err := pkg.resolveDependencyOrder()
 	if err != nil {
@@ -118,9 +122,6 @@ func (pkg *Package) resolveDependencyOrder() ([]string, error) {
 }
 
 func (pkg *Package) parseRAML() (*registry.MetadataRegistry, error) {
-	if err := pkg.Sync(); err != nil {
-		return nil, fmt.Errorf("sync package: %w", err)
-	}
 	r, err := raml.ParseFromString(pkg.generateRAML(false), "index.raml", pkg.BaseDir, raml.OptWithValidate())
 	if err != nil {
 		return nil, fmt.Errorf("parse index.raml: %w", err)

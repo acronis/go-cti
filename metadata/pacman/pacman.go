@@ -74,6 +74,10 @@ func addInstalledDepends(lock *ctipackage.IndexLock, depends []CachedDependencyI
 }
 
 func (pm *packageManager) Add(pkg *ctipackage.Package, depends map[string]string) error {
+	if err := pkg.Sync(); err != nil {
+		return fmt.Errorf("sync package: %w", err)
+	}
+
 	// Validate dependencies
 	newDeps, err := pm.installDependencies(pkg.BaseDir, depends)
 	if err != nil {
@@ -110,6 +114,10 @@ func (pm *packageManager) Add(pkg *ctipackage.Package, depends map[string]string
 }
 
 func (pm *packageManager) Install(pkg *ctipackage.Package, force bool) error {
+	if err := pkg.Sync(); err != nil {
+		return fmt.Errorf("sync package: %w", err)
+	}
+
 	if force {
 		slog.Info("Installing dependencies from index, ignoring index-lock",
 			slog.String("package_id", pkg.Index.PackageID),
