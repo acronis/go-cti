@@ -10,7 +10,9 @@ type UntypedEntities []UntypedEntity
 
 // UntypedEntity represents an untyped CTI entity. It can be used to parse an entity of unknown type
 // and then convert it to a typed entity later.
-// Follows the same metadata structure as defined in the [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#metadata-structure).
+// Follows the same metadata structure as defined in the [CTI specification].
+//
+// [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#metadata-structure
 type UntypedEntity struct {
 	Final             bool                       `json:"final"`
 	CTI               string                     `json:"cti"`

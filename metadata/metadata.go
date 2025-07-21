@@ -35,7 +35,9 @@ type NilChecker interface {
 
 // Entity is an interface that represents a CTI entity.
 // It provides methods to access and manipulate the entity's properties, annotations, and relationships.
-// See more information about CTI entities in the [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#cti-and-metadata).
+// See more information about CTI entities in the [CTI specification].
+//
+// [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#cti-and-metadata
 type Entity interface {
 	// GetCTI returns the CTI identifier of the entity as a string.
 	GetCTI() string
@@ -111,7 +113,9 @@ type Entity interface {
 }
 
 // Annotations represents a set of annotations for a CTI entity.
-// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#cti-type-extensions).
+// For more information, see [CTI specification].
+//
+// [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#cti-type-extensions
 type Annotations struct {
 	CTI           any                   `json:"cti.cti,omitempty" yaml:"cti.cti,omitempty"` // string or []string
 	ID            *bool                 `json:"cti.id,omitempty" yaml:"cti.id,omitempty"`
@@ -238,7 +242,9 @@ func (k GJsonPath) String() string {
 // Base properties for all CTI entities.
 // Provides a common implementation for Entity interface. Some methods are not implemented
 // and are overridden by EntityType and EntityInstance structs.
-// The structure is defined according to the [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#metadata-structure).
+// The structure is defined according to the [CTI specification].
+//
+// [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#metadata-structure
 type entity struct {
 	// Final indicates that the entity is final and cannot be extended or modified.
 	Final bool `json:"final" yaml:"final"`
@@ -545,7 +551,9 @@ func NewEntityType(
 
 // EntityType represents a CTI type which is a domain type with data schema and optional trait schema and traits.
 // It is used to define the contract between the domain and the implementation.
-// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#data-types-and-traits).
+// For more information, see [CTI specification].
+//
+// [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#data-types-and-traits
 type EntityType struct {
 	entity `yaml:",inline"`
 
@@ -677,7 +685,9 @@ func (e *EntityType) GetTraitsSchema() *jsonschema.JSONSchemaCTI {
 
 // GetSchemaByAttributeSelectorInChain returns the sub-schema by the given attribute selector in the entity type
 // and its parent chain.
-// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#attribute-selector).
+// For more information, see [CTI specification].
+//
+// [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#attribute-selector
 func (e *EntityType) GetSchemaByAttributeSelectorInChain(attributeSelector string) (*jsonschema.JSONSchemaCTI, error) {
 	as, err := attribute_selector.NewAttributeSelector(attributeSelector)
 	if err != nil {
@@ -836,7 +846,9 @@ func NewEntityInstance(id string, values any) (*EntityInstance, error) {
 
 // EntityInstance represents a CTI entity instance with values that conform to a specific EntityType.
 // It is used to represent a specific instance of a domain type with its own data.
-// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#instances).
+// For more information, see [CTI specification].
+//
+// [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#instances
 type EntityInstance struct {
 	entity `yaml:",inline"`
 
@@ -899,7 +911,9 @@ func (e *EntityInstance) GetRawValues() ([]byte, error) {
 // GetValueByAttributeSelector returns the value of the entity instance by the given attribute selector.
 // It uses the attribute selector to navigate through the Values map and retrieve the value.
 // To be able to use this method, the Values field must be a map[string]any.
-// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#attribute-selector).
+// For more information, see [CTI specification].
+//
+// [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#attribute-selector
 func (e *EntityInstance) GetValueByAttributeSelector(attributeSelector string) (any, error) {
 	as, err := attribute_selector.NewAttributeSelector(attributeSelector)
 	if err != nil {
