@@ -43,11 +43,9 @@ func WithInstanceHook(cti string, hook InstanceHook) ValidatorOption {
 }
 
 type MetadataValidator struct {
-	localRegistry  *registry.MetadataRegistry
-	globalRegistry *registry.MetadataRegistry
-	ctiParser      *cti.Parser
-	vendor         string
-	pkg            string
+	ctiParser *cti.Parser
+	vendor    string
+	pkg       string
 
 	typeHooks     map[string][]TypeHook
 	instanceHooks map[string][]InstanceHook
@@ -55,6 +53,8 @@ type MetadataValidator struct {
 	aggregateTypeHooks     map[*cti.Expression][]TypeHook
 	aggregateInstanceHooks map[*cti.Expression][]InstanceHook
 
+	LocalRegistry  *registry.MetadataRegistry
+	GlobalRegistry *registry.MetadataRegistry
 	// CustomData is a map of custom data that can be used by hooks.
 	CustomData map[string]any
 
@@ -70,8 +70,8 @@ type MetadataValidator struct {
 func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...ValidatorOption) (*MetadataValidator, error) {
 	v := &MetadataValidator{
 		ctiParser:      cti.NewParser(),
-		globalRegistry: gr,
-		localRegistry:  lr,
+		GlobalRegistry: gr,
+		LocalRegistry:  lr,
 		vendor:         vendor,
 		pkg:            pkg,
 
@@ -105,7 +105,7 @@ func (v *MetadataValidator) ValidateAll() error {
 	}
 
 	st := stacktrace.StackTrace{}
-	for _, object := range v.localRegistry.Index {
+	for _, object := range v.LocalRegistry.Index {
 		if err := v.Validate(object); err != nil {
 			_ = st.Append(stacktrace.NewWrapped("validation failed", err, stacktrace.WithInfo("cti", object.GetCTI()), stacktrace.WithType("validation")))
 		}
@@ -120,7 +120,7 @@ func (v *MetadataValidator) ValidateAll() error {
 // registerHooks takes aggregated hooks for types and instances and assigns them to corresponding
 // CTI types and instances by matching their CTI expressions.
 func (v *MetadataValidator) registerHooks() error {
-	for k, typ := range v.localRegistry.Types {
+	for k, typ := range v.LocalRegistry.Types {
 		secondExpr, err := typ.Expression()
 		if err != nil {
 			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
@@ -133,7 +133,7 @@ func (v *MetadataValidator) registerHooks() error {
 		}
 	}
 
-	for k, typ := range v.localRegistry.Instances {
+	for k, typ := range v.LocalRegistry.Instances {
 		secondExpr, err := typ.Expression()
 		if err != nil {
 			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
@@ -319,7 +319,7 @@ func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *
 		if attributeSelector != "" {
 			schemaRef = schemaRef[:len(schemaRef)-len(attributeSelector)-1]
 		}
-		refObject, ok := v.globalRegistry.Types[schemaRef]
+		refObject, ok := v.GlobalRegistry.Types[schemaRef]
 		if !ok {
 			return fmt.Errorf("cti schema %s not found", schemaRef)
 		}
@@ -461,7 +461,7 @@ func (v *MetadataValidator) validateValueReference(key metadata.GJsonPath, child
 		if !compatible {
 			return fmt.Errorf("cti.reference %s does not match any of the values in %s", refs, child.GetCTI())
 		}
-		if _, ok := v.globalRegistry.Index[val.Str]; !ok {
+		if _, ok := v.GlobalRegistry.Index[val.Str]; !ok {
 			return fmt.Errorf("referenced entity %s not found in registry", val.Str)
 		}
 	}
