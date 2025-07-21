@@ -44,6 +44,7 @@ type MetadataValidator struct {
 	expressionsCache map[string]*cti.Expression
 }
 
+// New creates a new MetadataValidator instance.
 func New(vendor, pkg string, gr, lr *registry.MetadataRegistry) *MetadataValidator {
 	return &MetadataValidator{
 		ctiParser:      cti.NewParser(),
@@ -66,7 +67,7 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry) *MetadataValidat
 }
 
 func (v *MetadataValidator) ValidateAll() error {
-	if err := v.aggregateHooks(); err != nil {
+	if err := v.registerHooks(); err != nil {
 		return fmt.Errorf("failed to aggregate hooks: %w", err)
 	}
 
@@ -83,7 +84,9 @@ func (v *MetadataValidator) ValidateAll() error {
 	return nil
 }
 
-func (v *MetadataValidator) aggregateHooks() error {
+// registerHooks takes aggregated hooks for types and instances and assigns them to corresponding
+// CTI types and instances by matching their CTI expressions.
+func (v *MetadataValidator) registerHooks() error {
 	if v.typeHooks == nil {
 		v.typeHooks = make(map[string][]TypeHook)
 		for k, typ := range v.localRegistry.Types {
@@ -118,11 +121,10 @@ func (v *MetadataValidator) aggregateHooks() error {
 	return nil
 }
 
-// OnType registers a hook for a specific CTI type.
-// CTI can be a full CTI or an expression.
-// For example, "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*".
+// OnType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
+// Does not support CTI query expressions.
 func (v *MetadataValidator) OnType(cti string, h TypeHook) error {
-	expr, err := v.getOrCacheExpression(cti, v.ctiParser.Parse)
+	expr, err := v.getOrCacheExpression(cti, v.ctiParser.ParseReference)
 	if err != nil {
 		return fmt.Errorf("failed to parse cti %s: %w", cti, err)
 	}
@@ -134,8 +136,10 @@ func (v *MetadataValidator) OnType(cti string, h TypeHook) error {
 	return nil
 }
 
+// OnInstanceOfType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
+// Does not support CTI query expressions and attribute selectors.
 func (v *MetadataValidator) OnInstanceOfType(cti string, h InstanceHook) error {
-	expr, err := v.getOrCacheExpression(cti, v.ctiParser.Parse)
+	expr, err := v.getOrCacheExpression(cti, v.ctiParser.ParseReference)
 	if err != nil {
 		return fmt.Errorf("failed to parse cti %s: %w", cti, err)
 	}
@@ -224,7 +228,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		if parent == nil {
 			return fmt.Errorf("%s type has no parent type", entity.CTI)
 		}
-		parentWithTraits := parent.FindEntityTypeByPredicate(func(e *metadata.EntityType) bool {
+		parentWithTraits := parent.FindEntityTypeByPredicateInChain(func(e *metadata.EntityType) bool {
 			return e.TraitsSchema != nil
 		})
 		if parentWithTraits == nil {

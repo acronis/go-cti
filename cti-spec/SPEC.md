@@ -12,7 +12,7 @@
   - [The CTI notation syntax](#the-cti-notation-syntax)
   - [Versioning](#versioning)
   - [Query language](#query-language)
-  - [Attribute query](#attribute-query)
+  - [Attribute selector](#attribute-selector)
   - [Collecting identifiers](#collecting-identifiers)
     - [Using wildcard](#using-wildcard)
     - [Using version](#using-version)
@@ -156,10 +156,10 @@ It's possible to use multiple query parameters to limit the resulting scope by l
 
 * cti.a.p.topic.v1.0[ type="informational", organization="b5a19f80-f68e-41bc-bbf4-cc6fd106a8a4" ]
 
-### Attribute query
+### Attribute selector
 
 > [!IMPORTANT]
-> CTI containing an attribute query may not serve as an identifier of a type or instance.
+> CTI containing an attribute selector may not serve as an identifier of a type or instance.
 
 Similar to JSONPath dot notation, CTI provides the attribute selector that allows the developers to get an attribute value of the CTI instance. Attribute selector can be applied to a CTI that is bound to an instance by appending the `@` to the identifier and specifying a property path. For example: `<cti>@<root_attr_name>.<nested_attr_name>`.
 
@@ -553,7 +553,7 @@ This is controlled by the `access` property in the metadata.
 The following access modifiers are available:
 
 - Public - allowed to be referenced by anyone.
-- Protected - allowed to be referenced only by the same vendor.
+- Protected - allowed to be referenced in any package of the same vendor.
 - Private - allowed to be referenced only by the same package.
 
 When deriving a type, the access modifier must be the same or more restrictive than the parent type. Setting a less restrictive access modifier is not allowed.

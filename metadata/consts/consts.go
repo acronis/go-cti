@@ -1,13 +1,18 @@
 package consts
 
+// AccessModifier represents the access level of an entity in the CTI system.
 type AccessModifier string
 
 const (
-	AccessModifierPublic    AccessModifier = "public"
-	AccessModifierPrivate   AccessModifier = "private"
+	// AccessModifierPublic indicates that the entity is allowed to be referenced by anyone.
+	AccessModifierPublic AccessModifier = "public"
+	// AccessModifierProtected indicates that the entity is allowed to be referenced within any package of the same vendor.
 	AccessModifierProtected AccessModifier = "protected"
+	// AccessModifierPrivate indicates that the entity is allowed to be referenced only by the same package.
+	AccessModifierPrivate AccessModifier = "private"
 )
 
+// Integer returns the integer representation of the AccessModifier which can be used to simplify the comparison.
 func (a AccessModifier) Integer() int {
 	switch a {
 	case AccessModifierPublic:

@@ -24,54 +24,97 @@ type MContext struct{}
 
 // PtrReplacer is an interface for objects that can replace their pointers with another object of the same type.
 type PtrReplacer[T any] interface {
+	// ReplacePointer replaces the pointer receiver with the provided object.
 	ReplacePointer(T) error
 }
 
 type NilChecker interface {
+	// IsNil checks if the underlying pointer receiver is nil.
 	IsNil() bool
 }
 
+// Entity is an interface that represents a CTI entity.
+// It provides methods to access and manipulate the entity's properties, annotations, and relationships.
+// See more information about CTI entities in the [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#cti-and-metadata).
 type Entity interface {
+	// GetCTI returns the CTI identifier of the entity as a string.
 	GetCTI() string
 
+	// SetFinal sets the final flag for the entity.
 	SetFinal(final bool)
+	// IsFinal returns true if the entity is final, meaning it cannot be extended or modified.
+	// Derived EntityType entities are not allowed to have final entity as parent.
 	IsFinal() bool
 
+	// GetAccess returns the access modifier of the entity.
+	// Access modifiers are used to control visibility and accessibility of the entity.
 	GetAccess() consts.AccessModifier
+	// SetAccess sets the access modifier for the entity.
 	SetAccess(access consts.AccessModifier)
+	// IsSamePackage checks if the entity belongs to the same package as the other entity.
 	IsSamePackage(other Entity) bool
+	// IsSameVendor checks if the entity belongs to the same vendor as the other entity.
 	IsSameVendor(other Entity) bool
+	// IsAccessibleBy checks if the entity is accessible by the other entity based on its access modifier.
 	IsAccessibleBy(other Entity) error
 
+	// IsA checks if the entity is a subtype of the given EntityType.
 	IsA(other *EntityType) bool
 
+	// SetResilient sets the resilient flag for the entity.
 	SetResilient(resilient bool)
+	// SetDisplayName sets the display name for the entity.
 	SetDisplayName(displayName string)
+	// SetDescription sets the description for the entity.
 	SetDescription(description string)
+	// SetDictionaries sets the dictionaries for the entity.
 	SetDictionaries(dictionaries map[string]any)
 
+	// Parent returns the parent EntityType of the entity, if any.
+	// Parent can be only EntityType.
 	Parent() *EntityType
+	// SetParent sets the parent EntityType for the entity.
 	SetParent(*EntityType) error
 
+	// Expression returns the parsed CTI expression of the entity.
+	// The method is lazy initializer. If the expression is not parsed yet, it will be parsed on the first call.
 	Expression() (*cti.Expression, error)
+	// Match checks if the entity matches the other entity based on their CTI expressions.
 	Match(other Entity) (bool, error)
+	// Vendor returns the entity vendor from CTI expression.
+	// If expression fails to parse, it returns empty string.
 	Vendor() string
+	// Package returns the entity package from CTI expression.
+	// If expression fails to parse, it returns empty string.
 	Package() string
+	// Name returns the entity name from CTI expression.
+	// If expression fails to parse, it returns empty string.
 	Name() string
+	// Version returns the entity version from CTI expression.
+	// If expression fails to parse, it returns an empty Version object.
 	Version() cti.Version
 
 	Context() *MContext
 
+	// GetAnnotations returns the annotations of the entity.
+	// Annotations are used to store additional metadata about the entity.
 	GetAnnotations() map[GJsonPath]*Annotations
+	// FindAnnotationsByPredicateInChain finds annotations by key in the entity and its parent chain based
+	// on the provided predicate function.
+	// If the key is not found, it returns nil.
 	FindAnnotationsByPredicateInChain(key GJsonPath, predicate func(*Annotations) bool) *Annotations
+	// FindAnnotationsByKeyInChain finds annotations by key in the entity and its parent chain.
+	// If the key is not found, it returns nil.
 	FindAnnotationsByKeyInChain(key GJsonPath) *Annotations
 
 	NilChecker
 }
 
+// Annotations represents a set of annotations for a CTI entity.
+// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#cti-type-extensions).
 type Annotations struct {
 	CTI           any                   `json:"cti.cti,omitempty" yaml:"cti.cti,omitempty"` // string or []string
-	ID            *bool                 `json:"cti.id,omitempty" yaml:"cti.id,omitempty"`   // bool?
+	ID            *bool                 `json:"cti.id,omitempty" yaml:"cti.id,omitempty"`
 	Access        consts.AccessModifier `json:"cti.access,omitempty" yaml:"cti.access,omitempty"`
 	AccessField   *bool                 `json:"cti.access_field,omitempty" yaml:"cti.access_field,omitempty"`
 	DisplayName   *bool                 `json:"cti.display_name,omitempty" yaml:"cti.display_name,omitempty"`
@@ -88,23 +131,22 @@ type Annotations struct {
 }
 
 type AnnotationType struct {
+	// Name is the name of the annotation type.
 	Name string `json:"name,omitempty"`
+	// Type is the type of the annotation. Can be either "object" or "array".
 	Type string `json:"type,omitempty"`
 
 	// Reference is a reference to the annotation type that was used to define the instance.
 	Reference string `json:"reference,omitempty"`
 }
 
-type TypeAnnotationReference struct {
-	Name string `json:"$name,omitempty"`
-}
-
-type InstanceAnnotationReference struct {
-	AnnotationType *AnnotationType `json:"$annotationType,omitempty"`
-}
-
-func (a Annotations) ReadCTI() []string {
-	if a.CTI == nil {
+// ReadCTI returns a slice of CTI identifiers.
+// If the CTI annotation is a string, it returns a slice with that string.
+// If it is a slice, it returns a slice with all strings from the slice.
+// If the CTI annotation is nil, it returns an empty slice.
+// If the Schema annotation is not a string or a slice, it returns an empty slice.
+func (a *Annotations) ReadCTI() []string {
+	if a == nil || a.CTI == nil {
 		return []string{}
 	}
 	if val, ok := a.CTI.(string); ok {
@@ -119,8 +161,13 @@ func (a Annotations) ReadCTI() []string {
 	return vals
 }
 
-func (a Annotations) ReadCTISchema() []string {
-	if a.Schema == nil {
+// ReadSchema returns a slice of CTI schema identifiers.
+// If the Schema annotation is a string, it returns a slice with that string.
+// If it is a slice, it returns a slice with all strings from the slice.
+// If the Schema annotation is nil, it returns an empty slice.
+// If the Schema annotation is not a string or a slice, it returns an empty slice.
+func (a *Annotations) ReadCTISchema() []string {
+	if a == nil || a.Schema == nil {
 		return []string{}
 	}
 	if val, ok := a.Schema.(string); ok {
@@ -138,7 +185,15 @@ func (a Annotations) ReadCTISchema() []string {
 	return vals
 }
 
-func (a Annotations) ReadReference() []string {
+// ReadReference returns a slice of CTI reference values.
+// If the Reference annotation is a boolean, it returns a slice with that boolean as a string.
+// If it is a string, it returns a slice with that string.
+// If it is a slice, it returns a slice with all strings from the slice.
+// If the Reference annotation is not a boolean, string, or slice, it returns an empty slice.
+func (a *Annotations) ReadReference() []string {
+	if a == nil {
+		return []string{}
+	}
 	switch t := a.Reference.(type) {
 	case bool:
 		return []string{strconv.FormatBool(t)}
@@ -156,8 +211,11 @@ func (a Annotations) ReadReference() []string {
 	return nil
 }
 
+// GJsonPath is a type that represents a [GJSON](https://github.com/tidwall/gjson) path.
 type GJsonPath string
 
+// GetValue returns the value of the GJsonPath from the given JSON bytes.
+// If the path is empty, it returns the entire JSON object.
 func (k GJsonPath) GetValue(obj []byte) gjson.Result {
 	expr := k.String()[1:]
 	if expr == "" {
@@ -172,30 +230,48 @@ func (k GJsonPath) GetValue(obj []byte) gjson.Result {
 	return gjson.GetBytes(obj, expr)
 }
 
+// String returns the GJsonPath as a string.
 func (k GJsonPath) String() string {
 	return string(k)
 }
 
 // Base properties for all CTI entities.
+// Provides a common implementation for Entity interface. Some methods are not implemented
+// and are overridden by EntityType and EntityInstance structs.
+// The structure is defined according to the [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#metadata-structure).
 type entity struct {
-	// TODO: Add UUID (computable)
-	// TODO: Add IsAnonymous method
-	// TODO: Implement Validate method
+	// Final indicates that the entity is final and cannot be extended or modified.
+	Final bool `json:"final" yaml:"final"`
 
-	Final        bool                       `json:"final" yaml:"final"`
-	Access       consts.AccessModifier      `json:"access" yaml:"access"`
-	CTI          string                     `json:"cti" yaml:"cti"`
-	Resilient    bool                       `json:"resilient" yaml:"resilient"`
-	DisplayName  string                     `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	Description  string                     `json:"description,omitempty" yaml:"description,omitempty"`
-	Dictionaries map[string]any             `json:"dictionaries,omitempty" yaml:"dictionaries,omitempty"`
-	Annotations  map[GJsonPath]*Annotations `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	// Access indicates the access modifier of the entity.
+	Access consts.AccessModifier `json:"access" yaml:"access"`
 
+	// CTI is the CTI identifier of the entity.
+	CTI string `json:"cti" yaml:"cti"`
+
+	// Resilient indicates that the entity is resilient and can be used in resilient contexts.
+	Resilient bool `json:"resilient" yaml:"resilient"`
+
+	// DisplayName is the display name of the entity.
+	DisplayName string `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+
+	// Description is the description of the entity.
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+
+	// Dictionaries is a map of dictionaries for the entity.
+	Dictionaries map[string]any `json:"dictionaries,omitempty" yaml:"dictionaries,omitempty"`
+
+	// Annotations is a map of annotations for the entity.
+	Annotations map[GJsonPath]*Annotations `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+
+	// parent is the parent entity type of the entity.
 	parent *EntityType `json:"-" yaml:"-"` // Parent entity type, if any
 
+	// expression is the parsed CTI expression of the entity.
 	expression *cti.Expression `json:"-" yaml:"-"` // Parsed CTI expression, if any
 
-	ctx *MContext `json:"-" yaml:"-"` // For future reflection purposes
+	// ctx is current unused.
+	ctx *MContext `json:"-" yaml:"-"`
 }
 
 type EntitySourceMap struct {
@@ -209,22 +285,29 @@ type EntitySourceMap struct {
 	Line int `json:"$line,omitempty" yaml:"$line,omitempty"`
 }
 
+// GetCTI returns the CTI identifier of the entity as a string.
 func (e *entity) GetCTI() string {
 	return e.CTI
 }
 
+// GetAccess returns the access modifier of the entity.
 func (e *entity) GetAccess() consts.AccessModifier {
 	return e.Access
 }
 
+// Parent returns the parent EntityType of the entity, if any.
 func (e *entity) Parent() *EntityType {
 	return e.parent
 }
 
+// GetAnnotations returns the annotations of the entity.
 func (e *entity) GetAnnotations() map[GJsonPath]*Annotations {
 	return e.Annotations
 }
 
+// FindAnnotationsByPredicateInChain finds annotations by key in the entity and its parent chain
+// based on the provided predicate function.
+// If the key is not found, it returns nil.
 func (e *entity) FindAnnotationsByPredicateInChain(key GJsonPath, predicate func(*Annotations) bool) *Annotations {
 	var root Entity = e
 	for !root.IsNil() {
@@ -237,6 +320,8 @@ func (e *entity) FindAnnotationsByPredicateInChain(key GJsonPath, predicate func
 	return nil
 }
 
+// FindAnnotationsByKeyInChain finds annotations by key in the entity and its parent chain.
+// If the key is not found, it returns nil.
 func (e *entity) FindAnnotationsByKeyInChain(key GJsonPath) *Annotations {
 	var root Entity = e
 	for !root.IsNil() {
@@ -249,10 +334,12 @@ func (e *entity) FindAnnotationsByKeyInChain(key GJsonPath) *Annotations {
 	return nil
 }
 
+// Context returns the current context of the entity. Current unused.
 func (e *entity) Context() *MContext {
 	return e.ctx
 }
 
+// IsAccessibleBy checks if the entity is accessible by the other entity based on its access modifier.
 func (e *entity) IsAccessibleBy(other Entity) error {
 	if other == nil {
 		return errors.New("other entity is nil")
@@ -265,6 +352,7 @@ func (e *entity) IsAccessibleBy(other Entity) error {
 	return nil
 }
 
+// IsSameVendor checks if the entity belongs to the same vendor as the other entity.
 func (e *entity) IsSameVendor(other Entity) bool {
 	if other == nil {
 		return false
@@ -275,6 +363,7 @@ func (e *entity) IsSameVendor(other Entity) bool {
 	return true
 }
 
+// IsSamePackage checks if the entity belongs to the same package as the other entity.
 func (e *entity) IsSamePackage(other Entity) bool {
 	if other == nil {
 		return false
@@ -288,6 +377,7 @@ func (e *entity) IsSamePackage(other Entity) bool {
 	return true
 }
 
+// Vendor returns the entity vendor from CTI expression.
 func (e *entity) Vendor() string {
 	expr, err := e.Expression()
 	if err != nil {
@@ -297,6 +387,7 @@ func (e *entity) Vendor() string {
 	return string(tail.Vendor)
 }
 
+// Package returns the entity package from CTI expression.
 func (e *entity) Package() string {
 	expr, err := e.Expression()
 	if err != nil {
@@ -306,6 +397,7 @@ func (e *entity) Package() string {
 	return string(tail.Package)
 }
 
+// Name returns the entity name from CTI expression.
 func (e *entity) Name() string {
 	expr, err := e.Expression()
 	if err != nil {
@@ -315,6 +407,7 @@ func (e *entity) Name() string {
 	return string(tail.EntityName)
 }
 
+// Version returns the entity version from CTI expression.
 func (e *entity) Version() cti.Version {
 	expr, err := e.Expression()
 	if err != nil {
@@ -324,18 +417,22 @@ func (e *entity) Version() cti.Version {
 	return tail.Version
 }
 
+// SetParent sets the parent EntityType for the entity. Not implemented in the base entity type.
 func (e *entity) SetParent(_ *EntityType) error {
 	return errors.New("entity does not implement SetParent")
 }
 
+// ReplacePointer replaces the pointer receiver with the provided object. Not implemented in the base entity type.
 func (e *entity) ReplacePointer(_ Entity) error {
 	return errors.New("entity does not implement ReplacePointer")
 }
 
+// IsFinal returns true if the entity is final, meaning it cannot be extended.
 func (e *entity) IsFinal() bool {
 	return e.Final
 }
 
+// Expression returns the parsed CTI expression of the entity.
 func (e *entity) Expression() (*cti.Expression, error) {
 	if e.expression == nil {
 		if e.CTI == "" {
@@ -350,6 +447,7 @@ func (e *entity) Expression() (*cti.Expression, error) {
 	return e.expression, nil
 }
 
+// IsA checks if the entity is a subtype of the given EntityType.
 func (e *entity) IsA(entity *EntityType) bool {
 	if entity == nil {
 		return false
@@ -357,6 +455,7 @@ func (e *entity) IsA(entity *EntityType) bool {
 	return strings.HasPrefix(e.CTI, entity.CTI)
 }
 
+// Match checks if the entity matches the other entity based on their CTI expressions.
 func (e *entity) Match(other Entity) (bool, error) {
 	if other == nil {
 		return false, errors.New("other entity is nil")
@@ -378,38 +477,47 @@ func (e *entity) Match(other Entity) (bool, error) {
 	return true, nil
 }
 
+// SetFinal sets the final flag for the entity.
 func (e *entity) SetFinal(final bool) {
 	e.Final = final
 }
 
+// SetAccess sets the access modifier for the entity.
 func (e *entity) SetAccess(access consts.AccessModifier) {
 	e.Access = access
 }
 
+// SetResilient sets the resilient flag for the entity.
 func (e *entity) SetResilient(resilient bool) {
 	e.Resilient = resilient
 }
 
+// SetDisplayName sets the display name for the entity.
 func (e *entity) SetDisplayName(displayName string) {
 	e.DisplayName = displayName
 }
 
+// SetDescription sets the description for the entity.
 func (e *entity) SetDescription(description string) {
 	e.Description = description
 }
 
+// SetDictionaries sets the dictionaries for the entity.
 func (e *entity) SetDictionaries(dictionaries map[string]any) {
 	e.Dictionaries = dictionaries
 }
 
+// SetAnnotations sets the annotations for the entity.
 func (e *entity) SetAnnotations(annotations map[GJsonPath]*Annotations) {
 	e.Annotations = annotations
 }
 
+// IsNil checks if the underlying pointer receiver is nil.
 func (e *entity) IsNil() bool {
 	return e == nil
 }
 
+// NewEntityType creates a new EntityType with the given CTI identifier, schema, and annotations.
 func NewEntityType(
 	id string,
 	schema *jsonschema.JSONSchemaCTI,
@@ -435,27 +543,44 @@ func NewEntityType(
 	return obj, nil
 }
 
+// EntityType represents a CTI type which is a domain type with data schema and optional trait schema and traits.
+// It is used to define the contract between the domain and the implementation.
+// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#data-types-and-traits).
 type EntityType struct {
 	entity `yaml:",inline"`
 
-	Schema            *jsonschema.JSONSchemaCTI  `json:"schema" yaml:"schema"`
-	TraitsSchema      *jsonschema.JSONSchemaCTI  `json:"traits_schema,omitempty" yaml:"traits_schema,omitempty"`
-	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty" yaml:"traits_annotations,omitempty"`
-	Traits            map[string]any             `json:"traits,omitempty" yaml:"traits,omitempty"`
+	// Schema is the JSON schema of the entity type. Must be present.
+	Schema *jsonschema.JSONSchemaCTI `json:"schema" yaml:"schema"`
 
-	rawSchema []byte `json:"-" yaml:"-"` // Cached raw schema
-	// FIXME: Need to remove. Raw values are only needed for GJSON, but it works with bytes.
-	// Need custom visitor for Go interface based on GJSON.
+	// TraitsSchema is the JSON schema of the traits for the entity type. Optional.
+	TraitsSchema *jsonschema.JSONSchemaCTI `json:"traits_schema,omitempty" yaml:"traits_schema,omitempty"`
+
+	// TraitsAnnotations is a map of annotations for the traits schema. Must be present if TraitsSchema is set.
+	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty" yaml:"traits_annotations,omitempty"`
+
+	// Traits is a map of traits for the entity type.
+	// Optional, may be present if parent entity type defines traits schema.
+	Traits map[string]any `json:"traits,omitempty" yaml:"traits,omitempty"`
+
+	// rawSchema is the cached marshaled value of Schema.
+	rawSchema []byte `json:"-" yaml:"-"`
+
+	// rawTraitValues is the cached marshaled value of Traits.
 	rawTraitValues []byte `json:"-" yaml:"-"` // Cached raw trait values
 
+	// SourceMap is the information about the source of the entity.
 	SourceMap EntityTypeSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
 
 type EntityTypeSourceMap struct {
+	// Name is the name of the entity type as it was defined in the source.
 	Name            string `json:"$name,omitempty" yaml:"$name,omitempty"`
 	EntitySourceMap `yaml:",inline"`
 }
 
+// SetParent sets the parent EntityType for the entity.
+// If provided parent entity is nil, it removes the parent reference.
+// If provided parent entity is final, it returns an error.
 func (e *EntityType) SetParent(entity *EntityType) error {
 	if entity == nil {
 		e.parent = nil
@@ -468,6 +593,7 @@ func (e *EntityType) SetParent(entity *EntityType) error {
 	return nil
 }
 
+// GetMergedSchema returns the merged schema of the entity type and its parent chain.
 func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 	if e.Schema == nil {
 		return nil, errors.New("entity type schema is nil")
@@ -543,10 +669,15 @@ func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 	}, nil
 }
 
+// GetTraitsSchema returns the traits schema of the entity type.
+// If the entity type does not have a traits schema, it returns nil.
 func (e *EntityType) GetTraitsSchema() *jsonschema.JSONSchemaCTI {
 	return e.TraitsSchema
 }
 
+// GetSchemaByAttributeSelectorInChain returns the sub-schema by the given attribute selector in the entity type
+// and its parent chain.
+// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#attribute-selector).
 func (e *EntityType) GetSchemaByAttributeSelectorInChain(attributeSelector string) (*jsonschema.JSONSchemaCTI, error) {
 	as, err := attribute_selector.NewAttributeSelector(attributeSelector)
 	if err != nil {
@@ -564,7 +695,10 @@ func (e *EntityType) GetSchemaByAttributeSelectorInChain(attributeSelector strin
 	return as.WalkJSONSchema(schema)
 }
 
-func (e *EntityType) FindEntityTypeByPredicate(predicate func(*EntityType) bool) *EntityType {
+// FindEntityTypeByPredicateInChain finds an EntityType in the entity type and its parent chain
+// based on the provided predicate function.
+// If no EntityType matches the predicate, it returns nil.
+func (e *EntityType) FindEntityTypeByPredicateInChain(predicate func(*EntityType) bool) *EntityType {
 	root := e
 	for root != nil {
 		if predicate(root) {
@@ -575,6 +709,8 @@ func (e *EntityType) FindEntityTypeByPredicate(predicate func(*EntityType) bool)
 	return nil
 }
 
+// FindTraitsSchemaInChain finds the traits schema in the entity type and its parent chain.
+// If no traits schema is found, it returns nil.
 func (e *EntityType) FindTraitsSchemaInChain() *jsonschema.JSONSchemaCTI {
 	root := e
 	for root != nil {
@@ -586,10 +722,13 @@ func (e *EntityType) FindTraitsSchemaInChain() *jsonschema.JSONSchemaCTI {
 	return nil
 }
 
+// GetTraits returns the traits of the entity type.
 func (e *EntityType) GetTraits() map[string]any {
 	return e.Traits
 }
 
+// GetRawSchema returns the raw JSON schema of the entity type.
+// It marshals the Schema field to JSON bytes and caches the result.
 func (e *EntityType) GetRawSchema() ([]byte, error) {
 	if e.rawSchema == nil {
 		if b, err := json.Marshal(e.Schema); err == nil {
@@ -601,6 +740,8 @@ func (e *EntityType) GetRawSchema() ([]byte, error) {
 	return e.rawSchema, nil
 }
 
+// GetRawTraits returns the raw JSON traits of the entity type.
+// It marshals the Traits field to JSON bytes and caches the result.
 func (e *EntityType) GetRawTraits() ([]byte, error) {
 	if e.rawTraitValues == nil {
 		if b, err := json.Marshal(e.Traits); err == nil {
@@ -612,6 +753,9 @@ func (e *EntityType) GetRawTraits() ([]byte, error) {
 	return e.rawTraitValues, nil
 }
 
+// GetMergedTraits returns the merged traits of the entity type and its parent chain.
+// It combines traits from the entity type and its parent entities, ensuring that traits from parent entities
+// are included only if they are not already defined in the current entity type.
 func (e *EntityType) GetMergedTraits() map[string]any {
 	mergedTraits := make(map[string]any)
 	root := e
@@ -628,11 +772,13 @@ func (e *EntityType) GetMergedTraits() map[string]any {
 	return mergedTraits
 }
 
-func (e *EntityType) Validate() error {
+// Validate validates the values against the entity type schema.
+func (e *EntityType) Validate(values any) error {
 	// TODO: Implement
 	return nil
 }
 
+// ReplacePointer replaces the pointer receiver with the provided object.
 func (e *EntityType) ReplacePointer(src Entity) error {
 	switch src := src.(type) {
 	case *EntityType:
@@ -643,27 +789,33 @@ func (e *EntityType) ReplacePointer(src Entity) error {
 	return nil
 }
 
+// SetSchema sets the schema for the entity type.
 func (e *EntityType) SetSchema(schema *jsonschema.JSONSchemaCTI) {
 	e.Schema = schema
 }
 
+// SetTraitsSchema sets the traits schema and annotations for the entity type.
 func (e *EntityType) SetTraitsSchema(traitsSchema *jsonschema.JSONSchemaCTI, traitsAnnotations map[GJsonPath]*Annotations) {
 	e.TraitsSchema = traitsSchema
 	e.TraitsAnnotations = traitsAnnotations
 }
 
+// SetTraits sets the traits for the entity type.
 func (e *EntityType) SetTraits(traits map[string]any) {
 	e.Traits = traits
 }
 
+// SetSourceMap sets the source map for the entity type.
 func (e *EntityType) SetSourceMap(sourceMap EntityTypeSourceMap) {
 	e.SourceMap = sourceMap
 }
 
+// IsNil checks if the underlying pointer receiver is nil.
 func (e *EntityType) IsNil() bool {
 	return e == nil
 }
 
+// NewEntityInstance creates a new EntityInstance with the given CTI identifier and values.
 func NewEntityInstance(id string, values any) (*EntityInstance, error) {
 	if values == nil {
 		return nil, errors.New("values is nil")
@@ -682,22 +834,32 @@ func NewEntityInstance(id string, values any) (*EntityInstance, error) {
 	return obj, nil
 }
 
+// EntityInstance represents a CTI entity instance with values that conform to a specific EntityType.
+// It is used to represent a specific instance of a domain type with its own data.
+// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#instances).
 type EntityInstance struct {
 	entity `yaml:",inline"`
 
+	// Values is the values of the entity instance.
+	// Can be any value that conforms to the schema of the parent EntityType.
 	Values any `json:"values" yaml:"values"`
 
-	// FIXME: Need to remove. Raw values are only needed for GJSON, but it works with bytes.
-	// Need custom visitor for Go interface based on GJSON.
-	rawValues []byte                  `json:"-" yaml:"-"`
+	// rawValues is the cached marshaled value of Values.
+	rawValues []byte `json:"-" yaml:"-"`
+
+	// SourceMap is the information about the source of the entity instance.
 	SourceMap EntityInstanceSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
 
 type EntityInstanceSourceMap struct {
+	// AnnotationType is the information about the annotation type that was used to define the instance.
 	AnnotationType  AnnotationType `json:"$annotationType,omitempty" yaml:"$annotationType,omitempty"`
 	EntitySourceMap `yaml:",inline"`
 }
 
+// SetParent sets the parent EntityType for the entity instance.
+// It allows setting a parent to final EntityType since instances are allowed to have final parent type.
+// If provided parent entity is nil, it removes the parent reference.
 func (e *EntityInstance) SetParent(entity *EntityType) error {
 	if entity == nil {
 		e.parent = nil
@@ -707,7 +869,10 @@ func (e *EntityInstance) SetParent(entity *EntityType) error {
 	return nil
 }
 
-func (e *EntityInstance) FindEntityTypeByPredicate(predicate func(*EntityType) bool) *EntityType {
+// FindEntityTypeByPredicateInChain finds an EntityType in the entity type and its parent chain
+// based on the provided predicate function.
+// If no EntityType matches the predicate, it returns nil.
+func (e *EntityInstance) FindEntityTypeByPredicateInChain(predicate func(*EntityType) bool) *EntityType {
 	root := e.Parent()
 	for root != nil {
 		if predicate(root) {
@@ -718,6 +883,8 @@ func (e *EntityInstance) FindEntityTypeByPredicate(predicate func(*EntityType) b
 	return nil
 }
 
+// GetRawValues returns the raw JSON values of the entity instance.
+// It marshals the Values field to JSON bytes and caches the result.
 func (e *EntityInstance) GetRawValues() ([]byte, error) {
 	if e.rawValues == nil {
 		if b, err := json.Marshal(e.Values); err == nil {
@@ -729,6 +896,10 @@ func (e *EntityInstance) GetRawValues() ([]byte, error) {
 	return e.rawValues, nil
 }
 
+// GetValueByAttributeSelector returns the value of the entity instance by the given attribute selector.
+// It uses the attribute selector to navigate through the Values map and retrieve the value.
+// To be able to use this method, the Values field must be a map[string]any.
+// For more information, see [CTI specification](https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#attribute-selector).
 func (e *EntityInstance) GetValueByAttributeSelector(attributeSelector string) (any, error) {
 	as, err := attribute_selector.NewAttributeSelector(attributeSelector)
 	if err != nil {
@@ -741,14 +912,7 @@ func (e *EntityInstance) GetValueByAttributeSelector(attributeSelector string) (
 	return as.WalkJSON(v)
 }
 
-func (e *EntityInstance) Validate() error {
-	return nil
-}
-
-func (e *EntityInstance) ValidateValues() error {
-	return nil
-}
-
+// ReplacePointer replaces the pointer receiver with the provided object.
 func (e *EntityInstance) ReplacePointer(src Entity) error {
 	switch src := src.(type) {
 	case *EntityInstance:
@@ -759,10 +923,12 @@ func (e *EntityInstance) ReplacePointer(src Entity) error {
 	return nil
 }
 
+// SetSourceMap sets the source map for the entity instance.
 func (e *EntityInstance) SetSourceMap(sourceMap EntityInstanceSourceMap) {
 	e.SourceMap = sourceMap
 }
 
+// IsNil checks if the underlying pointer receiver is nil.
 func (e *EntityInstance) IsNil() bool {
 	return e == nil
 }

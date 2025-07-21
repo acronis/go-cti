@@ -234,14 +234,14 @@ func (pkg *Package) loadEntitiesFromCache(cacheFile string) (metadata.Entities, 
 	defer f.Close()
 
 	d := json.NewDecoder(f)
-	var legacyEntities metadata.LegacyEntities
+	var legacyEntities metadata.UntypedEntities
 	if err = d.Decode(&legacyEntities); err != nil {
 		return nil, fmt.Errorf("decode cache file %s: %w", cacheFile, err)
 	}
 
 	entities := make(metadata.Entities, len(legacyEntities))
 	for i, legacyEntity := range legacyEntities {
-		entity, err := pkg.legacyEntityToTypedEntity(legacyEntity)
+		entity, err := pkg.untypedEntityToTypedEntity(legacyEntity)
 		if err != nil {
 			return nil, fmt.Errorf("convert legacy entity to typed entity: %w", err)
 		}
@@ -250,7 +250,7 @@ func (pkg *Package) loadEntitiesFromCache(cacheFile string) (metadata.Entities, 
 	return entities, nil
 }
 
-func (pkg *Package) legacyEntityToTypedEntity(legacyEntity metadata.LegacyEntity) (metadata.Entity, error) {
+func (pkg *Package) untypedEntityToTypedEntity(legacyEntity metadata.UntypedEntity) (metadata.Entity, error) {
 	switch {
 	case legacyEntity.Schema != nil:
 		var schema jsonschema.JSONSchemaCTI

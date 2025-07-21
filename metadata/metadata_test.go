@@ -782,7 +782,7 @@ func TestEntityType_GetMergedTraits(t *testing.T) {
 
 func TestEntityType_Validate(t *testing.T) {
 	obj := &EntityType{}
-	err := obj.Validate()
+	err := obj.Validate(struct{}{})
 	require.Nil(t, err)
 }
 
@@ -825,18 +825,6 @@ func TestEntityType_ReplacePointer(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestEntityInstance_Validate(t *testing.T) {
-	obj := &EntityInstance{}
-	err := obj.Validate()
-	require.Nil(t, err)
-}
-
-func TestEntityInstance_ValidateValues(t *testing.T) {
-	obj := &EntityInstance{}
-	err := obj.ValidateValues()
-	require.Nil(t, err)
 }
 
 func TestEntityInstance_ReplacePointer(t *testing.T) {
