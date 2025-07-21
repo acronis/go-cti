@@ -12,7 +12,10 @@ func (pkg *Package) Validate() error {
 		return fmt.Errorf("parse with cache: %w", err)
 	}
 
-	validator := validator.New(pkg.Index.Vendor, pkg.Index.Pkg, pkg.GlobalRegistry, pkg.LocalRegistry)
+	validator, err := validator.New(pkg.Index.Vendor, pkg.Index.Pkg, pkg.GlobalRegistry, pkg.LocalRegistry)
+	if err != nil {
+		return fmt.Errorf("create validator: %w", err)
+	}
 	if err = validator.ValidateAll(); err != nil {
 		return fmt.Errorf("validate all: %w", err)
 	}

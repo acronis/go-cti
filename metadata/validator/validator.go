@@ -20,6 +20,28 @@ const (
 type TypeHook func(v *MetadataValidator, e *metadata.EntityType) error
 type InstanceHook func(v *MetadataValidator, e *metadata.EntityInstance) error
 
+type ValidatorOption func(*MetadataValidator) error
+
+// WithTypeHook registers a TypeHook for a specific CTI type.
+func WithTypeHook(cti string, hook TypeHook) ValidatorOption {
+	return func(v *MetadataValidator) error {
+		if hook == nil {
+			return fmt.Errorf("TypeHook not provided for %s", cti)
+		}
+		return v.onType(cti, hook)
+	}
+}
+
+// WithInstanceHook registers an InstanceHook for a specific CTI type.
+func WithInstanceHook(cti string, hook InstanceHook) ValidatorOption {
+	return func(v *MetadataValidator) error {
+		if hook == nil {
+			return fmt.Errorf("InstanceHook not provided for %s", cti)
+		}
+		return v.onInstanceOfType(cti, hook)
+	}
+}
+
 type MetadataValidator struct {
 	localRegistry  *registry.MetadataRegistry
 	globalRegistry *registry.MetadataRegistry
@@ -45,8 +67,8 @@ type MetadataValidator struct {
 }
 
 // New creates a new MetadataValidator instance.
-func New(vendor, pkg string, gr, lr *registry.MetadataRegistry) *MetadataValidator {
-	return &MetadataValidator{
+func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...ValidatorOption) (*MetadataValidator, error) {
+	v := &MetadataValidator{
 		ctiParser:      cti.NewParser(),
 		globalRegistry: gr,
 		localRegistry:  lr,
@@ -56,6 +78,9 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry) *MetadataValidat
 		aggregateTypeHooks:     make(map[*cti.Expression][]TypeHook),
 		aggregateInstanceHooks: make(map[*cti.Expression][]InstanceHook),
 
+		typeHooks:     make(map[string][]TypeHook),
+		instanceHooks: make(map[string][]InstanceHook),
+
 		CustomData: make(map[string]any),
 
 		// NOTE: gojsonschema loads and compiles the meta-schema from the URL without caching on each validation.
@@ -64,6 +89,14 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry) *MetadataValidat
 		schemaLoaderCache:       make(map[string]*gojsonschema.Schema),
 		traitsSchemaLoaderCache: make(map[string]*gojsonschema.Schema),
 	}
+
+	for _, opt := range opts {
+		if err := opt(v); err != nil {
+			return nil, fmt.Errorf("failed to apply validator option: %w", err)
+		}
+	}
+
+	return v, nil
 }
 
 func (v *MetadataValidator) ValidateAll() error {
@@ -87,67 +120,53 @@ func (v *MetadataValidator) ValidateAll() error {
 // registerHooks takes aggregated hooks for types and instances and assigns them to corresponding
 // CTI types and instances by matching their CTI expressions.
 func (v *MetadataValidator) registerHooks() error {
-	if v.typeHooks == nil {
-		v.typeHooks = make(map[string][]TypeHook)
-		for k, typ := range v.localRegistry.Types {
-			secondExpr, err := typ.Expression()
-			if err != nil {
-				return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
+	for k, typ := range v.localRegistry.Types {
+		secondExpr, err := typ.Expression()
+		if err != nil {
+			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
+		}
+		for expr, hooks := range v.aggregateTypeHooks {
+			if ok, _ := expr.Match(*secondExpr); !ok {
+				continue
 			}
-			for expr, hooks := range v.aggregateTypeHooks {
-				if ok, _ := expr.Match(*secondExpr); !ok {
-					continue
-				}
-				v.typeHooks[k] = append(v.typeHooks[k], hooks...)
-			}
+			v.typeHooks[k] = append(v.typeHooks[k], hooks...)
 		}
 	}
 
-	if v.instanceHooks == nil {
-		v.instanceHooks = make(map[string][]InstanceHook)
-		for k, typ := range v.localRegistry.Instances {
-			secondExpr, err := typ.Expression()
-			if err != nil {
-				return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
+	for k, typ := range v.localRegistry.Instances {
+		secondExpr, err := typ.Expression()
+		if err != nil {
+			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
+		}
+		for expr, hooks := range v.aggregateInstanceHooks {
+			if ok, _ := expr.Match(*secondExpr); !ok {
+				continue
 			}
-			for expr, hooks := range v.aggregateInstanceHooks {
-				if ok, _ := expr.Match(*secondExpr); !ok {
-					continue
-				}
-				v.instanceHooks[k] = append(v.instanceHooks[k], hooks...)
-			}
+			v.instanceHooks[k] = append(v.instanceHooks[k], hooks...)
 		}
 	}
 	return nil
 }
 
-// OnType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
+// onType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions.
-func (v *MetadataValidator) OnType(cti string, h TypeHook) error {
+func (v *MetadataValidator) onType(cti string, h TypeHook) error {
 	expr, err := v.getOrCacheExpression(cti, v.ctiParser.ParseReference)
 	if err != nil {
 		return fmt.Errorf("failed to parse cti %s: %w", cti, err)
 	}
 	v.aggregateTypeHooks[expr] = append(v.aggregateTypeHooks[expr], h)
-	// Invalidate the type hooks cache if it was already initialized.
-	if v.typeHooks != nil {
-		v.typeHooks = nil
-	}
 	return nil
 }
 
-// OnInstanceOfType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
+// onInstanceOfType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions and attribute selectors.
-func (v *MetadataValidator) OnInstanceOfType(cti string, h InstanceHook) error {
+func (v *MetadataValidator) onInstanceOfType(cti string, h InstanceHook) error {
 	expr, err := v.getOrCacheExpression(cti, v.ctiParser.ParseReference)
 	if err != nil {
 		return fmt.Errorf("failed to parse cti %s: %w", cti, err)
 	}
 	v.aggregateInstanceHooks[expr] = append(v.aggregateInstanceHooks[expr], h)
-	// Invalidate the instance hooks cache if it was already initialized.
-	if v.instanceHooks != nil {
-		v.instanceHooks = nil
-	}
 	return nil
 }
 
