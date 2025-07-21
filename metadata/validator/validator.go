@@ -131,7 +131,7 @@ func (v *MetadataValidator) OnType(cti string, h TypeHook) error {
 	v.aggregateTypeHooks[expr] = append(v.aggregateTypeHooks[expr], h)
 	// Invalidate the type hooks cache if it was already initialized.
 	if v.typeHooks != nil {
-		v.typeHooks = make(map[string][]TypeHook)
+		v.typeHooks = nil
 	}
 	return nil
 }
@@ -146,7 +146,7 @@ func (v *MetadataValidator) OnInstanceOfType(cti string, h InstanceHook) error {
 	v.aggregateInstanceHooks[expr] = append(v.aggregateInstanceHooks[expr], h)
 	// Invalidate the instance hooks cache if it was already initialized.
 	if v.instanceHooks != nil {
-		v.instanceHooks = make(map[string][]InstanceHook)
+		v.instanceHooks = nil
 	}
 	return nil
 }
