@@ -19,7 +19,7 @@ func Test_onType_Success(t *testing.T) {
 		return nil
 	}
 
-	err = v.onType(Rule[metadata.EntityType]{
+	err = v.onType(TypeRule{
 		ID:         "test_rule",
 		Hook:       hook,
 		Expression: "cti.vendor.pkg.entity_name.v1.0",
@@ -51,7 +51,7 @@ func Test_onType_ParseError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Invalid CTI string should cause parse error
-	err = v.onType(Rule[metadata.EntityType]{
+	err = v.onType(TypeRule{
 		ID:         "test_rule",
 		Hook:       func(v *MetadataValidator, e *metadata.EntityType) error { return nil },
 		Expression: "invalid cti",
@@ -71,7 +71,7 @@ func Test_onInstanceOfType_Success(t *testing.T) {
 		return nil
 	}
 
-	err = v.onInstanceOfType(Rule[metadata.EntityInstance]{
+	err = v.onInstanceOfType(InstanceRule{
 		ID:         "test_rule",
 		Hook:       hook,
 		Expression: "cti.vendor.pkg.entity_name.v1.0",
@@ -101,7 +101,7 @@ func Test_onInstanceOfType_ParseError(t *testing.T) {
 	v, err := New("vendor", "pkg", gr, lr)
 	require.NoError(t, err)
 
-	err = v.onInstanceOfType(Rule[metadata.EntityInstance]{
+	err = v.onInstanceOfType(InstanceRule{
 		ID:         "test_rule",
 		Hook:       func(v *MetadataValidator, e *metadata.EntityInstance) error { return nil },
 		Expression: "invalid cti",
