@@ -100,14 +100,14 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 		}
 	}
 
+	if err := v.registerRules(); err != nil {
+		return nil, fmt.Errorf("failed to aggregate hooks: %w", err)
+	}
+
 	return v, nil
 }
 
 func (v *MetadataValidator) ValidateAll() error {
-	if err := v.registerRules(); err != nil {
-		return fmt.Errorf("failed to aggregate hooks: %w", err)
-	}
-
 	st := stacktrace.StackTrace{}
 	for _, object := range v.LocalRegistry.Index {
 		if err := v.Validate(object); err != nil {
