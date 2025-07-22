@@ -17,24 +17,71 @@ const (
 	TrueStr = "true"
 )
 
-type TypeHook func(v *MetadataValidator, e *metadata.EntityType) error
-type InstanceHook func(v *MetadataValidator, e *metadata.EntityInstance) error
+const (
+	SeverityError   stacktrace.Severity = "error"
+	SeverityWarning stacktrace.Severity = "warning"
+	SeverityInfo    stacktrace.Severity = "info"
+)
+
+func NewValidationIssueWrapped(msg string, err error, severity stacktrace.Severity, opts ...stacktrace.Option) *stacktrace.StackTrace {
+	opts = append(opts, stacktrace.WithSeverity(severity))
+	return stacktrace.NewWrapped(msg, err, opts...)
+}
+
+func NewValidationIssue(msg string, severity stacktrace.Severity, opts ...stacktrace.Option) *stacktrace.StackTrace {
+	opts = append(opts, stacktrace.WithSeverity(severity))
+	return stacktrace.New(msg, opts...)
+}
+
+type ValidatorOption func(*MetadataValidator) error
+
+// Rule defines a validation function for a specific type or instance in the CTI metadata.
+type Rule[T metadata.EntityType | metadata.EntityInstance] struct {
+	ID             string
+	Expression     string
+	ValidationHook func(v *MetadataValidator, e *T, customData any) error
+	CustomDataHook func(v *MetadataValidator) (any, error)
+}
+
+type TypeRule Rule[metadata.EntityType]
+type InstanceRule Rule[metadata.EntityInstance]
+
+// WithTypeRule registers a TypeRule for a specific CTI type.
+func WithTypeRule(rule TypeRule) ValidatorOption {
+	return func(v *MetadataValidator) error {
+		return v.onType(rule)
+	}
+}
+
+// WithInstanceRule registers an InstanceRule for a specific CTI instance.
+func WithInstanceRule(rule InstanceRule) ValidatorOption {
+	return func(v *MetadataValidator) error {
+		return v.onInstanceOfType(rule)
+	}
+}
 
 type MetadataValidator struct {
-	localRegistry  *registry.MetadataRegistry
-	globalRegistry *registry.MetadataRegistry
-	ctiParser      *cti.Parser
-	vendor         string
-	pkg            string
+	ctiParser *cti.Parser
+	vendor    string
+	pkg       string
 
-	typeHooks     map[string][]TypeHook
-	instanceHooks map[string][]InstanceHook
+	registeredRules map[string]struct{}
 
-	typeCache     map[string][]TypeHook
-	instanceCache map[string][]InstanceHook
+	typeRules     map[string][]TypeRule
+	instanceRules map[string][]InstanceRule
 
-	// CustomData is a map of custom data that can be used by hooks.
-	CustomData map[string]any
+	aggregateTypeRules     map[*cti.Expression][]TypeRule
+	aggregateInstanceRules map[*cti.Expression][]InstanceRule
+
+	// LocalRegistry is a metadata storage that contains only current package types and instances.
+	LocalRegistry *registry.MetadataRegistry
+
+	// GlobalRegistry is a metadata storage that contains both current package and dependent package
+	// types and instances.
+	GlobalRegistry *registry.MetadataRegistry
+
+	// customData is a map of custom data that can be used by rules.
+	customData map[string]any
 
 	metaSchema              *gojsonschema.Schema
 	schemaLoaderCache       map[string]*gojsonschema.Schema
@@ -44,21 +91,27 @@ type MetadataValidator struct {
 	expressionsCache map[string]*cti.Expression
 }
 
-func MakeMetadataValidator(vendor, pkg string, gr, lr *registry.MetadataRegistry) *MetadataValidator {
-	return &MetadataValidator{
+// New creates a new MetadataValidator instance.
+func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...ValidatorOption) (*MetadataValidator, error) {
+	if gr == nil || lr == nil {
+		return nil, errors.New("global and local metadata registries must not be nil")
+	}
+	v := &MetadataValidator{
 		ctiParser:      cti.NewParser(),
-		globalRegistry: gr,
-		localRegistry:  lr,
+		GlobalRegistry: gr,
+		LocalRegistry:  lr,
 		vendor:         vendor,
 		pkg:            pkg,
 
-		typeHooks:     make(map[string][]TypeHook),
-		instanceHooks: make(map[string][]InstanceHook),
+		registeredRules: make(map[string]struct{}),
 
-		typeCache:     make(map[string][]TypeHook),
-		instanceCache: make(map[string][]InstanceHook),
+		aggregateTypeRules:     make(map[*cti.Expression][]TypeRule),
+		aggregateInstanceRules: make(map[*cti.Expression][]InstanceRule),
 
-		CustomData: make(map[string]any),
+		typeRules:     make(map[string][]TypeRule),
+		instanceRules: make(map[string][]InstanceRule),
+
+		customData: make(map[string]any),
 
 		// NOTE: gojsonschema loads and compiles the meta-schema from the URL without caching on each validation.
 		// Here we pre-compile the meta-schema from local source to avoid network calls and recompilation.
@@ -66,81 +119,161 @@ func MakeMetadataValidator(vendor, pkg string, gr, lr *registry.MetadataRegistry
 		schemaLoaderCache:       make(map[string]*gojsonschema.Schema),
 		traitsSchemaLoaderCache: make(map[string]*gojsonschema.Schema),
 	}
+
+	for _, opt := range opts {
+		if err := opt(v); err != nil {
+			return nil, fmt.Errorf("failed to apply validator option: %w", err)
+		}
+	}
+
+	if err := v.registerRules(); err != nil {
+		return nil, fmt.Errorf("failed to aggregate rules: %w", err)
+	}
+
+	return v, nil
 }
 
-func (v *MetadataValidator) ValidateAll() error {
-	st := stacktrace.StackTrace{}
-	for _, object := range v.localRegistry.Index {
-		if err := v.Validate(object); err != nil {
-			_ = st.Append(stacktrace.NewWrapped("validation failed", err, stacktrace.WithInfo("cti", object.GetCTI()), stacktrace.WithType("validation")))
+// ValidateAll validates well-formedness of all metadata entities in the local metadata registry.
+func (v *MetadataValidator) ValidateAll() (bool, error) {
+	pass := true
+	st := stacktrace.New("validation issues")
+	for _, object := range v.LocalRegistry.Index {
+		err := v.Validate(object)
+		if err == nil {
+			continue
+		}
+		_ = st.Append(err)
+		if err.Severity.String() == string(SeverityError) {
+			pass = false
 		}
 	}
 	if len(st.List) > 0 {
-		return &st
+		return pass, st
+	}
+	return pass, nil
+}
+
+// registerRules takes aggregated rules for types and instances and assigns them to corresponding
+// CTI types and instances by matching their CTI expressions.
+func (v *MetadataValidator) registerRules() error {
+	for k, typ := range v.LocalRegistry.Types {
+		secondExpr, err := typ.Expression()
+		if err != nil {
+			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
+		}
+		for expr, rules := range v.aggregateTypeRules {
+			if ok, _ := expr.Match(*secondExpr); !ok {
+				continue
+			}
+			v.typeRules[k] = append(v.typeRules[k], rules...)
+		}
 	}
 
+	for k, typ := range v.LocalRegistry.Instances {
+		secondExpr, err := typ.Expression()
+		if err != nil {
+			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
+		}
+		for expr, rules := range v.aggregateInstanceRules {
+			if ok, _ := expr.Match(*secondExpr); !ok {
+				continue
+			}
+			v.instanceRules[k] = append(v.instanceRules[k], rules...)
+		}
+	}
 	return nil
 }
 
-func (v *MetadataValidator) OnType(id string, h TypeHook) error {
-	if _, ok := v.localRegistry.Types[id]; !ok {
-		return fmt.Errorf("type %s not found in local registry", id)
+// onType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
+// Does not support CTI query expressions.
+func (v *MetadataValidator) onType(rule TypeRule) error {
+	if rule.ValidationHook == nil {
+		return fmt.Errorf("rule '%s' does not provide hook function", rule.ID)
 	}
-	v.typeHooks[id] = append(v.typeHooks[id], h)
-	delete(v.typeCache, id)
+
+	if _, ok := v.registeredRules[rule.ID]; ok {
+		return fmt.Errorf("rule '%s' is already registered", rule.ID)
+	}
+	v.registeredRules[rule.ID] = struct{}{}
+
+	expr, err := v.getOrCacheExpression(rule.Expression, v.ctiParser.ParseReference)
+	if err != nil {
+		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
+	}
+	if rule.CustomDataHook != nil {
+		data, err := rule.CustomDataHook(v)
+		if err != nil {
+			return fmt.Errorf("failed to execute custom data hook for rule '%s': %w", rule.ID, err)
+		}
+		v.customData[rule.ID] = data
+	}
+	v.aggregateTypeRules[expr] = append(v.aggregateTypeRules[expr], rule)
 	return nil
 }
 
-func (v *MetadataValidator) OnInstanceOfType(id string, h InstanceHook) error {
-	if _, ok := v.localRegistry.Instances[id]; !ok {
-		return fmt.Errorf("instance %s not found in local registry", id)
+// onInstanceOfType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
+// Does not support CTI query expressions and attribute selectors.
+func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
+	if rule.ValidationHook == nil {
+		return fmt.Errorf("rule '%s' does not provide hook function", rule.ID)
 	}
-	v.instanceHooks[id] = append(v.instanceHooks[id], h)
-	delete(v.instanceCache, id)
+
+	if _, ok := v.registeredRules[rule.ID]; ok {
+		return fmt.Errorf("rule '%s' is already registered", rule.ID)
+	}
+	v.registeredRules[rule.ID] = struct{}{}
+
+	expr, err := v.getOrCacheExpression(rule.Expression, v.ctiParser.ParseReference)
+	if err != nil {
+		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
+	}
+	if rule.CustomDataHook != nil {
+		data, err := rule.CustomDataHook(v)
+		if err != nil {
+			return fmt.Errorf("failed to execute custom data hook for rule '%s': %w", rule.ID, err)
+		}
+		v.customData[rule.ID] = data
+	}
+	v.aggregateInstanceRules[expr] = append(v.aggregateInstanceRules[expr], rule)
 	return nil
 }
 
-func (v *MetadataValidator) collectTypeHooks(entity *metadata.EntityType) []TypeHook {
-	if hs, ok := v.typeCache[entity.CTI]; ok {
-		return hs
-	}
-	var out []TypeHook
-	for root := entity; root != nil; root = root.Parent() {
-		out = append(out, v.typeHooks[root.CTI]...)
-	}
-	v.typeCache[entity.CTI] = out
-	return out
-}
-
-func (v *MetadataValidator) collectInstanceHooks(entity *metadata.EntityInstance) []InstanceHook {
-	if hs, ok := v.instanceCache[entity.CTI]; ok {
-		return hs
-	}
-	var out []InstanceHook
-	// TODO: This means we cannot put a hook directly on an instance.
-	// But maybe it's not required anyway.
-	for root := entity.Parent(); root != nil; root = root.Parent() {
-		out = append(out, v.instanceHooks[root.CTI]...)
-	}
-	v.instanceCache[entity.CTI] = out
-	return out
-}
-
-func (v *MetadataValidator) Validate(object metadata.Entity) error {
-	if err := v.validateBaseProperties(object); err != nil {
-		return fmt.Errorf("%s: %w", object.GetCTI(), err)
+// Validate validates the well-formedness of a single metadata entity (type or instance).
+func (v *MetadataValidator) Validate(object metadata.Entity) *stacktrace.StackTrace {
+	err := v.validateBaseProperties(object)
+	if err != nil {
+		return NewValidationIssueWrapped(
+			"validate base properties",
+			err,
+			SeverityError,
+			stacktrace.WithInfo("cti", object.GetCTI()),
+		)
 	}
 	switch entity := object.(type) {
 	case *metadata.EntityType:
-		if err := v.ValidateType(entity); err != nil {
-			return fmt.Errorf("%s: %w", object.GetCTI(), err)
-		}
+		err = v.ValidateType(entity)
 	case *metadata.EntityInstance:
-		if err := v.ValidateInstance(entity); err != nil {
-			return fmt.Errorf("%s: %w", object.GetCTI(), err)
-		}
+		err = v.ValidateInstance(entity)
 	default:
-		return fmt.Errorf("%s: invalid type", object.GetCTI())
+		return NewValidationIssue(
+			"invalid type",
+			SeverityError,
+			stacktrace.WithInfo("expected", "EntityType or EntityInstance"),
+			stacktrace.WithInfo("got", fmt.Sprintf("%T", object)),
+			stacktrace.WithInfo("cti", object.GetCTI()),
+		)
+	}
+	if err != nil {
+		wErr := NewValidationIssueWrapped(
+			"validate entity",
+			err,
+			SeverityError,
+			stacktrace.WithInfo("cti", object.GetCTI()),
+		)
+		if st, ok := err.(*stacktrace.StackTrace); ok {
+			wErr.SetSeverity(*st.Severity)
+		}
+		return wErr
 	}
 	return nil
 }
@@ -176,12 +309,20 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 	}
 
 	if entity.Schema == nil {
-		return fmt.Errorf("%s type has no schema", entity.CTI)
+		return errors.New("entity type has no schema")
 	}
 
-	for _, h := range v.collectTypeHooks(entity) {
-		if err := h(v, entity); err != nil {
-			return err
+	for _, rule := range v.typeRules[entity.CTI] {
+		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
+			if vErr, ok := err.(*stacktrace.StackTrace); ok {
+				return stacktrace.NewWrapped(
+					"validation rule",
+					vErr,
+					stacktrace.WithSeverity(*vErr.Severity),
+					stacktrace.WithInfo("rule", rule.ID),
+				)
+			}
+			return fmt.Errorf("validation rule '%s': %w", rule.ID, err)
 		}
 	}
 
@@ -203,7 +344,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		if parent == nil {
 			return fmt.Errorf("%s type has no parent type", entity.CTI)
 		}
-		parentWithTraits := parent.FindEntityTypeByPredicate(func(e *metadata.EntityType) bool {
+		parentWithTraits := parent.FindEntityTypeByPredicateInChain(func(e *metadata.EntityType) bool {
 			return e.TraitsSchema != nil
 		})
 		if parentWithTraits == nil {
@@ -275,7 +416,7 @@ func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *
 		if attributeSelector != "" {
 			schemaRef = schemaRef[:len(schemaRef)-len(attributeSelector)-1]
 		}
-		refObject, ok := v.globalRegistry.Types[schemaRef]
+		refObject, ok := v.GlobalRegistry.Types[schemaRef]
 		if !ok {
 			return fmt.Errorf("cti schema %s not found", schemaRef)
 		}
@@ -349,12 +490,20 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 	}
 
 	if entity.Values == nil {
-		return fmt.Errorf("%s instance has no values", entity.CTI)
+		return errors.New("entity instance has no values")
 	}
 
-	for _, h := range v.collectInstanceHooks(entity) {
-		if err := h(v, entity); err != nil {
-			return err
+	for _, rule := range v.instanceRules[entity.CTI] {
+		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
+			if vErr, ok := err.(*stacktrace.StackTrace); ok {
+				return stacktrace.NewWrapped(
+					"validation rule",
+					vErr,
+					stacktrace.WithSeverity(*vErr.Severity),
+					stacktrace.WithInfo("rule", rule.ID),
+				)
+			}
+			return fmt.Errorf("validation rule '%s': %w", rule.ID, err)
 		}
 	}
 
@@ -417,7 +566,7 @@ func (v *MetadataValidator) validateValueReference(key metadata.GJsonPath, child
 		if !compatible {
 			return fmt.Errorf("cti.reference %s does not match any of the values in %s", refs, child.GetCTI())
 		}
-		if _, ok := v.globalRegistry.Index[val.Str]; !ok {
+		if _, ok := v.GlobalRegistry.Index[val.Str]; !ok {
 			return fmt.Errorf("referenced entity %s not found in registry", val.Str)
 		}
 	}

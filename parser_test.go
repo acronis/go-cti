@@ -1301,7 +1301,7 @@ func BenchmarkParser_Parse_Query(b *testing.B) {
 }
 
 func BenchmarkRegExp_Parse_Identifier(b *testing.B) {
-	// RegExp source: https://git.acronis.work/projects/APPS/repos/acronis-platform/browse/common/cti.raml?until=ce2a13dcd2ea804eda6d8db0855411c871e56f6c&untilPath=common%2Fcti.raml#170
+	// RegExp source: https://github.com/acronis/go-cti/blob/main/metadata/ramlx/spec_v1/cti.raml#L116
 	regExp := regexp.MustCompile(`^cti\.([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+)(~([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+))*(~[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12})?$`)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1313,7 +1313,7 @@ func BenchmarkRegExp_Parse_Identifier(b *testing.B) {
 }
 
 func BenchmarkRegExp_Parse_Wildcard(b *testing.B) {
-	// RegExp source: https://git.acronis.work/projects/APPS/repos/acronis-platform/browse/common/cti.raml?until=ce2a13dcd2ea804eda6d8db0855411c871e56f6c&untilPath=common%2Fcti.raml#198
+	// RegExp source: https://github.com/acronis/go-cti/blob/main/metadata/ramlx/spec_v1/cti.raml#L141
 	regExp := regexp.MustCompile(`^cti((\.([a-z][a-z0-9_]*))|\.)?(\.([a-z][a-z0-9_]*))?(\.([a-z_][a-z0-9_.]*))?(\.v(\d+|\d*\.\d*|\d*\.)?)?(~(([a-z][a-z0-9_]*)|([a-z][a-z0-9_]*)\.)?(\.([a-z][a-z0-9_]*))?(\.([a-z_][a-z0-9_.]*))?(\.v(\d+|\d*\.\d*|\d*\.)?)?)*\*$|^cti\.([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+)(~([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z_][a-z0-9_.]*\.v[\d]+\.[\d]+))*(~[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12})?$`)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
