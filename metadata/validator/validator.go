@@ -40,6 +40,7 @@ type Rule[T metadata.EntityType | metadata.EntityInstance] struct {
 	ID         string
 	Expression string
 	Hook       func(v *MetadataValidator, e *T) error
+	CustomData func(v *MetadataValidator) any
 }
 
 type TypeRule Rule[metadata.EntityType]
@@ -187,6 +188,9 @@ func (v *MetadataValidator) onType(rule TypeRule) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
 	}
+	if rule.CustomData != nil {
+		v.CustomData[rule.ID] = rule.CustomData(v)
+	}
 	v.aggregateTypeRules[expr] = append(v.aggregateTypeRules[expr], rule)
 	return nil
 }
@@ -197,6 +201,9 @@ func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
 	expr, err := v.getOrCacheExpression(rule.Expression, v.ctiParser.ParseReference)
 	if err != nil {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
+	}
+	if rule.CustomData != nil {
+		v.CustomData[rule.ID] = rule.CustomData(v)
 	}
 	v.aggregateInstanceRules[expr] = append(v.aggregateInstanceRules[expr], rule)
 	return nil
