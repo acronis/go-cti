@@ -17,21 +17,19 @@ const (
 	TrueStr = "true"
 )
 
-type Severity string
-
 const (
-	SeverityError   Severity = "error"
-	SeverityWarning Severity = "warning"
-	SeverityInfo    Severity = "info"
+	SeverityError   stacktrace.Severity = "error"
+	SeverityWarning stacktrace.Severity = "warning"
+	SeverityInfo    stacktrace.Severity = "info"
 )
 
-func NewValidationIssueWrapped(msg string, err error, severity Severity, opts ...stacktrace.Option) *stacktrace.StackTrace {
-	opts = append(opts, stacktrace.WithSeverity(stacktrace.Severity(severity)))
+func NewValidationIssueWrapped(msg string, err error, severity stacktrace.Severity, opts ...stacktrace.Option) *stacktrace.StackTrace {
+	opts = append(opts, stacktrace.WithSeverity(severity))
 	return stacktrace.NewWrapped(msg, err, opts...)
 }
 
-func NewValidationIssue(msg string, severity Severity, opts ...stacktrace.Option) *stacktrace.StackTrace {
-	opts = append(opts, stacktrace.WithSeverity(stacktrace.Severity(severity)))
+func NewValidationIssue(msg string, severity stacktrace.Severity, opts ...stacktrace.Option) *stacktrace.StackTrace {
+	opts = append(opts, stacktrace.WithSeverity(severity))
 	return stacktrace.New(msg, opts...)
 }
 
@@ -44,8 +42,11 @@ type Rule[T metadata.EntityType | metadata.EntityInstance] struct {
 	Hook       func(v *MetadataValidator, e *T) error
 }
 
+type TypeRule Rule[metadata.EntityType]
+type InstanceRule Rule[metadata.EntityInstance]
+
 // WithTypeHook registers a TypeHook for a specific CTI type.
-func WithTypeRule(rule Rule[metadata.EntityType]) ValidatorOption {
+func WithTypeRule(rule TypeRule) ValidatorOption {
 	return func(v *MetadataValidator) error {
 		if rule.Hook == nil {
 			return fmt.Errorf("rule %s does not provide hook function", rule.ID)
@@ -55,7 +56,7 @@ func WithTypeRule(rule Rule[metadata.EntityType]) ValidatorOption {
 }
 
 // WithInstanceHook registers an InstanceHook for a specific CTI type.
-func WithInstanceRule(rule Rule[metadata.EntityInstance]) ValidatorOption {
+func WithInstanceRule(rule InstanceRule) ValidatorOption {
 	return func(v *MetadataValidator) error {
 		if rule.Hook == nil {
 			return fmt.Errorf("rule %s does not provide hook function", rule.ID)
@@ -69,11 +70,11 @@ type MetadataValidator struct {
 	vendor    string
 	pkg       string
 
-	typeRules     map[string][]Rule[metadata.EntityType]
-	instanceRules map[string][]Rule[metadata.EntityInstance]
+	typeRules     map[string][]TypeRule
+	instanceRules map[string][]InstanceRule
 
-	aggregateTypeRules     map[*cti.Expression][]Rule[metadata.EntityType]
-	aggregateInstanceRules map[*cti.Expression][]Rule[metadata.EntityInstance]
+	aggregateTypeRules     map[*cti.Expression][]TypeRule
+	aggregateInstanceRules map[*cti.Expression][]InstanceRule
 
 	LocalRegistry  *registry.MetadataRegistry
 	GlobalRegistry *registry.MetadataRegistry
@@ -97,11 +98,11 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 		vendor:         vendor,
 		pkg:            pkg,
 
-		aggregateTypeRules:     make(map[*cti.Expression][]Rule[metadata.EntityType]),
-		aggregateInstanceRules: make(map[*cti.Expression][]Rule[metadata.EntityInstance]),
+		aggregateTypeRules:     make(map[*cti.Expression][]TypeRule),
+		aggregateInstanceRules: make(map[*cti.Expression][]InstanceRule),
 
-		typeRules:     make(map[string][]Rule[metadata.EntityType]),
-		instanceRules: make(map[string][]Rule[metadata.EntityInstance]),
+		typeRules:     make(map[string][]TypeRule),
+		instanceRules: make(map[string][]InstanceRule),
 
 		CustomData: make(map[string]any),
 
@@ -178,7 +179,7 @@ func (v *MetadataValidator) registerRules() error {
 
 // onType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions.
-func (v *MetadataValidator) onType(rule Rule[metadata.EntityType]) error {
+func (v *MetadataValidator) onType(rule TypeRule) error {
 	expr, err := v.getOrCacheExpression(rule.Expression, v.ctiParser.ParseReference)
 	if err != nil {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
@@ -189,7 +190,7 @@ func (v *MetadataValidator) onType(rule Rule[metadata.EntityType]) error {
 
 // onInstanceOfType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions and attribute selectors.
-func (v *MetadataValidator) onInstanceOfType(rule Rule[metadata.EntityInstance]) error {
+func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
 	expr, err := v.getOrCacheExpression(rule.Expression, v.ctiParser.ParseReference)
 	if err != nil {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
