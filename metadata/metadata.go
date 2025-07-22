@@ -570,11 +570,17 @@ type EntityType struct {
 	// Optional, may be present if parent entity type defines traits schema.
 	Traits map[string]any `json:"traits,omitempty" yaml:"traits,omitempty"`
 
+	// mergedSchema is a cached merged schema of the entity type and its parent chain.
+	mergedSchema *jsonschema.JSONSchemaCTI `json:"-" yaml:"-"`
+
+	// mergedTraits is a cached map of merged traits from the entity type and its parent chain.
+	mergedTraits map[string]any `json:"-" yaml:"-"`
+
 	// rawSchema is the cached marshaled value of Schema.
 	rawSchema []byte `json:"-" yaml:"-"`
 
 	// rawTraitValues is the cached marshaled value of Traits.
-	rawTraitValues []byte `json:"-" yaml:"-"` // Cached raw trait values
+	rawTraitValues []byte `json:"-" yaml:"-"`
 
 	// SourceMap is the information about the source of the entity.
 	SourceMap EntityTypeSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
@@ -602,11 +608,13 @@ func (e *EntityType) SetParent(entity *EntityType) error {
 }
 
 // GetMergedSchema returns the merged schema of the entity type and its parent chain.
+//
+// Method provides lazy initialization of the merged schema and caches the result.
+// Use ClearMergedSchema to reset the cached schema if necessary.
 func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 	if e.Schema == nil {
 		return nil, errors.New("entity type schema is nil")
-	}
-	if e.parent == nil {
+	} else if e.parent == nil {
 		return e.Schema, nil
 	}
 
@@ -668,13 +676,21 @@ func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 		}
 	}
 
-	return &jsonschema.JSONSchemaCTI{
+	e.mergedSchema = &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			Version:     "http://json-schema.org/draft-07/schema",
 			Ref:         origSelfRefType,
 			Definitions: definitions,
 		},
-	}, nil
+	}
+
+	return e.mergedSchema, nil
+}
+
+// ResetMergedSchema reset the cached merged schema of the entity type.
+// This is useful when Schema has been modified and needs to be reloaded.
+func (e *EntityType) ResetMergedSchema() {
+	e.mergedSchema = nil
 }
 
 // GetTraitsSchema returns the traits schema of the entity type.
@@ -766,7 +782,13 @@ func (e *EntityType) GetRawTraits() ([]byte, error) {
 // GetMergedTraits returns the merged traits of the entity type and its parent chain.
 // It combines traits from the entity type and its parent entities, ensuring that traits from parent entities
 // are included only if they are not already defined in the current entity type.
+//
+// Method provides lazy initialization of the merged traits and caches the result.
+// Use ResetMergedTraits to reset the cached traits if necessary.
 func (e *EntityType) GetMergedTraits() map[string]any {
+	if e.mergedTraits != nil {
+		return e.mergedTraits
+	}
 	mergedTraits := make(map[string]any)
 	root := e
 	for root != nil {
@@ -779,7 +801,16 @@ func (e *EntityType) GetMergedTraits() map[string]any {
 		}
 		root = root.parent
 	}
+
+	e.mergedTraits = mergedTraits
+
 	return mergedTraits
+}
+
+// ResetMergedTraits resets the cached merged traits of the entity type.
+// This is useful when Traits have been modified and need to be reloaded.
+func (e *EntityType) ResetMergedTraits() {
+	e.mergedTraits = nil
 }
 
 // Validate validates the values against the entity type schema.

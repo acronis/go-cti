@@ -65,6 +65,9 @@ func (t *Transformer) Transform() error {
 	if err := t.findAndInsertCtiSchemas(); err != nil {
 		return fmt.Errorf("find and insert cti schemas: %w", err)
 	}
+	if err := t.resetCachedSchemas(); err != nil {
+		return fmt.Errorf("generate merged schemas: %w", err)
+	}
 	if err := t.collectAnnotations(); err != nil {
 		return fmt.Errorf("collect annotations: %w", err)
 	}
@@ -89,6 +92,13 @@ func (t *Transformer) Transform() error {
 // 	}
 // 	return nil
 // }
+
+func (t *Transformer) resetCachedSchemas() error {
+	for _, entity := range t.registry.Types {
+		entity.ResetMergedSchema()
+	}
+	return nil
+}
 
 func (t *Transformer) mergeSchemas() error {
 	for _, entity := range t.registry.Types {
