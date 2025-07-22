@@ -188,7 +188,7 @@ func (v *MetadataValidator) registerRules() error {
 // Does not support CTI query expressions.
 func (v *MetadataValidator) onType(rule TypeRule) error {
 	if rule.Hook == nil {
-		return fmt.Errorf("rule %s does not provide hook function", rule.ID)
+		return fmt.Errorf("rule '%s' does not provide hook function", rule.ID)
 	}
 
 	if _, ok := v.registeredRules[rule.ID]; ok {
@@ -215,7 +215,7 @@ func (v *MetadataValidator) onType(rule TypeRule) error {
 // Does not support CTI query expressions and attribute selectors.
 func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
 	if rule.Hook == nil {
-		return fmt.Errorf("rule %s does not provide hook function", rule.ID)
+		return fmt.Errorf("rule '%s' does not provide hook function", rule.ID)
 	}
 
 	if _, ok := v.registeredRules[rule.ID]; ok {
