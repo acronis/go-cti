@@ -49,9 +49,6 @@ type InstanceRule Rule[metadata.EntityInstance]
 // WithTypeRule registers a TypeRule for a specific CTI type.
 func WithTypeRule(rule TypeRule) ValidatorOption {
 	return func(v *MetadataValidator) error {
-		if rule.Hook == nil {
-			return fmt.Errorf("rule %s does not provide hook function", rule.ID)
-		}
 		return v.onType(rule)
 	}
 }
@@ -59,9 +56,6 @@ func WithTypeRule(rule TypeRule) ValidatorOption {
 // WithInstanceRule registers an InstanceRule for a specific CTI instance.
 func WithInstanceRule(rule InstanceRule) ValidatorOption {
 	return func(v *MetadataValidator) error {
-		if rule.Hook == nil {
-			return fmt.Errorf("rule %s does not provide hook function", rule.ID)
-		}
 		return v.onInstanceOfType(rule)
 	}
 }
@@ -193,6 +187,10 @@ func (v *MetadataValidator) registerRules() error {
 // onType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions.
 func (v *MetadataValidator) onType(rule TypeRule) error {
+	if rule.Hook == nil {
+		return fmt.Errorf("rule %s does not provide hook function", rule.ID)
+	}
+
 	if _, ok := v.registeredRules[rule.ID]; ok {
 		return fmt.Errorf("rule '%s' is already registered", rule.ID)
 	}
@@ -216,6 +214,10 @@ func (v *MetadataValidator) onType(rule TypeRule) error {
 // onInstanceOfType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions and attribute selectors.
 func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
+	if rule.Hook == nil {
+		return fmt.Errorf("rule %s does not provide hook function", rule.ID)
+	}
+
 	if _, ok := v.registeredRules[rule.ID]; ok {
 		return fmt.Errorf("rule '%s' is already registered", rule.ID)
 	}
