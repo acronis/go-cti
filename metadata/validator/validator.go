@@ -91,6 +91,9 @@ type MetadataValidator struct {
 
 // New creates a new MetadataValidator instance.
 func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...ValidatorOption) (*MetadataValidator, error) {
+	if gr == nil || lr == nil {
+		return nil, errors.New("global and local metadata registries must not be nil")
+	}
 	v := &MetadataValidator{
 		ctiParser:      cti.NewParser(),
 		GlobalRegistry: gr,
