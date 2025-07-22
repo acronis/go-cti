@@ -206,7 +206,12 @@ func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
 func (v *MetadataValidator) Validate(object metadata.Entity) *stacktrace.StackTrace {
 	err := v.validateBaseProperties(object)
 	if err != nil {
-		return NewValidationIssueWrapped("failed to validate base properties", err, SeverityError)
+		return NewValidationIssueWrapped(
+			"failed to validate base properties",
+			err,
+			SeverityError,
+			stacktrace.WithInfo("cti", object.GetCTI()),
+		)
 	}
 	switch entity := object.(type) {
 	case *metadata.EntityType:
@@ -219,13 +224,20 @@ func (v *MetadataValidator) Validate(object metadata.Entity) *stacktrace.StackTr
 			SeverityError,
 			stacktrace.WithInfo("expected", "EntityType or EntityInstance"),
 			stacktrace.WithInfo("got", fmt.Sprintf("%T", object)),
+			stacktrace.WithInfo("cti", object.GetCTI()),
 		)
 	}
 	if err != nil {
-		if vErr, ok := err.(*stacktrace.StackTrace); ok {
-			return vErr
+		wErr := NewValidationIssueWrapped(
+			"failed to validate entity",
+			err,
+			SeverityError,
+			stacktrace.WithInfo("cti", object.GetCTI()),
+		)
+		if st, ok := err.(*stacktrace.StackTrace); ok {
+			wErr.SetSeverity(*st.Severity)
 		}
-		return NewValidationIssueWrapped("failed to validate entity", err, SeverityError)
+		return wErr
 	}
 	return nil
 }
@@ -274,7 +286,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 					stacktrace.WithInfo("rule", rule.ID),
 				)
 			}
-			return fmt.Errorf("validation rule %s: %w", rule.ID, err)
+			return fmt.Errorf("validation rule '%s': %w", rule.ID, err)
 		}
 	}
 
@@ -455,7 +467,7 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 					stacktrace.WithInfo("rule", rule.ID),
 				)
 			}
-			return fmt.Errorf("validation rule %s: %w", rule.ID, err)
+			return fmt.Errorf("validation rule '%s': %w", rule.ID, err)
 		}
 	}
 
