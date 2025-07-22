@@ -17,28 +17,32 @@ const (
 	TrueStr = "true"
 )
 
-type TypeHook func(v *MetadataValidator, e *metadata.EntityType) error
-type InstanceHook func(v *MetadataValidator, e *metadata.EntityInstance) error
-
 type ValidatorOption func(*MetadataValidator) error
 
+// Rule defines a validation rule for a specific type or instance in the CTI metadata.
+type Rule[T metadata.EntityType | metadata.EntityInstance] struct {
+	ID         string
+	Expression string
+	Hook       func(v *MetadataValidator, e *T) error
+}
+
 // WithTypeHook registers a TypeHook for a specific CTI type.
-func WithTypeHook(cti string, hook TypeHook) ValidatorOption {
+func WithTypeRule(rule Rule[metadata.EntityType]) ValidatorOption {
 	return func(v *MetadataValidator) error {
-		if hook == nil {
-			return fmt.Errorf("TypeHook not provided for %s", cti)
+		if rule.Hook == nil {
+			return fmt.Errorf("rule %s does not provide hook function", rule.ID)
 		}
-		return v.onType(cti, hook)
+		return v.onType(rule)
 	}
 }
 
 // WithInstanceHook registers an InstanceHook for a specific CTI type.
-func WithInstanceHook(cti string, hook InstanceHook) ValidatorOption {
+func WithInstanceRule(rule Rule[metadata.EntityInstance]) ValidatorOption {
 	return func(v *MetadataValidator) error {
-		if hook == nil {
-			return fmt.Errorf("InstanceHook not provided for %s", cti)
+		if rule.Hook == nil {
+			return fmt.Errorf("rule %s does not provide hook function", rule.ID)
 		}
-		return v.onInstanceOfType(cti, hook)
+		return v.onInstanceOfType(rule)
 	}
 }
 
@@ -47,11 +51,11 @@ type MetadataValidator struct {
 	vendor    string
 	pkg       string
 
-	typeHooks     map[string][]TypeHook
-	instanceHooks map[string][]InstanceHook
+	typeRules     map[string][]Rule[metadata.EntityType]
+	instanceRules map[string][]Rule[metadata.EntityInstance]
 
-	aggregateTypeHooks     map[*cti.Expression][]TypeHook
-	aggregateInstanceHooks map[*cti.Expression][]InstanceHook
+	aggregateTypeRules     map[*cti.Expression][]Rule[metadata.EntityType]
+	aggregateInstanceRules map[*cti.Expression][]Rule[metadata.EntityInstance]
 
 	LocalRegistry  *registry.MetadataRegistry
 	GlobalRegistry *registry.MetadataRegistry
@@ -75,11 +79,11 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 		vendor:         vendor,
 		pkg:            pkg,
 
-		aggregateTypeHooks:     make(map[*cti.Expression][]TypeHook),
-		aggregateInstanceHooks: make(map[*cti.Expression][]InstanceHook),
+		aggregateTypeRules:     make(map[*cti.Expression][]Rule[metadata.EntityType]),
+		aggregateInstanceRules: make(map[*cti.Expression][]Rule[metadata.EntityInstance]),
 
-		typeHooks:     make(map[string][]TypeHook),
-		instanceHooks: make(map[string][]InstanceHook),
+		typeRules:     make(map[string][]Rule[metadata.EntityType]),
+		instanceRules: make(map[string][]Rule[metadata.EntityInstance]),
 
 		CustomData: make(map[string]any),
 
@@ -100,7 +104,7 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 }
 
 func (v *MetadataValidator) ValidateAll() error {
-	if err := v.registerHooks(); err != nil {
+	if err := v.registerRules(); err != nil {
 		return fmt.Errorf("failed to aggregate hooks: %w", err)
 	}
 
@@ -117,19 +121,19 @@ func (v *MetadataValidator) ValidateAll() error {
 	return nil
 }
 
-// registerHooks takes aggregated hooks for types and instances and assigns them to corresponding
+// registerRules takes aggregated hooks for types and instances and assigns them to corresponding
 // CTI types and instances by matching their CTI expressions.
-func (v *MetadataValidator) registerHooks() error {
+func (v *MetadataValidator) registerRules() error {
 	for k, typ := range v.LocalRegistry.Types {
 		secondExpr, err := typ.Expression()
 		if err != nil {
 			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
 		}
-		for expr, hooks := range v.aggregateTypeHooks {
+		for expr, hooks := range v.aggregateTypeRules {
 			if ok, _ := expr.Match(*secondExpr); !ok {
 				continue
 			}
-			v.typeHooks[k] = append(v.typeHooks[k], hooks...)
+			v.typeRules[k] = append(v.typeRules[k], hooks...)
 		}
 	}
 
@@ -138,11 +142,11 @@ func (v *MetadataValidator) registerHooks() error {
 		if err != nil {
 			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
 		}
-		for expr, hooks := range v.aggregateInstanceHooks {
+		for expr, hooks := range v.aggregateInstanceRules {
 			if ok, _ := expr.Match(*secondExpr); !ok {
 				continue
 			}
-			v.instanceHooks[k] = append(v.instanceHooks[k], hooks...)
+			v.instanceRules[k] = append(v.instanceRules[k], hooks...)
 		}
 	}
 	return nil
@@ -150,41 +154,41 @@ func (v *MetadataValidator) registerHooks() error {
 
 // onType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions.
-func (v *MetadataValidator) onType(cti string, h TypeHook) error {
-	expr, err := v.getOrCacheExpression(cti, v.ctiParser.ParseReference)
+func (v *MetadataValidator) onType(rule Rule[metadata.EntityType]) error {
+	expr, err := v.getOrCacheExpression(rule.Expression, v.ctiParser.ParseReference)
 	if err != nil {
-		return fmt.Errorf("failed to parse cti %s: %w", cti, err)
+		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
 	}
-	v.aggregateTypeHooks[expr] = append(v.aggregateTypeHooks[expr], h)
+	v.aggregateTypeRules[expr] = append(v.aggregateTypeRules[expr], rule)
 	return nil
 }
 
 // onInstanceOfType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions and attribute selectors.
-func (v *MetadataValidator) onInstanceOfType(cti string, h InstanceHook) error {
-	expr, err := v.getOrCacheExpression(cti, v.ctiParser.ParseReference)
+func (v *MetadataValidator) onInstanceOfType(rule Rule[metadata.EntityInstance]) error {
+	expr, err := v.getOrCacheExpression(rule.Expression, v.ctiParser.ParseReference)
 	if err != nil {
-		return fmt.Errorf("failed to parse cti %s: %w", cti, err)
+		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
 	}
-	v.aggregateInstanceHooks[expr] = append(v.aggregateInstanceHooks[expr], h)
+	v.aggregateInstanceRules[expr] = append(v.aggregateInstanceRules[expr], rule)
 	return nil
 }
 
 func (v *MetadataValidator) Validate(object metadata.Entity) error {
 	if err := v.validateBaseProperties(object); err != nil {
-		return fmt.Errorf("%s: %w", object.GetCTI(), err)
+		return fmt.Errorf("validate base properties %s: %w", object.GetCTI(), err)
 	}
 	switch entity := object.(type) {
 	case *metadata.EntityType:
 		if err := v.ValidateType(entity); err != nil {
-			return fmt.Errorf("%s: %w", object.GetCTI(), err)
+			return fmt.Errorf("validate type %s: %w", object.GetCTI(), err)
 		}
 	case *metadata.EntityInstance:
 		if err := v.ValidateInstance(entity); err != nil {
-			return fmt.Errorf("%s: %w", object.GetCTI(), err)
+			return fmt.Errorf("validate instance %s: %w", object.GetCTI(), err)
 		}
 	default:
-		return fmt.Errorf("%s: invalid type", object.GetCTI())
+		return fmt.Errorf("invalid type %s", object.GetCTI())
 	}
 	return nil
 }
@@ -220,12 +224,12 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 	}
 
 	if entity.Schema == nil {
-		return fmt.Errorf("%s type has no schema", entity.CTI)
+		return errors.New("entity type has no schema")
 	}
 
-	for _, h := range v.typeHooks[entity.CTI] {
-		if err := h(v, entity); err != nil {
-			return err
+	for _, rule := range v.typeRules[entity.CTI] {
+		if err := rule.Hook(v, entity); err != nil {
+			return fmt.Errorf("%s: %w", rule.ID, err)
 		}
 	}
 
@@ -393,12 +397,12 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 	}
 
 	if entity.Values == nil {
-		return fmt.Errorf("%s instance has no values", entity.CTI)
+		return errors.New("entity instance has no values")
 	}
 
-	for _, h := range v.instanceHooks[entity.CTI] {
-		if err := h(v, entity); err != nil {
-			return err
+	for _, rule := range v.instanceRules[entity.CTI] {
+		if err := rule.Hook(v, entity); err != nil {
+			return fmt.Errorf("%s: %w", rule.ID, err)
 		}
 	}
 

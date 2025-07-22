@@ -19,24 +19,28 @@ func Test_onType_Success(t *testing.T) {
 		return nil
 	}
 
-	err = v.onType("cti.vendor.pkg.entity_name.v1.0", hook)
+	err = v.onType(Rule[metadata.EntityType]{
+		ID:         "test_rule",
+		Hook:       hook,
+		Expression: "cti.vendor.pkg.entity_name.v1.0",
+	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	// Should be registered in aggregateTypeHooks
+	// Should be registered in aggregateTypeRules
 	found := false
-	for _, hooks := range v.aggregateTypeHooks {
+	for _, hooks := range v.aggregateTypeRules {
 		for _, h := range hooks {
 			// Compare function pointers using reflect
-			if reflect.ValueOf(h).Pointer() == reflect.ValueOf(hook).Pointer() {
+			if reflect.ValueOf(h.Hook).Pointer() == reflect.ValueOf(hook).Pointer() {
 				found = true
 				break
 			}
 		}
 	}
 	if !found {
-		t.Errorf("hook not registered in aggregateTypeHooks")
+		t.Errorf("hook not registered in aggregateTypeRules")
 	}
 }
 
@@ -47,7 +51,11 @@ func Test_onType_ParseError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Invalid CTI string should cause parse error
-	err = v.onType("invalid cti", func(v *MetadataValidator, e *metadata.EntityType) error { return nil })
+	err = v.onType(Rule[metadata.EntityType]{
+		ID:         "test_rule",
+		Hook:       func(v *MetadataValidator, e *metadata.EntityType) error { return nil },
+		Expression: "invalid cti",
+	})
 	if err == nil {
 		t.Errorf("expected error for invalid CTI, got nil")
 	}
@@ -63,23 +71,27 @@ func Test_onInstanceOfType_Success(t *testing.T) {
 		return nil
 	}
 
-	err = v.onInstanceOfType("cti.vendor.pkg.entity_name.v1.0", hook)
+	err = v.onInstanceOfType(Rule[metadata.EntityInstance]{
+		ID:         "test_rule",
+		Hook:       hook,
+		Expression: "cti.vendor.pkg.entity_name.v1.0",
+	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	// Should be registered in aggregateInstanceHooks
+	// Should be registered in aggregateInstanceRules
 	found := false
-	for _, hooks := range v.aggregateInstanceHooks {
+	for _, hooks := range v.aggregateInstanceRules {
 		for _, h := range hooks {
-			if reflect.ValueOf(h).Pointer() == reflect.ValueOf(hook).Pointer() {
+			if reflect.ValueOf(h.Hook).Pointer() == reflect.ValueOf(hook).Pointer() {
 				found = true
 				break
 			}
 		}
 	}
 	if !found {
-		t.Errorf("hook not registered in aggregateInstanceHooks")
+		t.Errorf("hook not registered in aggregateInstanceRules")
 	}
 }
 
@@ -89,7 +101,11 @@ func Test_onInstanceOfType_ParseError(t *testing.T) {
 	v, err := New("vendor", "pkg", gr, lr)
 	require.NoError(t, err)
 
-	err = v.onInstanceOfType("invalid cti", func(v *MetadataValidator, e *metadata.EntityInstance) error { return nil })
+	err = v.onInstanceOfType(Rule[metadata.EntityInstance]{
+		ID:         "test_rule",
+		Hook:       func(v *MetadataValidator, e *metadata.EntityInstance) error { return nil },
+		Expression: "invalid cti",
+	})
 	if err == nil {
 		t.Errorf("expected error for invalid CTI, got nil")
 	}
