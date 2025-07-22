@@ -15,14 +15,14 @@ func Test_onType_Success(t *testing.T) {
 	v, err := New("vendor", "pkg", gr, lr)
 	require.NoError(t, err)
 
-	hook := func(v *MetadataValidator, e *metadata.EntityType) error {
+	hook := func(v *MetadataValidator, e *metadata.EntityType, _ any) error {
 		return nil
 	}
 
 	err = v.onType(TypeRule{
-		ID:         "test_rule",
-		Hook:       hook,
-		Expression: "cti.vendor.pkg.entity_name.v1.0",
+		ID:             "test_rule",
+		ValidationHook: hook,
+		Expression:     "cti.vendor.pkg.entity_name.v1.0",
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -33,7 +33,7 @@ func Test_onType_Success(t *testing.T) {
 	for _, hooks := range v.aggregateTypeRules {
 		for _, h := range hooks {
 			// Compare function pointers using reflect
-			if reflect.ValueOf(h.Hook).Pointer() == reflect.ValueOf(hook).Pointer() {
+			if reflect.ValueOf(h.ValidationHook).Pointer() == reflect.ValueOf(hook).Pointer() {
 				found = true
 				break
 			}
@@ -52,9 +52,9 @@ func Test_onType_ParseError(t *testing.T) {
 
 	// Invalid CTI string should cause parse error
 	err = v.onType(TypeRule{
-		ID:         "test_rule",
-		Hook:       func(v *MetadataValidator, e *metadata.EntityType) error { return nil },
-		Expression: "invalid cti",
+		ID:             "test_rule",
+		ValidationHook: func(v *MetadataValidator, e *metadata.EntityType, _ any) error { return nil },
+		Expression:     "invalid cti",
 	})
 	if err == nil {
 		t.Errorf("expected error for invalid CTI, got nil")
@@ -67,14 +67,14 @@ func Test_onInstanceOfType_Success(t *testing.T) {
 	v, err := New("vendor", "pkg", gr, lr)
 	require.NoError(t, err)
 
-	hook := func(v *MetadataValidator, e *metadata.EntityInstance) error {
+	hook := func(v *MetadataValidator, e *metadata.EntityInstance, _ any) error {
 		return nil
 	}
 
 	err = v.onInstanceOfType(InstanceRule{
-		ID:         "test_rule",
-		Hook:       hook,
-		Expression: "cti.vendor.pkg.entity_name.v1.0",
+		ID:             "test_rule",
+		ValidationHook: hook,
+		Expression:     "cti.vendor.pkg.entity_name.v1.0",
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -84,7 +84,7 @@ func Test_onInstanceOfType_Success(t *testing.T) {
 	found := false
 	for _, hooks := range v.aggregateInstanceRules {
 		for _, h := range hooks {
-			if reflect.ValueOf(h.Hook).Pointer() == reflect.ValueOf(hook).Pointer() {
+			if reflect.ValueOf(h.ValidationHook).Pointer() == reflect.ValueOf(hook).Pointer() {
 				found = true
 				break
 			}
@@ -102,9 +102,9 @@ func Test_onInstanceOfType_ParseError(t *testing.T) {
 	require.NoError(t, err)
 
 	err = v.onInstanceOfType(InstanceRule{
-		ID:         "test_rule",
-		Hook:       func(v *MetadataValidator, e *metadata.EntityInstance) error { return nil },
-		Expression: "invalid cti",
+		ID:             "test_rule",
+		ValidationHook: func(v *MetadataValidator, e *metadata.EntityInstance, _ any) error { return nil },
+		Expression:     "invalid cti",
 	})
 	if err == nil {
 		t.Errorf("expected error for invalid CTI, got nil")

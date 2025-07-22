@@ -39,7 +39,7 @@ type ValidatorOption func(*MetadataValidator) error
 type Rule[T metadata.EntityType | metadata.EntityInstance] struct {
 	ID             string
 	Expression     string
-	Hook           func(v *MetadataValidator, e *T) error
+	ValidationHook func(v *MetadataValidator, e *T, customData any) error
 	CustomDataHook func(v *MetadataValidator) (any, error)
 }
 
@@ -80,8 +80,8 @@ type MetadataValidator struct {
 	// types and instances.
 	GlobalRegistry *registry.MetadataRegistry
 
-	// CustomData is a map of custom data that can be used by rules.
-	CustomData map[string]any
+	// customData is a map of custom data that can be used by rules.
+	customData map[string]any
 
 	metaSchema              *gojsonschema.Schema
 	schemaLoaderCache       map[string]*gojsonschema.Schema
@@ -111,7 +111,7 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 		typeRules:     make(map[string][]TypeRule),
 		instanceRules: make(map[string][]InstanceRule),
 
-		CustomData: make(map[string]any),
+		customData: make(map[string]any),
 
 		// NOTE: gojsonschema loads and compiles the meta-schema from the URL without caching on each validation.
 		// Here we pre-compile the meta-schema from local source to avoid network calls and recompilation.
@@ -187,7 +187,7 @@ func (v *MetadataValidator) registerRules() error {
 // onType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions.
 func (v *MetadataValidator) onType(rule TypeRule) error {
-	if rule.Hook == nil {
+	if rule.ValidationHook == nil {
 		return fmt.Errorf("rule '%s' does not provide hook function", rule.ID)
 	}
 
@@ -205,7 +205,7 @@ func (v *MetadataValidator) onType(rule TypeRule) error {
 		if err != nil {
 			return fmt.Errorf("failed to execute custom data hook for rule '%s': %w", rule.ID, err)
 		}
-		v.CustomData[rule.ID] = data
+		v.customData[rule.ID] = data
 	}
 	v.aggregateTypeRules[expr] = append(v.aggregateTypeRules[expr], rule)
 	return nil
@@ -214,7 +214,7 @@ func (v *MetadataValidator) onType(rule TypeRule) error {
 // onInstanceOfType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions and attribute selectors.
 func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
-	if rule.Hook == nil {
+	if rule.ValidationHook == nil {
 		return fmt.Errorf("rule '%s' does not provide hook function", rule.ID)
 	}
 
@@ -232,7 +232,7 @@ func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
 		if err != nil {
 			return fmt.Errorf("failed to execute custom data hook for rule '%s': %w", rule.ID, err)
 		}
-		v.CustomData[rule.ID] = data
+		v.customData[rule.ID] = data
 	}
 	v.aggregateInstanceRules[expr] = append(v.aggregateInstanceRules[expr], rule)
 	return nil
@@ -313,7 +313,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 	}
 
 	for _, rule := range v.typeRules[entity.CTI] {
-		if err := rule.Hook(v, entity); err != nil {
+		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
 			if vErr, ok := err.(*stacktrace.StackTrace); ok {
 				return stacktrace.NewWrapped(
 					"validation rule",
@@ -494,7 +494,7 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 	}
 
 	for _, rule := range v.instanceRules[entity.CTI] {
-		if err := rule.Hook(v, entity); err != nil {
+		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
 			if vErr, ok := err.(*stacktrace.StackTrace); ok {
 				return stacktrace.NewWrapped(
 					"validation rule",
