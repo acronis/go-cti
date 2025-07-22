@@ -35,7 +35,7 @@ func NewValidationIssue(msg string, severity stacktrace.Severity, opts ...stackt
 
 type ValidatorOption func(*MetadataValidator) error
 
-// Rule defines a validation rule for a specific type or instance in the CTI metadata.
+// Rule defines a validation function for a specific type or instance in the CTI metadata.
 type Rule[T metadata.EntityType | metadata.EntityInstance] struct {
 	ID         string
 	Expression string
@@ -45,7 +45,7 @@ type Rule[T metadata.EntityType | metadata.EntityInstance] struct {
 type TypeRule Rule[metadata.EntityType]
 type InstanceRule Rule[metadata.EntityInstance]
 
-// WithTypeHook registers a TypeHook for a specific CTI type.
+// WithTypeRule registers a TypeRule for a specific CTI type.
 func WithTypeRule(rule TypeRule) ValidatorOption {
 	return func(v *MetadataValidator) error {
 		if rule.Hook == nil {
@@ -55,7 +55,7 @@ func WithTypeRule(rule TypeRule) ValidatorOption {
 	}
 }
 
-// WithInstanceHook registers an InstanceHook for a specific CTI type.
+// WithInstanceRule registers an InstanceRule for a specific CTI instance.
 func WithInstanceRule(rule InstanceRule) ValidatorOption {
 	return func(v *MetadataValidator) error {
 		if rule.Hook == nil {
