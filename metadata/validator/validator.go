@@ -136,7 +136,7 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 // ValidateAll validates well-formedness of all metadata entities in the local metadata registry.
 func (v *MetadataValidator) ValidateAll() (bool, error) {
 	pass := true
-	st := stacktrace.New("validation failed", stacktrace.WithType("validation"))
+	st := stacktrace.New("validation issues")
 	for _, object := range v.LocalRegistry.Index {
 		err := v.Validate(object)
 		if err == nil {
@@ -243,7 +243,7 @@ func (v *MetadataValidator) Validate(object metadata.Entity) *stacktrace.StackTr
 	err := v.validateBaseProperties(object)
 	if err != nil {
 		return NewValidationIssueWrapped(
-			"failed to validate base properties",
+			"validate base properties",
 			err,
 			SeverityError,
 			stacktrace.WithInfo("cti", object.GetCTI()),
@@ -265,7 +265,7 @@ func (v *MetadataValidator) Validate(object metadata.Entity) *stacktrace.StackTr
 	}
 	if err != nil {
 		wErr := NewValidationIssueWrapped(
-			"failed to validate entity",
+			"validate entity",
 			err,
 			SeverityError,
 			stacktrace.WithInfo("cti", object.GetCTI()),
