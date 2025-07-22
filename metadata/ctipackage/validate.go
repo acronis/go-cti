@@ -16,8 +16,10 @@ func (pkg *Package) Validate() error {
 	if err != nil {
 		return fmt.Errorf("create validator: %w", err)
 	}
-	if err = validator.ValidateAll(); err != nil {
-		return fmt.Errorf("validate all: %w", err)
+	if pass, err := validator.ValidateAll(); err != nil {
+		if !pass {
+			return fmt.Errorf("validate all: %w", err)
+		}
 	}
 
 	return nil

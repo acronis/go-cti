@@ -17,6 +17,24 @@ const (
 	TrueStr = "true"
 )
 
+type Severity string
+
+const (
+	SeverityError   Severity = "error"
+	SeverityWarning Severity = "warning"
+	SeverityInfo    Severity = "info"
+)
+
+func NewValidationIssueWrapped(msg string, err error, severity Severity, opts ...stacktrace.Option) *stacktrace.StackTrace {
+	opts = append(opts, stacktrace.WithSeverity(stacktrace.Severity(severity)))
+	return stacktrace.NewWrapped(msg, err, opts...)
+}
+
+func NewValidationIssue(msg string, severity Severity, opts ...stacktrace.Option) *stacktrace.StackTrace {
+	opts = append(opts, stacktrace.WithSeverity(stacktrace.Severity(severity)))
+	return stacktrace.New(msg, opts...)
+}
+
 type ValidatorOption func(*MetadataValidator) error
 
 // Rule defines a validation rule for a specific type or instance in the CTI metadata.
@@ -107,18 +125,24 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 	return v, nil
 }
 
-func (v *MetadataValidator) ValidateAll() error {
-	st := stacktrace.StackTrace{}
+// ValidateAll validates well-formedness of all metadata entities in the local metadata registry.
+func (v *MetadataValidator) ValidateAll() (bool, error) {
+	pass := true
+	st := stacktrace.New("validation failed", stacktrace.WithType("validation"))
 	for _, object := range v.LocalRegistry.Index {
-		if err := v.Validate(object); err != nil {
-			_ = st.Append(stacktrace.NewWrapped("validation failed", err, stacktrace.WithInfo("cti", object.GetCTI()), stacktrace.WithType("validation")))
+		err := v.Validate(object)
+		if err == nil {
+			continue
+		}
+		_ = st.Append(err)
+		if err.Severity.String() == string(SeverityError) {
+			pass = false
 		}
 	}
 	if len(st.List) > 0 {
-		return &st
+		return pass, st
 	}
-
-	return nil
+	return pass, nil
 }
 
 // registerRules takes aggregated hooks for types and instances and assigns them to corresponding
@@ -174,21 +198,30 @@ func (v *MetadataValidator) onInstanceOfType(rule Rule[metadata.EntityInstance])
 	return nil
 }
 
-func (v *MetadataValidator) Validate(object metadata.Entity) error {
-	if err := v.validateBaseProperties(object); err != nil {
-		return fmt.Errorf("validate base properties %s: %w", object.GetCTI(), err)
+// Validate validates the well-formedness of a single metadata entity (type or instance).
+func (v *MetadataValidator) Validate(object metadata.Entity) *stacktrace.StackTrace {
+	err := v.validateBaseProperties(object)
+	if err != nil {
+		return NewValidationIssueWrapped("failed to validate base properties", err, SeverityError)
 	}
 	switch entity := object.(type) {
 	case *metadata.EntityType:
-		if err := v.ValidateType(entity); err != nil {
-			return fmt.Errorf("validate type %s: %w", object.GetCTI(), err)
-		}
+		err = v.ValidateType(entity)
 	case *metadata.EntityInstance:
-		if err := v.ValidateInstance(entity); err != nil {
-			return fmt.Errorf("validate instance %s: %w", object.GetCTI(), err)
-		}
+		err = v.ValidateInstance(entity)
 	default:
-		return fmt.Errorf("invalid type %s", object.GetCTI())
+		return NewValidationIssue(
+			"invalid type",
+			SeverityError,
+			stacktrace.WithInfo("expected", "EntityType or EntityInstance"),
+			stacktrace.WithInfo("got", fmt.Sprintf("%T", object)),
+		)
+	}
+	if err != nil {
+		if vErr, ok := err.(*stacktrace.StackTrace); ok {
+			return vErr
+		}
+		return NewValidationIssueWrapped("failed to validate entity", err, SeverityError)
 	}
 	return nil
 }
@@ -229,7 +262,15 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 
 	for _, rule := range v.typeRules[entity.CTI] {
 		if err := rule.Hook(v, entity); err != nil {
-			return fmt.Errorf("%s: %w", rule.ID, err)
+			if vErr, ok := err.(*stacktrace.StackTrace); ok {
+				return stacktrace.NewWrapped(
+					"validation rule",
+					vErr,
+					stacktrace.WithSeverity(*vErr.Severity),
+					stacktrace.WithInfo("rule", rule.ID),
+				)
+			}
+			return fmt.Errorf("validation rule %s: %w", rule.ID, err)
 		}
 	}
 
@@ -402,7 +443,15 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 
 	for _, rule := range v.instanceRules[entity.CTI] {
 		if err := rule.Hook(v, entity); err != nil {
-			return fmt.Errorf("%s: %w", rule.ID, err)
+			if vErr, ok := err.(*stacktrace.StackTrace); ok {
+				return stacktrace.NewWrapped(
+					"validation rule",
+					vErr,
+					stacktrace.WithSeverity(*vErr.Severity),
+					stacktrace.WithInfo("rule", rule.ID),
+				)
+			}
+			return fmt.Errorf("validation rule %s: %w", rule.ID, err)
 		}
 	}
 
