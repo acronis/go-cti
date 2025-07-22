@@ -71,6 +71,8 @@ type MetadataValidator struct {
 	vendor    string
 	pkg       string
 
+	registeredRules map[string]struct{}
+
 	typeRules     map[string][]TypeRule
 	instanceRules map[string][]InstanceRule
 
@@ -106,6 +108,8 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 		LocalRegistry:  lr,
 		vendor:         vendor,
 		pkg:            pkg,
+
+		registeredRules: make(map[string]struct{}),
 
 		aggregateTypeRules:     make(map[*cti.Expression][]TypeRule),
 		aggregateInstanceRules: make(map[*cti.Expression][]InstanceRule),
@@ -189,6 +193,11 @@ func (v *MetadataValidator) registerRules() error {
 // onType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions.
 func (v *MetadataValidator) onType(rule TypeRule) error {
+	if _, ok := v.registeredRules[rule.ID]; ok {
+		return fmt.Errorf("rule '%s' is already registered", rule.ID)
+	}
+	v.registeredRules[rule.ID] = struct{}{}
+
 	expr, err := v.getOrCacheExpression(rule.Expression, v.ctiParser.ParseReference)
 	if err != nil {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
@@ -207,6 +216,11 @@ func (v *MetadataValidator) onType(rule TypeRule) error {
 // onInstanceOfType registers a hook by CTI expression (i.e., "cti.vendor.pkg.entity_name.v1.0" or "cti.vendor.pkg.entity_name.*").
 // Does not support CTI query expressions and attribute selectors.
 func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
+	if _, ok := v.registeredRules[rule.ID]; ok {
+		return fmt.Errorf("rule '%s' is already registered", rule.ID)
+	}
+	v.registeredRules[rule.ID] = struct{}{}
+
 	expr, err := v.getOrCacheExpression(rule.Expression, v.ctiParser.ParseReference)
 	if err != nil {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
