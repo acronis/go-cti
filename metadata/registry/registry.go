@@ -6,8 +6,8 @@ import (
 	"github.com/acronis/go-cti/metadata"
 )
 
+// MetadataRegistry is a storage for CTI types and instances.
 type MetadataRegistry struct {
-	// TODO: Too many indexes that are not efficient for operations other than add.
 	Types     metadata.EntityTypeMap
 	Instances metadata.EntityInstanceMap
 	Index     metadata.EntityMap

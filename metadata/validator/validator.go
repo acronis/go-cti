@@ -37,10 +37,10 @@ type ValidatorOption func(*MetadataValidator) error
 
 // Rule defines a validation function for a specific type or instance in the CTI metadata.
 type Rule[T metadata.EntityType | metadata.EntityInstance] struct {
-	ID         string
-	Expression string
-	Hook       func(v *MetadataValidator, e *T) error
-	CustomData func(v *MetadataValidator) any
+	ID             string
+	Expression     string
+	Hook           func(v *MetadataValidator, e *T) error
+	CustomDataHook func(v *MetadataValidator) any
 }
 
 type TypeRule Rule[metadata.EntityType]
@@ -77,9 +77,14 @@ type MetadataValidator struct {
 	aggregateTypeRules     map[*cti.Expression][]TypeRule
 	aggregateInstanceRules map[*cti.Expression][]InstanceRule
 
-	LocalRegistry  *registry.MetadataRegistry
+	// LocalRegistry is a metadata storage that contains only current package types and instances.
+	LocalRegistry *registry.MetadataRegistry
+
+	// GlobalRegistry is a metadata storage that contains both current package and dependent package
+	// types and instances.
 	GlobalRegistry *registry.MetadataRegistry
-	// CustomData is a map of custom data that can be used by hooks.
+
+	// CustomData is a map of custom data that can be used by rules.
 	CustomData map[string]any
 
 	metaSchema              *gojsonschema.Schema
@@ -124,7 +129,7 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 	}
 
 	if err := v.registerRules(); err != nil {
-		return nil, fmt.Errorf("failed to aggregate hooks: %w", err)
+		return nil, fmt.Errorf("failed to aggregate rules: %w", err)
 	}
 
 	return v, nil
@@ -150,7 +155,7 @@ func (v *MetadataValidator) ValidateAll() (bool, error) {
 	return pass, nil
 }
 
-// registerRules takes aggregated hooks for types and instances and assigns them to corresponding
+// registerRules takes aggregated rules for types and instances and assigns them to corresponding
 // CTI types and instances by matching their CTI expressions.
 func (v *MetadataValidator) registerRules() error {
 	for k, typ := range v.LocalRegistry.Types {
@@ -158,11 +163,11 @@ func (v *MetadataValidator) registerRules() error {
 		if err != nil {
 			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
 		}
-		for expr, hooks := range v.aggregateTypeRules {
+		for expr, rules := range v.aggregateTypeRules {
 			if ok, _ := expr.Match(*secondExpr); !ok {
 				continue
 			}
-			v.typeRules[k] = append(v.typeRules[k], hooks...)
+			v.typeRules[k] = append(v.typeRules[k], rules...)
 		}
 	}
 
@@ -171,11 +176,11 @@ func (v *MetadataValidator) registerRules() error {
 		if err != nil {
 			return fmt.Errorf("failed to get expression for type %s: %w", typ.CTI, err)
 		}
-		for expr, hooks := range v.aggregateInstanceRules {
+		for expr, rules := range v.aggregateInstanceRules {
 			if ok, _ := expr.Match(*secondExpr); !ok {
 				continue
 			}
-			v.instanceRules[k] = append(v.instanceRules[k], hooks...)
+			v.instanceRules[k] = append(v.instanceRules[k], rules...)
 		}
 	}
 	return nil
@@ -188,8 +193,8 @@ func (v *MetadataValidator) onType(rule TypeRule) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
 	}
-	if rule.CustomData != nil {
-		v.CustomData[rule.ID] = rule.CustomData(v)
+	if rule.CustomDataHook != nil {
+		v.CustomData[rule.ID] = rule.CustomDataHook(v)
 	}
 	v.aggregateTypeRules[expr] = append(v.aggregateTypeRules[expr], rule)
 	return nil
@@ -202,8 +207,8 @@ func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
 	}
-	if rule.CustomData != nil {
-		v.CustomData[rule.ID] = rule.CustomData(v)
+	if rule.CustomDataHook != nil {
+		v.CustomData[rule.ID] = rule.CustomDataHook(v)
 	}
 	v.aggregateInstanceRules[expr] = append(v.aggregateInstanceRules[expr], rule)
 	return nil
