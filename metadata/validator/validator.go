@@ -40,7 +40,7 @@ type Rule[T metadata.EntityType | metadata.EntityInstance] struct {
 	ID             string
 	Expression     string
 	Hook           func(v *MetadataValidator, e *T) error
-	CustomDataHook func(v *MetadataValidator) any
+	CustomDataHook func(v *MetadataValidator) (any, error)
 }
 
 type TypeRule Rule[metadata.EntityType]
@@ -194,7 +194,11 @@ func (v *MetadataValidator) onType(rule TypeRule) error {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
 	}
 	if rule.CustomDataHook != nil {
-		v.CustomData[rule.ID] = rule.CustomDataHook(v)
+		data, err := rule.CustomDataHook(v)
+		if err != nil {
+			return fmt.Errorf("failed to execute custom data hook for rule '%s': %w", rule.ID, err)
+		}
+		v.CustomData[rule.ID] = data
 	}
 	v.aggregateTypeRules[expr] = append(v.aggregateTypeRules[expr], rule)
 	return nil
@@ -208,7 +212,11 @@ func (v *MetadataValidator) onInstanceOfType(rule InstanceRule) error {
 		return fmt.Errorf("failed to parse expression %s: %w", rule.Expression, err)
 	}
 	if rule.CustomDataHook != nil {
-		v.CustomData[rule.ID] = rule.CustomDataHook(v)
+		data, err := rule.CustomDataHook(v)
+		if err != nil {
+			return fmt.Errorf("failed to execute custom data hook for rule '%s': %w", rule.ID, err)
+		}
+		v.CustomData[rule.ID] = data
 	}
 	v.aggregateInstanceRules[expr] = append(v.aggregateInstanceRules[expr], rule)
 	return nil
