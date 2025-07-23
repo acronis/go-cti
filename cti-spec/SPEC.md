@@ -21,7 +21,9 @@
   - [CTI type schema language](#cti-type-schema-language)
   - [Metadata structure](#metadata-structure)
   - [Metadata format](#metadata-format)
-  - [Data types and traits](#data-types-and-traits)
+  - [Data types, traits and inheritance](#data-types-traits-and-inheritance)
+    - [Data schema inheritance](#data-schema-inheritance)
+    - [Traits schema and traits inheritance](#traits-schema-and-traits-inheritance)
   - [Instances](#instances)
   - [CTI type extensions](#cti-type-extensions)
     - [References](#references)
@@ -33,6 +35,7 @@
   - [Dynamic configuration through instances](#dynamic-configuration-through-instances)
   - [Extensible domain types through type inheritance](#extensible-domain-types-through-type-inheritance)
   - [Controlling the type behavior](#controlling-the-type-behavior)
+    - [Expressing a configurable behavior of an alert](#expressing-a-configurable-behavior-of-an-alert)
     - [Expressing a relationship without an intermediate mapping](#expressing-a-relationship-without-an-intermediate-mapping)
   - [Using CTI for data objects access control](#using-cti-for-data-objects-access-control)
 - [Types and instances definition with RAMLx 1.0](#types-and-instances-definition-with-ramlx-10)
@@ -437,10 +440,12 @@ values:
   retention: 30d
 ```
 
-### Data types and traits
+### Data types, traits and inheritance
 
-A CTI can be associated with an extensible domain type that carries a data schema and, optionally, traits schema and traits that control its behavior.
-It can be used in the following ways:
+A CTI can be associated with an extensible domain type (a CTI type) that carries a data schema and, optionally,
+traits schema and traits that control its behavior.
+
+A CTI type can be used in the following ways:
 
 - Platform developers may define base (abstract) domain types that represent a contract between the domain and the implementation.
   To make the domain configurable, platform developers may also specify a **traits schema** to allow vendors to control the behavior of the domain.
@@ -453,14 +458,210 @@ For example, a platform developer may introduce an abstract alert type that prov
 and standard alert behaviors such as dismissal flow, rendering flow, etc. Concrete alert types derived by the vendor
 will preserve these behaviors and will also have an ability to configure the alert generation rules via traits.
 
+#### Data schema inheritance
+
+When defining a CTI type, the data schema can be extended by other vendors to create new types that inherit
+the properties and behavior of the parent type.
+
+When extending a CTI type, the data schema follows standard class-based inheritance principles where a derived type
+inherits the properties and behavior of the parent type.
+
+For example, given the following simple alert type definition:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.alert.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/Alert"
+  definitions:
+    Alert:
+      properties:
+        id:
+          type: string
+          description: A unique identifier of the alert.
+          format: uuid
+        type:
+          type: string
+          description: A CTI that was used to create the alert.
+        data:
+          type: object
+          description: An alert payload.
+          x-cti.overridable: true # This property can be specialized by other vendors.
+      required: [ id, type ]
+```
+
+A vendor may derive a new alert type that extends the base alert type and specialize the `data` property to include
+additional information specific to this alert type:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.alert.v1.0~a.p.user.login_attempt.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/UserLoginAttemptAlert"
+  definitions:
+    UserLoginAttemptAlert:
+      type: object
+      properties:
+        data:
+          type: object
+          description: An alert payload.
+          properties:
+            user_agent:
+              type: string
+              description: A User-Agent of the browser that was used in log in attempt.
+          required: [ user_agent ]
+      required: [ data ]
+```
+
+CTI metadata processor should be able to resolve the inheritance and validate that the derived type conforms to
+the parent type schema. If the type is valid, the final schema will be a combination of the parent type schema and
+the derived type schema that will look as follows:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.alert.v1.0~a.p.user.login_attempt.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/UserLoginAttemptAlert"
+  definitions:
+    UserLoginAttemptAlert:
+      type: object
+      properties:
+        id:
+          type: string
+          description: A unique identifier of the alert.
+          format: uuid
+        type:
+          type: string
+          description: A CTI that was used to create the alert.
+        data:
+          type: object
+          description: An alert payload.
+          properties:
+            user_agent:
+              type: string
+              description: A User-Agent of the browser that was used in log in attempt.
+          required: [ user_agent ]
+      required: [ id, type, data ]
+```
+
+#### Traits schema and traits inheritance
+
+When defining a CTI type with traits schema and traits, the following rules apply:
+
+* Traits schema is inherited from the parent type to the derived type, but it cannot be modified.
+* CTI type that defines traits schema cannot have traits.
+* Traits are inherited from the parent type to the derived type and they can be overridden by the derived type.
+
+This enables grouping of entities by their behavior (similar to interfaces in programming languages). For example,
+given the following alert type definition with traits schema and traits:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.alert.v1.0
+# ...
+traits_schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/cti-traits"
+  definitions:
+    cti-traits:
+      type: object
+      properties:
+      severity:
+        type: string
+        description: A severity of the alert.
+        enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
+      expiry_duration:
+        type: string
+        description: Whether to send a notification for this alert.
+      required: [ severity ]
+```
+
+And the following chain of two derived types that inherit the traits schema and traits.
+The first derived type specifies the alert severity which is mandatory:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.alert.v1.0~a.p.alert.user.v1.0
+# ...
+traits:
+  severity: MEDIUM
+```
+
+The second derived type inherits the severity from the first derived type and specifies the expiry duration trait:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.alert.v1.0~a.p.alert.user.v1.0~a.p.user.login_attempt.v1.0
+# ...
+traits:
+  # severity: MEDIUM # Inherited from cti.a.p.alert.v1.0~a.p.alert.user.v1.0
+  expiry_duration: 1h
+```
+
+However, the second derived type can also override the severity trait if needed and allowed by the domain:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.alert.v1.0~a.p.alert.user.v1.0~a.p.user.login_attempt.v1.0
+# ...
+traits:
+  severity: HIGH # Overriding the severity trait
+  expiry_duration: 1h
+```
+
 ### Instances
 
-A CTI can be associated with a static data that conforms the parent data type schema and specifies its behavior.
+A CTI can be associated with a static data (a CTI instance) that conforms the parent data type schema and specifies
+its behavior.
 
 CTI instances are particularly useful for defining static configuration, such as predefined service configuration,
 intermediate mapping, templates, rules, etc.
 
 Platform developers and vendors may create instances to dynamically configure the behavior of the domain.
+
+For example, a platform developer may define a topic type that represents an event topic in the system that may look
+as follows:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.topic.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/Topic"
+  definitions:
+    Topic:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A name of the topic.
+        retention:
+          type: string
+          description: A retention duration of the events created in this topic.
+      required: [ name, retention ]
+```
+
+A topic configuration instance may then be created to represent a specific topic in the system,
+such as a topic for user-related events:
+
+```yaml
+#%CTI Instance 1.0
+cti: cti.a.p.topic.v1.0~a.p.user.v1.0
+final: true
+access: public
+display_name: User-related events topic
+description: A topic for user-related events.
+values:
+  name: User-related events topic.
+  retention: 30d
+```
 
 ### CTI type extensions
 
@@ -765,6 +966,78 @@ schema:
 
 Using **Traits**, it is possible to create concrete types with specific behavior that the service, that serves the domain, expects.
 
+#### Expressing a configurable behavior of an alert
+
+Let us consider an **alert** that has different types of severities and requires different handling based on the severity.
+
+This cannot be expressed with a schema alone. However, it can be expressed with a CTI type using traits.
+
+For example, let us assume the following base CTI type that traits schema for the alert and alert object:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.alert.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/Alert"
+  definitions:
+    Alert:
+      properties:
+        id:
+          type: string
+          description: A unique identifier of the alert.
+          format: uuid
+        type:
+          type: string
+          description: A CTI that was used to create the alert.
+        severity:
+          type: string
+          description: A severity of the alert.
+          enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
+        data:
+          type: object
+          description: An alert payload.
+          x-cti.overridable: true # This property can be specialized by other vendors.
+      required: [ id, type, severity ]
+traits_schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  type: object
+  properties:
+    severity:
+      type: string
+      description: A severity of the alert.
+      enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
+  required: [ severity ]
+```
+
+When deriving a concrete alert type, a vendor may specify the `severity` trait that will allow the implementation
+to handle the alert based on its severity:
+
+```yaml
+#%CTI Type 1.0
+cti: cti.a.p.alert.v1.0~a.p.user.login_attempt.v1.0
+# ...
+schema:
+  $schema: http://json-schema.org/draft-07/schema#
+  $ref: "#/definitions/UserLoginAttemptAlert"
+  definitions:
+    UserLoginAttemptAlert:
+      type: object
+      properties:
+        data:
+          type: object
+          description: An alert payload.
+          properties:
+            user_agent:
+              type: string
+              description: A User-Agent of the browser that was used in log in attempt.
+          required: [ user_agent ]
+      required: [ data ]
+traits:
+  severity: HIGH
+```
+
 #### Expressing a relationship without an intermediate mapping
 
 Let us consider the following entity-relationship diagram where a specific **event** is associated with an **event topic**:
@@ -822,6 +1095,7 @@ Now, other vendors may not only specify a concrete `data` schema, but also speci
 ```yaml
 #%CTI Type 1.0
 cti: cti.a.p.event.v1.0~a.p.user.log_in_attempt.v1.0
+# ...
 schema:
   $schema: http://json-schema.org/draft-07/schema#
   $ref: "#/definitions/UserLogInAttemptEvent"
