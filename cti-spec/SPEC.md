@@ -461,10 +461,8 @@ will preserve these behaviors and will also have an ability to configure the ale
 #### Data schema inheritance
 
 When defining a CTI type, the data schema can be extended by other vendors to create new types that inherit
-the properties and behavior of the parent type.
-
-When extending a CTI type, the data schema follows standard class-based inheritance principles where a derived type
-inherits the properties and behavior of the parent type.
+the properties and behavior of the parent type. The data schema inheritance follows standard class-based inheritance
+principles.
 
 For example, given the following simple alert type definition:
 
