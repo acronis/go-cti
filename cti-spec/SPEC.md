@@ -581,32 +581,32 @@ traits_schema:
 ```
 
 And the following chain of two derived types that inherit the traits schema and traits.
-The first derived type specifies the alert severity which is mandatory:
+The first derived type specifies the alert severity for all user-related alerts, which is mandatory:
 
 ```yaml
 #%CTI Type 1.0
-cti: cti.a.p.alert.v1.0~a.p.alert.user.v1.0
+cti: cti.a.p.alert.v1.0~a.p.user.v1.0
 # ...
 traits:
   severity: MEDIUM
 ```
 
-The second derived type inherits the severity from the first derived type and specifies the expiry duration trait:
+The second derived type inherits the severity and specifies the expiry duration trait for a specific user alert:
 
 ```yaml
 #%CTI Type 1.0
-cti: cti.a.p.alert.v1.0~a.p.alert.user.v1.0~a.p.user.login_attempt.v1.0
+cti: cti.a.p.alert.v1.0~a.p.user.v1.0~a.p.login_attempt.v1.0
 # ...
 traits:
-  # severity: MEDIUM # Inherited from cti.a.p.alert.v1.0~a.p.alert.user.v1.0
+  # severity: MEDIUM # Inherited from cti.a.p.alert.v1.0~a.p.user.v1.0
   expiry_duration: 1h
 ```
 
-However, the second derived type can also override the severity trait if needed and allowed by the domain:
+However, it can also override the severity trait if needed and allowed by the domain:
 
 ```yaml
 #%CTI Type 1.0
-cti: cti.a.p.alert.v1.0~a.p.alert.user.v1.0~a.p.user.login_attempt.v1.0
+cti: cti.a.p.alert.v1.0~a.p.user.v1.0~a.p.login_attempt.v1.0
 # ...
 traits:
   severity: HIGH # Overriding the severity trait
