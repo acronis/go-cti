@@ -22,7 +22,7 @@ func (e *PackFormat) String() string {
 // Set must have pointer receiver so it doesn't change the value of a copy
 func (e *PackFormat) Set(v string) error {
 	switch v {
-	case "foo", "bar", "moo":
+	case string(PackFormatTgz), string(PackFormatZip):
 		*e = PackFormat(v)
 		return nil
 	default:
