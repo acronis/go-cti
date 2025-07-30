@@ -43,7 +43,7 @@ func (te *testUntypedEntity) GetTraits() json.RawMessage            { return te.
 func (te *testUntypedEntity) GetAnnotations() json.RawMessage       { return te.Annotations }
 func (te *testUntypedEntity) GetSourceMap() UntypedSourceMap        { return te.SourceMap }
 
-func TestConvertUntypedEntityToTypedEntity_EntityInstance(t *testing.T) {
+func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 	tests := []struct {
 		name          string
 		untypedEntity *testUntypedEntity
@@ -167,7 +167,7 @@ func TestConvertUntypedEntityToTypedEntity_EntityInstance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entity, err := ConvertUntypedEntityToTypedEntity(tt.untypedEntity)
+			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.errContains)
@@ -181,7 +181,7 @@ func TestConvertUntypedEntityToTypedEntity_EntityInstance(t *testing.T) {
 	}
 }
 
-func TestConvertUntypedEntityToTypedEntity_EntityType(t *testing.T) {
+func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 	simpleSchema := &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			Version: "http://json-schema.org/draft-07/schema",
@@ -366,7 +366,7 @@ func TestConvertUntypedEntityToTypedEntity_EntityType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entity, err := ConvertUntypedEntityToTypedEntity(tt.untypedEntity)
+			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.errContains)
@@ -380,7 +380,7 @@ func TestConvertUntypedEntityToTypedEntity_EntityType(t *testing.T) {
 	}
 }
 
-func TestConvertUntypedEntityToTypedEntity_ErrorCases(t *testing.T) {
+func TestConvertUntypedEntityToEntity_ErrorCases(t *testing.T) {
 	tests := []struct {
 		name          string
 		untypedEntity *testUntypedEntity
@@ -409,7 +409,7 @@ func TestConvertUntypedEntityToTypedEntity_ErrorCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entity, err := ConvertUntypedEntityToTypedEntity(tt.untypedEntity)
+			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.errContains)
 			require.Nil(t, entity)
@@ -417,7 +417,7 @@ func TestConvertUntypedEntityToTypedEntity_ErrorCases(t *testing.T) {
 	}
 }
 
-func TestConvertUntypedEntityToTypedEntity_ComplexEntityType(t *testing.T) {
+func TestConvertUntypedEntityToEntity_ComplexEntityType(t *testing.T) {
 	// Create a complex schema with definitions and references
 	complexSchema := &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
@@ -495,7 +495,7 @@ func TestConvertUntypedEntityToTypedEntity_ComplexEntityType(t *testing.T) {
 		},
 	}
 
-	entity, err := ConvertUntypedEntityToTypedEntity(untypedEntity)
+	entity, err := ConvertUntypedEntityToEntity(untypedEntity)
 	require.NoError(t, err)
 	require.NotNil(t, entity)
 
@@ -547,7 +547,7 @@ func TestConvertUntypedEntityToTypedEntity_ComplexEntityType(t *testing.T) {
 	require.Equal(t, "complex/original.raml", entityType.SourceMap.OriginalPath)
 }
 
-func TestConvertUntypedEntityToTypedEntity_EdgeCases(t *testing.T) {
+func TestConvertUntypedEntityToEntity_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name          string
 		untypedEntity *testUntypedEntity
@@ -597,7 +597,7 @@ func TestConvertUntypedEntityToTypedEntity_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entity, err := ConvertUntypedEntityToTypedEntity(tt.untypedEntity)
+			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.errContains)

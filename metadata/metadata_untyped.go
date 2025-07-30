@@ -11,7 +11,7 @@ import (
 type UntypedEntities []UntypedEntity
 
 // UntypedEntity is an interface for CTI entity that doesn't have a specific type defined at the time of creation.
-// Objects that implement this interface can be converted to the typed Entity using ConvertUntypedEntityToTypedEntity function.
+// Objects that implement this interface can be converted to the typed Entity using ConvertUntypedEntityToEntity function.
 // See more information about CTI entities in the [CTI specification].
 //
 // [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#metadata-structure
@@ -51,10 +51,10 @@ type InstanceAnnotationReference struct {
 	AnnotationType AnnotationType `json:"$annotationType,omitempty"`
 }
 
-// ConvertUntypedEntityToTypedEntity converts an UntypedEntity to a typed Entity.
+// ConvertUntypedEntityToEntity converts an UntypedEntity to a typed Entity.
 // It checks if the entity has a schema or values, and creates either an EntityType or EntityInstance accordingly.
 // If the entity has both schema and values, or neither, it returns an error.
-func ConvertUntypedEntityToTypedEntity(untypedEntity UntypedEntity) (Entity, error) {
+func ConvertUntypedEntityToEntity(untypedEntity UntypedEntity) (Entity, error) {
 	rawSchema := untypedEntity.GetSchema()
 	rawValues := untypedEntity.GetValues()
 	if rawSchema == nil && rawValues == nil {
