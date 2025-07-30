@@ -241,7 +241,7 @@ func (pkg *Package) loadEntitiesFromCache(cacheFile string) (metadata.Entities, 
 
 	entities := make(metadata.Entities, len(cachedEntities))
 	for i, cachedEntity := range cachedEntities {
-		entity, convErr := metadata.ConvertUntypedEntityToTypedEntity(&cachedEntity)
+		entity, convErr := metadata.ConvertUntypedEntityToEntity(&cachedEntity)
 		if convErr != nil {
 			return nil, fmt.Errorf("convert cached entity to typed entity: %w", convErr)
 		}
