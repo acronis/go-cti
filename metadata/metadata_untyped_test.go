@@ -63,7 +63,7 @@ func TestConvertUntypedEntityToTypedEntity_EntityInstance(t *testing.T) {
 				Values:      json.RawMessage(`{"field1": "value1", "field2": 42}`),
 				SourceMap: UntypedSourceMap{
 					InstanceAnnotationReference: InstanceAnnotationReference{
-						AnnotationType: &AnnotationType{Name: "TestInstance"},
+						AnnotationType: AnnotationType{Name: "TestInstance"},
 					},
 					SourcePath:   "test/instance.raml",
 					OriginalPath: "test/original.raml",
@@ -80,8 +80,9 @@ func TestConvertUntypedEntityToTypedEntity_EntityInstance(t *testing.T) {
 				require.True(t, instance.Resilient)
 				require.Equal(t, "Test Instance", instance.DisplayName)
 				require.Equal(t, "A test entity instance", instance.Description)
-				// The Values field stores the raw JSON message as-is
-				require.Equal(t, json.RawMessage(`{"field1": "value1", "field2": 42}`), instance.Values)
+				// The Values field stores the parsed values
+				expectedValues := map[string]any{"field1": "value1", "field2": float64(42)}
+				require.Equal(t, expectedValues, instance.Values)
 
 				require.Equal(t, "TestInstance", instance.SourceMap.AnnotationType.Name)
 				require.Equal(t, "test/instance.raml", instance.SourceMap.SourcePath)
@@ -97,6 +98,16 @@ func TestConvertUntypedEntityToTypedEntity_EntityInstance(t *testing.T) {
 			},
 			wantErr:     true,
 			errContains: "is not final, cannot convert to typed entity instance",
+		},
+		{
+			name: "entity instance with invalid JSON values should fail",
+			untypedEntity: &testUntypedEntity{
+				CTI:    "cti.test.instance.v1.0",
+				Final:  true,
+				Values: json.RawMessage(`{"field1": "value1", "field2": 42`), // Missing closing brace
+			},
+			wantErr:     true,
+			errContains: "unmarshal values for cti.test.instance.v1.0",
 		},
 		{
 			name: "entity instance with traits schema should fail",
@@ -149,14 +160,8 @@ func TestConvertUntypedEntityToTypedEntity_EntityInstance(t *testing.T) {
 				Final:  true,
 				Values: json.RawMessage(`invalid json`),
 			},
-			wantErr: false, // Actually, NewEntityInstance will succeed with invalid JSON - it's just stored as RawMessage
-			validate: func(t *testing.T, entity Entity) {
-				// The invalid JSON is stored as-is until it's actually used
-				instance, ok := entity.(*EntityInstance)
-				require.True(t, ok)
-				// The raw JSON is stored directly in Values field
-				require.Equal(t, json.RawMessage(`invalid json`), instance.Values)
-			},
+			wantErr:     true,
+			errContains: "unmarshal values for cti.test.instance.v1.0",
 		},
 	}
 
@@ -550,27 +555,6 @@ func TestConvertUntypedEntityToTypedEntity_EdgeCases(t *testing.T) {
 		errContains   string
 		validate      func(t *testing.T, entity Entity)
 	}{
-		{
-			name: "entity instance with nil annotation type in source map",
-			untypedEntity: &testUntypedEntity{
-				CTI:    "cti.test.instance.v1.0",
-				Final:  true,
-				Values: json.RawMessage(`{"field1": "value1"}`),
-				SourceMap: UntypedSourceMap{
-					InstanceAnnotationReference: InstanceAnnotationReference{
-						AnnotationType: nil, // nil annotation type
-					},
-					SourcePath:   "test/instance.raml",
-					OriginalPath: "test/original.raml",
-				},
-			},
-			wantErr: false,
-			validate: func(t *testing.T, entity Entity) {
-				instance, ok := entity.(*EntityInstance)
-				require.True(t, ok)
-				require.Equal(t, AnnotationType{}, instance.SourceMap.AnnotationType) // Should be zero value
-			},
-		},
 		{
 			name: "entity type with empty traits and annotations",
 			untypedEntity: &testUntypedEntity{

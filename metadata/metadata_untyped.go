@@ -48,7 +48,7 @@ type TypeAnnotationReference struct {
 }
 
 type InstanceAnnotationReference struct {
-	AnnotationType *AnnotationType `json:"$annotationType,omitempty"`
+	AnnotationType AnnotationType `json:"$annotationType,omitempty"`
 }
 
 // ConvertUntypedEntityToTypedEntity converts an UntypedEntity to a typed Entity.
@@ -66,7 +66,11 @@ func ConvertUntypedEntityToTypedEntity(untypedEntity UntypedEntity) (Entity, err
 
 	// If the entity has values but no schema, we treat it as an instance of an entity type.
 	if rawValues != nil {
-		e, err := NewEntityInstance(untypedEntity.GetCTI(), rawValues)
+		var values any
+		if err := json.Unmarshal(rawValues, &values); err != nil {
+			return nil, fmt.Errorf("unmarshal values for %s: %w", untypedEntity.GetCTI(), err)
+		}
+		e, err := NewEntityInstance(untypedEntity.GetCTI(), values)
 		if err != nil {
 			return nil, fmt.Errorf("make entity instance: %w", err)
 		}
@@ -91,12 +95,8 @@ func ConvertUntypedEntityToTypedEntity(untypedEntity UntypedEntity) (Entity, err
 		e.SetDisplayName(untypedEntity.GetDisplayName())
 		e.SetDescription(untypedEntity.GetDescription())
 		untypedSourceMap := untypedEntity.GetSourceMap()
-		var annotationType AnnotationType
-		if untypedSourceMap.AnnotationType != nil {
-			annotationType = *untypedSourceMap.AnnotationType
-		}
 		e.SetSourceMap(EntityInstanceSourceMap{
-			AnnotationType: annotationType,
+			AnnotationType: untypedSourceMap.AnnotationType,
 			EntitySourceMap: EntitySourceMap{
 				OriginalPath: untypedSourceMap.OriginalPath,
 				SourcePath:   untypedSourceMap.SourcePath,
