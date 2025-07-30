@@ -1232,8 +1232,15 @@ func TestEntity_IsA(t *testing.T) {
 			wantResult: false,
 		},
 		{
-			name:       "entity is direct child of parent",
+			name:       "entity is direct subtype of parent",
 			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCTI:  "cti.v.a.parent.v1.0",
+			parentNil:  false,
+			wantResult: true,
+		},
+		{
+			name:       "entity is an indirect subtype of parent",
+			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0~v.a.grandchild.v1.0",
 			parentCTI:  "cti.v.a.parent.v1.0",
 			parentNil:  false,
 			wantResult: true,
@@ -1246,7 +1253,7 @@ func TestEntity_IsA(t *testing.T) {
 			wantResult: true,
 		},
 		{
-			name:       "entity is not child of parent",
+			name:       "entity is not a subtype of parent",
 			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
 			parentCTI:  "cti.v.b.parent.v1.0",
 			parentNil:  false,
@@ -1278,6 +1285,72 @@ func TestEntity_IsA(t *testing.T) {
 			}
 			got := e.IsA(parent)
 			require.Equal(t, tt.wantResult, got)
+		})
+	}
+}
+
+func TestEntity_IsChildOf(t *testing.T) {
+	tests := []struct {
+		name        string
+		entityCTI   string
+		parentCTI   string
+		parentNil   bool
+		wantIsChild bool
+	}{
+		{
+			name:        "parent is nil",
+			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCTI:   "",
+			parentNil:   true,
+			wantIsChild: false,
+		},
+		{
+			name:        "entity is direct child of parent",
+			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCTI:   "cti.v.a.parent.v1.0",
+			parentNil:   false,
+			wantIsChild: true,
+		},
+		{
+			name:        "entity is not a direct child of parent",
+			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0~v.a.grandchild.v1.0",
+			parentCTI:   "cti.v.a.parent.v1.0",
+			parentNil:   false,
+			wantIsChild: false,
+		},
+		{
+			name:        "entity is not a child of parent",
+			entityCTI:   "cti.v.b.parent.v1.0~v.b.child.v1.0",
+			parentCTI:   "cti.v.a.parent.v1.0",
+			parentNil:   false,
+			wantIsChild: false,
+		},
+		{
+			name:        "entity CTI is empty",
+			entityCTI:   "",
+			parentCTI:   "cti.v.a.parent.v1.0",
+			parentNil:   false,
+			wantIsChild: false,
+		},
+		{
+			name:        "parent CTI is empty",
+			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0",
+			parentCTI:   "",
+			parentNil:   false,
+			wantIsChild: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &entity{CTI: tt.entityCTI}
+			var parent *EntityType
+			if !tt.parentNil {
+				parent = &EntityType{}
+				parent.CTI = tt.parentCTI
+			}
+			got := e.IsChildOf(parent)
+			require.Equal(t, tt.wantIsChild, got)
 		})
 	}
 }
