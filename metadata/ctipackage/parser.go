@@ -12,7 +12,6 @@ import (
 	"github.com/acronis/go-cti/metadata"
 	cmetadata "github.com/acronis/go-cti/metadata/collector/ctimetadata"
 	cramlx "github.com/acronis/go-cti/metadata/collector/ramlx"
-	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/registry"
 	"github.com/acronis/go-cti/metadata/transformer"
 	"github.com/acronis/go-raml/v2"
@@ -234,79 +233,18 @@ func (pkg *Package) loadEntitiesFromCache(cacheFile string) (metadata.Entities, 
 	defer f.Close()
 
 	d := json.NewDecoder(f)
-	var legacyEntities metadata.UntypedEntities
-	if err = d.Decode(&legacyEntities); err != nil {
+	var untypedEntities metadata.UntypedEntities
+	if err = d.Decode(&untypedEntities); err != nil {
 		return nil, fmt.Errorf("decode cache file %s: %w", cacheFile, err)
 	}
 
-	entities := make(metadata.Entities, len(legacyEntities))
-	for i, legacyEntity := range legacyEntities {
-		entity, err := pkg.untypedEntityToTypedEntity(legacyEntity)
+	entities := make(metadata.Entities, len(untypedEntities))
+	for i, legacyEntity := range untypedEntities {
+		entity, err := legacyEntity.AsTypedEntity()
 		if err != nil {
 			return nil, fmt.Errorf("convert legacy entity to typed entity: %w", err)
 		}
 		entities[i] = entity
 	}
 	return entities, nil
-}
-
-func (pkg *Package) untypedEntityToTypedEntity(legacyEntity metadata.UntypedEntity) (metadata.Entity, error) {
-	switch {
-	case legacyEntity.Schema != nil:
-		var schema jsonschema.JSONSchemaCTI
-		if err := json.Unmarshal(legacyEntity.Schema, &schema); err != nil {
-			return nil, fmt.Errorf("unmarshal schema for %s: %w", legacyEntity.CTI, err)
-		}
-		e, err := metadata.NewEntityType(legacyEntity.CTI, &schema, legacyEntity.Annotations)
-		if err != nil {
-			return nil, fmt.Errorf("make entity type: %w", err)
-		}
-		e.SetFinal(legacyEntity.Final)
-		e.SetResilient(legacyEntity.Resilient)
-		e.SetAccess(legacyEntity.Access)
-		e.SetDisplayName(legacyEntity.DisplayName)
-		e.SetDescription(legacyEntity.Description)
-		if legacyEntity.TraitsSchema != nil {
-			var traitsSchema jsonschema.JSONSchemaCTI
-			if err = json.Unmarshal(legacyEntity.TraitsSchema, &traitsSchema); err != nil {
-				return nil, fmt.Errorf("unmarshal traits schema for %s: %w", legacyEntity.CTI, err)
-			}
-			e.SetTraitsSchema(&traitsSchema, legacyEntity.TraitsAnnotations)
-		}
-		if legacyEntity.Traits != nil {
-			var traits map[string]any
-			if err = json.Unmarshal(legacyEntity.Traits, &traits); err != nil {
-				return nil, fmt.Errorf("unmarshal traits for %s: %w", legacyEntity.CTI, err)
-			}
-			e.SetTraits(traits)
-		}
-		e.SetSourceMap(metadata.EntityTypeSourceMap{
-			Name: legacyEntity.SourceMap.Name,
-			EntitySourceMap: metadata.EntitySourceMap{
-				OriginalPath: legacyEntity.SourceMap.OriginalPath,
-				SourcePath:   legacyEntity.SourceMap.SourcePath,
-			},
-		})
-		return e, nil
-	case legacyEntity.Values != nil:
-		e, err := metadata.NewEntityInstance(legacyEntity.CTI, legacyEntity.Values)
-		if err != nil {
-			return nil, fmt.Errorf("make entity instance: %w", err)
-		}
-		e.SetFinal(true)
-		e.SetResilient(legacyEntity.Resilient)
-		e.SetAccess(legacyEntity.Access)
-		e.SetDisplayName(legacyEntity.DisplayName)
-		e.SetDescription(legacyEntity.Description)
-		e.SetSourceMap(metadata.EntityInstanceSourceMap{
-			AnnotationType: *legacyEntity.SourceMap.AnnotationType,
-			EntitySourceMap: metadata.EntitySourceMap{
-				OriginalPath: legacyEntity.SourceMap.OriginalPath,
-				SourcePath:   legacyEntity.SourceMap.SourcePath,
-			},
-		})
-		return e, nil
-	default:
-		return nil, fmt.Errorf("legacy entity %s has neither schema nor values", legacyEntity.CTI)
-	}
 }

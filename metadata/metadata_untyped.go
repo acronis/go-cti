@@ -2,9 +2,17 @@ package metadata
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/acronis/go-cti/metadata/consts"
+	"github.com/acronis/go-cti/metadata/jsonschema"
 )
+
+// TypedEntityConverter is an interface for converting an entity of other type to Entity.
+type TypedEntityConverter interface {
+	// AsTypedEntity converts the entity to a typed Entity interface.
+	AsTypedEntity() (Entity, error)
+}
 
 type UntypedEntities []UntypedEntity
 
@@ -47,4 +55,66 @@ type TypeAnnotationReference struct {
 
 type InstanceAnnotationReference struct {
 	AnnotationType *AnnotationType `json:"$annotationType,omitempty"`
+}
+
+// AsTypedEntity converts the UntypedEntity to a typed Entity interface.
+func (ue *UntypedEntity) AsTypedEntity() (Entity, error) {
+	switch {
+	case ue.Schema != nil:
+		var schema jsonschema.JSONSchemaCTI
+		if err := json.Unmarshal(ue.Schema, &schema); err != nil {
+			return nil, fmt.Errorf("unmarshal schema for %s: %w", ue.CTI, err)
+		}
+		e, err := NewEntityType(ue.CTI, &schema, ue.Annotations)
+		if err != nil {
+			return nil, fmt.Errorf("make entity type: %w", err)
+		}
+		e.SetFinal(ue.Final)
+		e.SetResilient(ue.Resilient)
+		e.SetAccess(ue.Access)
+		e.SetDisplayName(ue.DisplayName)
+		e.SetDescription(ue.Description)
+		if ue.TraitsSchema != nil {
+			var traitsSchema jsonschema.JSONSchemaCTI
+			if err = json.Unmarshal(ue.TraitsSchema, &traitsSchema); err != nil {
+				return nil, fmt.Errorf("unmarshal traits schema for %s: %w", ue.CTI, err)
+			}
+			e.SetTraitsSchema(&traitsSchema, ue.TraitsAnnotations)
+		}
+		if ue.Traits != nil {
+			var traits map[string]any
+			if err = json.Unmarshal(ue.Traits, &traits); err != nil {
+				return nil, fmt.Errorf("unmarshal traits for %s: %w", ue.CTI, err)
+			}
+			e.SetTraits(traits)
+		}
+		e.SetSourceMap(EntityTypeSourceMap{
+			Name: ue.SourceMap.Name,
+			EntitySourceMap: EntitySourceMap{
+				OriginalPath: ue.SourceMap.OriginalPath,
+				SourcePath:   ue.SourceMap.SourcePath,
+			},
+		})
+		return e, nil
+	case ue.Values != nil:
+		e, err := NewEntityInstance(ue.CTI, ue.Values)
+		if err != nil {
+			return nil, fmt.Errorf("make entity instance: %w", err)
+		}
+		e.SetFinal(true)
+		e.SetResilient(ue.Resilient)
+		e.SetAccess(ue.Access)
+		e.SetDisplayName(ue.DisplayName)
+		e.SetDescription(ue.Description)
+		e.SetSourceMap(EntityInstanceSourceMap{
+			AnnotationType: *ue.SourceMap.AnnotationType,
+			EntitySourceMap: EntitySourceMap{
+				OriginalPath: ue.SourceMap.OriginalPath,
+				SourcePath:   ue.SourceMap.SourcePath,
+			},
+		})
+		return e, nil
+	default:
+		return nil, fmt.Errorf("untyped entity %s has neither schema nor values", ue.CTI)
+	}
 }
