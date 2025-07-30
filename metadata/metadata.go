@@ -63,6 +63,9 @@ type Entity interface {
 	// IsA checks if the entity is a subtype of the given EntityType.
 	IsA(other *EntityType) bool
 
+	// IsChildOf checks if the entity is a direct child of the given EntityType.
+	IsChildOf(other *EntityType) bool
+
 	// SetResilient sets the resilient flag for the entity.
 	SetResilient(resilient bool)
 	// SetDisplayName sets the display name for the entity.
@@ -459,6 +462,14 @@ func (e *entity) IsA(entity *EntityType) bool {
 		return false
 	}
 	return strings.HasPrefix(e.CTI, entity.CTI)
+}
+
+// IsChildOf checks if the entity is a direct child of the given EntityType.
+func (e *entity) IsChildOf(entity *EntityType) bool {
+	if entity == nil {
+		return false
+	}
+	return entity.CTI == GetParentCTI(e.CTI)
 }
 
 // Match checks if the entity matches the other entity based on their CTI expressions.
