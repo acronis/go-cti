@@ -54,7 +54,7 @@ type TypeAnnotationReference struct {
 }
 
 type InstanceAnnotationReference struct {
-	AnnotationType *AnnotationType `json:"$annotationType,omitempty"`
+	AnnotationType AnnotationType `json:"$annotationType,omitempty"`
 }
 
 // AsTypedEntity converts the UntypedEntity to a typed Entity interface.
@@ -107,7 +107,7 @@ func (ue *UntypedEntity) AsTypedEntity() (Entity, error) {
 		e.SetDisplayName(ue.DisplayName)
 		e.SetDescription(ue.Description)
 		e.SetSourceMap(EntityInstanceSourceMap{
-			AnnotationType: *ue.SourceMap.AnnotationType,
+			AnnotationType: ue.SourceMap.AnnotationType,
 			EntitySourceMap: EntitySourceMap{
 				OriginalPath: ue.SourceMap.OriginalPath,
 				SourcePath:   ue.SourceMap.SourcePath,
