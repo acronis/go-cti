@@ -290,8 +290,8 @@ func (v *MetadataValidator) validateBaseProperties(object metadata.Entity) error
 	}
 	if parent != nil {
 		parentCti := parent.GetCTI()
-		if !object.IsA(parent) {
-			return fmt.Errorf("%s doesn't match %s", currentCti, parentCti)
+		if !object.IsChildOf(parent) {
+			return fmt.Errorf("%s is not a child of %s", currentCti, parentCti)
 		}
 		// if parent.Access.Integer() > object.GetAccess().Integer() {
 		// 	return fmt.Errorf("%s access is less restrictive than parent %s", currentCti, parentCti)

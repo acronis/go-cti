@@ -114,8 +114,8 @@ func (t *Transformer) mergeSchemas() error {
 func (t *Transformer) linkEntities() error {
 	for _, object := range t.registry.Index {
 		cti := object.GetCTI()
-		parentID := metadata.GetParentCti(cti)
-		if parentID == cti {
+		parentID := metadata.GetParentCTI(cti)
+		if parentID == "" {
 			continue
 		}
 		parent, ok := t.registry.Types[parentID]
