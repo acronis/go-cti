@@ -862,7 +862,7 @@ Instead of using UUID, we can replace it with a CTI and extend the diagram as fo
 
 By introducing CTI, a vendor may easily introduce a new event topic object without the need to generate a random identifier. Additionally, it becomes possible to implement a dynamically extensible configuration since new objects become available to the upstream services immediately.
 
-For example, let us assume that the **CTI** table contains the following CTI with the base event type schema:
+For example, let us assume that the **CTI** table contains the following CTI with the base event topic type schema:
 
 ```yaml
 #%CTI Type 1.0
@@ -1893,7 +1893,6 @@ types:
       payload:
         type: object
         (cti.schema): cti.a.p.weather_schema.v1.0
-        (cti.cti): cti.a.p.weather_schema.v1.0
         properties:
           type:
             type: string
