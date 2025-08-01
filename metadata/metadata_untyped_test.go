@@ -225,7 +225,6 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 				DisplayName: "Test Type",
 				Description: "A test entity type",
 				Schema:      simpleSchemaJSON,
-				Annotations: json.RawMessage(`{}`), // Empty but not nil
 				SourceMap: UntypedSourceMap{
 					TypeAnnotationReference: TypeAnnotationReference{
 						Name: "TestType",
@@ -259,7 +258,6 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 				CTI:          "cti.test.type.v1.0",
 				Final:        true,
 				Schema:       simpleSchemaJSON,
-				Annotations:  json.RawMessage(`{}`), // Empty but not nil
 				TraitsSchema: traitsSchemaJSON,
 				Traits:       json.RawMessage(`{"trait1": "traitValue"}`),
 			},
@@ -296,7 +294,6 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			untypedEntity: &testUntypedEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
-				Annotations:       json.RawMessage(`{}`), // Empty but not nil
 				TraitsSchema:      traitsSchemaJSON,
 				TraitsAnnotations: json.RawMessage(`{".trait1": {"cti.cti": "trait.annotation"}}`), // Fixed JSON key
 			},
@@ -333,7 +330,6 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			untypedEntity: &testUntypedEntity{
 				CTI:          "cti.test.type.v1.0",
 				Schema:       simpleSchemaJSON,
-				Annotations:  json.RawMessage(`{}`), // Empty but not nil
 				TraitsSchema: json.RawMessage(`invalid json`),
 			},
 			wantErr:     true,
@@ -344,7 +340,6 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			untypedEntity: &testUntypedEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
-				Annotations:       json.RawMessage(`{}`), // Empty but not nil
 				TraitsSchema:      traitsSchemaJSON,
 				TraitsAnnotations: json.RawMessage(`invalid json`),
 			},
@@ -354,10 +349,9 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 		{
 			name: "entity type with invalid traits JSON",
 			untypedEntity: &testUntypedEntity{
-				CTI:         "cti.test.type.v1.0",
-				Schema:      simpleSchemaJSON,
-				Annotations: json.RawMessage(`{}`), // Empty but not nil
-				Traits:      json.RawMessage(`invalid json`),
+				CTI:    "cti.test.type.v1.0",
+				Schema: simpleSchemaJSON,
+				Traits: json.RawMessage(`invalid json`),
 			},
 			wantErr:     true,
 			errContains: "unmarshal traits for",
@@ -561,7 +555,6 @@ func TestConvertUntypedEntityToEntity_EdgeCases(t *testing.T) {
 				CTI:               "cti.test.type.v1.0",
 				Schema:            json.RawMessage(`{"type": "object"}`),
 				Traits:            json.RawMessage(`{}`),
-				Annotations:       json.RawMessage(`{}`), // Empty but not nil - this is valid
 				TraitsAnnotations: json.RawMessage(`{}`),
 			},
 			wantErr: false,
@@ -576,9 +569,8 @@ func TestConvertUntypedEntityToEntity_EdgeCases(t *testing.T) {
 		{
 			name: "entity with minimal required fields only",
 			untypedEntity: &testUntypedEntity{
-				CTI:         "cti.minimal.v1.0",
-				Schema:      json.RawMessage(`{"type": "string"}`),
-				Annotations: json.RawMessage(`{}`), // Empty but not nil
+				CTI:    "cti.minimal.v1.0",
+				Schema: json.RawMessage(`{"type": "string"}`),
 			},
 			wantErr: false,
 			validate: func(t *testing.T, entity Entity) {
