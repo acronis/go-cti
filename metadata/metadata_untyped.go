@@ -66,14 +66,6 @@ func ConvertUntypedEntityToEntity(untypedEntity UntypedEntity) (Entity, error) {
 
 	// If the entity has values but no schema, we treat it as an instance of an entity type.
 	if rawValues != nil {
-		var values any
-		if err := json.Unmarshal(rawValues, &values); err != nil {
-			return nil, fmt.Errorf("unmarshal values for %s: %w", untypedEntity.GetCTI(), err)
-		}
-		e, err := NewEntityInstance(untypedEntity.GetCTI(), values)
-		if err != nil {
-			return nil, fmt.Errorf("make entity instance: %w", err)
-		}
 		if !untypedEntity.GetFinal() {
 			return nil, fmt.Errorf("untyped entity %s is not final, cannot convert to typed entity instance", untypedEntity.GetCTI())
 		}
@@ -88,6 +80,14 @@ func ConvertUntypedEntityToEntity(untypedEntity UntypedEntity) (Entity, error) {
 		}
 		if untypedEntity.GetAnnotations() != nil {
 			return nil, fmt.Errorf("untyped entity %s has annotations, but it is not allowed for entity instances", untypedEntity.GetCTI())
+		}
+		var values any
+		if err := json.Unmarshal(rawValues, &values); err != nil {
+			return nil, fmt.Errorf("unmarshal values for %s: %w", untypedEntity.GetCTI(), err)
+		}
+		e, err := NewEntityInstance(untypedEntity.GetCTI(), values)
+		if err != nil {
+			return nil, fmt.Errorf("make entity instance: %w", err)
 		}
 		e.SetFinal(true)
 		e.SetResilient(untypedEntity.GetResilient())

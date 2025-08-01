@@ -540,11 +540,14 @@ func NewEntityType(
 	schema *jsonschema.JSONSchemaCTI,
 	annotations map[GJsonPath]*Annotations,
 ) (*EntityType, error) {
-	switch {
-	case schema == nil:
+	if id == "" {
+		return nil, errors.New("identifier is empty")
+	}
+	if schema == nil {
 		return nil, errors.New("schema is nil")
-	case annotations == nil:
-		return nil, errors.New("annotations are nil")
+	}
+	if annotations == nil {
+		annotations = make(map[GJsonPath]*Annotations)
 	}
 
 	obj := &EntityType{
@@ -869,6 +872,9 @@ func (e *EntityType) IsNil() bool {
 
 // NewEntityInstance creates a new EntityInstance with the given CTI identifier and values.
 func NewEntityInstance(id string, values any) (*EntityInstance, error) {
+	if id == "" {
+		return nil, errors.New("identifier is empty")
+	}
 	if values == nil {
 		return nil, errors.New("values is nil")
 	}
