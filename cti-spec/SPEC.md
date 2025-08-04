@@ -570,13 +570,13 @@ traits_schema:
     cti-traits:
       type: object
       properties:
-      severity:
-        type: string
-        description: A severity of the alert.
-        enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
-      expiry_duration:
-        type: string
-        description: Whether to send a notification for this alert.
+        severity:
+          type: string
+          description: A severity of the alert.
+          enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
+        expiry_duration:
+          type: string
+          description: Whether to send a notification for this alert.
       required: [ severity ]
 ```
 
@@ -589,6 +589,7 @@ cti: cti.a.p.alert.v1.0~a.p.user.v1.0
 # ...
 traits:
   severity: MEDIUM
+  expiry_duration: 1h
 ```
 
 The second derived type inherits the severity and specifies the expiry duration trait for a specific user alert:
@@ -598,8 +599,8 @@ The second derived type inherits the severity and specifies the expiry duration 
 cti: cti.a.p.alert.v1.0~a.p.user.v1.0~a.p.login_attempt.v1.0
 # ...
 traits:
-  # severity: MEDIUM # Inherited from cti.a.p.alert.v1.0~a.p.user.v1.0
-  expiry_duration: 1h
+  severity: MEDIUM # Also specifies it since "severity" is mandatory, even though parent specifies it.
+  # expiry_duration: 1h # Inherits "expiry_duration" since it's optional, but specified by parent.
 ```
 
 However, it can also override the severity trait if needed and allowed by the domain:
@@ -609,8 +610,8 @@ However, it can also override the severity trait if needed and allowed by the do
 cti: cti.a.p.alert.v1.0~a.p.user.v1.0~a.p.login_attempt.v1.0
 # ...
 traits:
-  severity: HIGH # Overriding the severity trait
-  expiry_duration: 1h
+  severity: HIGH # Overriding the "severity" trait
+  expiry_duration: 2h # Overriding the "expiry_duration" trait
 ```
 
 ### Instances

@@ -1,10 +1,11 @@
-# Cross-domain Typed Identifiers (CTI) management tool and library
+# Cross-domain Typed Identifiers (CTI) management tool and library <!-- omit in toc -->
 
-- [Cross-domain Typed Identifiers (CTI)?](#what-is-cross-domain-typed-identifiers-cti)
+- [What is Cross-domain Typed Identifiers (CTI)?](#what-is-cross-domain-typed-identifiers-cti)
 - [What does this project provide?](#what-does-this-project-provide)
 - [How the technology is used](#how-the-technology-is-used)
 - [Installation](#installation)
-  - [Library](#library)
+  - [Identifiers parsing library](#identifiers-parsing-library)
+  - [Metadata parsing library](#metadata-parsing-library)
   - [CLI](#cli)
 - [CLI Reference](#cli-reference)
   - [cti init](#cti-init)
@@ -15,7 +16,6 @@
     - [--format](#--format)
     - [--prefix](#--prefix)
     - [--output](#--output)
-
 
 ## What is Cross-domain Typed Identifiers (CTI)?
 
@@ -51,11 +51,19 @@ To describe types and instances that are associated with the CTI, RAMLx is used.
 
 ## Installation
 
-### Library
+### Identifiers parsing library
 
 ```
 go get -u github.com/acronis/go-cti
 ```
+
+### Metadata parsing library
+
+```
+go get -u github.com/acronis/go-cti/metadata
+```
+
+For the library usage, see [./docs/using-metadata-library.md](./docs/using-metadata-library.md)
 
 ### CLI
 

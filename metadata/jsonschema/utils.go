@@ -1,5 +1,59 @@
 package jsonschema
 
+import (
+	"fmt"
+
+	"github.com/acronis/go-stacktrace"
+	"github.com/xeipuuv/gojsonschema"
+)
+
+func MustCompileSchema(schema string) *gojsonschema.Schema {
+	s, err := gojsonschema.NewSchemaLoader().Compile(gojsonschema.NewStringLoader(schema))
+	if err != nil {
+		panic(fmt.Errorf("failed to compile schema: %w", err))
+	}
+	return s
+}
+
+func FormatValidatorMessages(errResults []gojsonschema.ResultError) *stacktrace.StackTrace {
+	st := stacktrace.New("validation failed")
+	for i := range errResults {
+		errResult := errResults[i]
+		_ = st.Append(stacktrace.New(errResult.Description(), stacktrace.WithInfo("context", errResult.Context().String("."))))
+	}
+	return st
+}
+
+func CompileJSONSchemaCTIWithValidation(schema *JSONSchemaCTI) (*gojsonschema.Schema, error) {
+	// NewRawLoader() will load provided interface{} directly without Marshal/Unmarshal.
+	// It is ok since JSONSchemaCTI already uses json.Number that are required by gojsonschema.
+	schemaLoader := gojsonschema.NewRawLoader(schema.Map())
+	res, err := CompiledMetaSchemaDraft07.Validate(schemaLoader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to run merged schema validation: %w", err)
+	}
+	if !res.Valid() {
+		return nil, stacktrace.NewWrapped("failed to validate schema", FormatValidatorMessages(res.Errors()))
+	}
+	s, err := gojsonschema.NewSchemaLoader().Compile(schemaLoader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make schema loader: %w", err)
+	}
+	return s, nil
+}
+
+// ValidateWrapper is used by public validation methods to validate the data
+func ValidateWrapper(s *gojsonschema.Schema, loader gojsonschema.JSONLoader) error {
+	res, err := s.Validate(loader)
+	if err != nil {
+		return fmt.Errorf("failed to run validator: %w", err)
+	}
+	if !res.Valid() {
+		return stacktrace.NewWrapped("failed to validate data", FormatValidatorMessages(res.Errors()))
+	}
+	return nil
+}
+
 func DeepCopy(input any) any {
 	if input == nil {
 		return nil

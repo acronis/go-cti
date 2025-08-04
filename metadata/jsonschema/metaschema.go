@@ -1,5 +1,9 @@
 package jsonschema
 
+// NOTE: gojsonschema loads and compiles the meta-schema from the URL without caching on each validation.
+// Here we pre-compile the meta-schema from local source to avoid network calls and recompilation.
+var CompiledMetaSchemaDraft07 = MustCompileSchema(MetaSchemaDraft07)
+
 const MetaSchemaDraft07 string = `{
     "$schema": "http://json-schema.org/draft-07/schema#",
     "$id": "http://json-schema.org/draft-07/schema#",
