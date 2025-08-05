@@ -63,7 +63,7 @@ go get -u github.com/acronis/go-cti
 go get -u github.com/acronis/go-cti/metadata
 ```
 
-For the library usage, see [./docs/using-metadata-library.md](./docs/using-metadata-library.md)
+For the library usage, see [./metadata/README.md](./metadata/README.md).
 
 ### CLI
 

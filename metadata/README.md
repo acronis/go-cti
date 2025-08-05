@@ -1,4 +1,4 @@
-# Using the go-cti Metadata Library <!-- omit in toc -->
+# Metadata Library <!-- omit in toc -->
 
 This document provides a comprehensive guide on how to use the go-cti (Cross-domain Typed Identifiers) metadata library.
 The library provides tools for parsing, validating, and managing CTI entities and packages.
