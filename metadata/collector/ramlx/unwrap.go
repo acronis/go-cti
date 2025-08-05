@@ -13,10 +13,6 @@ func (c *RAMLXCollector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseSha
 	if s == nil {
 		return nil, errors.New("shape is nil")
 	}
-	objShape, ok := s.(*raml.ObjectShape)
-	if !ok {
-		return nil, errors.New("CTI type must be object shape")
-	}
 
 	if base.ShapeVisited {
 		base.SetUnwrapped()
@@ -67,28 +63,8 @@ func (c *RAMLXCollector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseSha
 		}
 	}
 
-	if objShape.Properties != nil {
-		for pair := objShape.Properties.Oldest(); pair != nil; pair = pair.Next() {
-			prop := pair.Value
-			us, err := c.raml.UnwrapShape(prop.Base)
-			if err != nil {
-				return nil, fmt.Errorf("object property unwrap: %w", err)
-			}
-			prop.Base = us
-			objShape.Properties.Set(pair.Key, prop)
-		}
-	}
-
-	if objShape.PatternProperties != nil {
-		for pair := objShape.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
-			prop := pair.Value
-			us, err := c.raml.UnwrapShape(prop.Base)
-			if err != nil {
-				return nil, fmt.Errorf("object property unwrap: %w", err)
-			}
-			prop.Base = us
-			objShape.PatternProperties.Set(pair.Key, prop)
-		}
+	if err := c.raml.UnwrapTarget(s); err != nil {
+		return nil, fmt.Errorf("unwrap target: %w", err)
 	}
 
 	for pair := base.CustomShapeFacetDefinitions.Oldest(); pair != nil; pair = pair.Next() {

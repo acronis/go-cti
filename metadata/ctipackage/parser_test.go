@@ -81,6 +81,74 @@ func Test_GenerateIndexRaml(t *testing.T) {
 	}
 }
 
+func Test_ValidPackage(t *testing.T) {
+	testsupp.InitLog(t)
+
+	testCases := []testsupp.PackageTestCase{
+		{
+			Name:     "valid CTI types",
+			PkgId:    "x.y",
+			Entities: []string{"entities.raml", "instance.yaml"},
+			Files: map[string]string{"entities.raml": strings.TrimSpace(`
+#%RAML 1.0 Library
+
+uses:
+  cti: .ramlx/cti.raml
+
+types:
+  ObjectEntity:
+    (cti.cti): cti.x.y.entity_object.v1.0
+    type: object
+
+  ScalarEntity:
+    (cti.cti): cti.x.y.entity_scalar.v1.0
+    type: string
+
+  NilEntity:
+    (cti.cti): cti.x.y.entity_nil.v1.0
+    type: nil
+`),
+				"instance.yaml": strings.TrimSpace(`
+#%CTI Instance 1.0
+
+cti: cti.x.y.entity_scalar.v1.0~x.y.instance.v1.0
+final: true
+access: protected
+resilient: false
+display_name: My Instance
+values: my_value
+`)},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+
+			pkg, err := New(testsupp.InitTestPackageFiles(t, tc),
+				WithRamlxVersion("1.0"),
+				WithID(tc.PkgId),
+				WithEntities(tc.Entities))
+
+			require.NoError(t, err)
+			require.NoError(t, pkg.Initialize())
+			require.NoError(t, pkg.Read())
+
+			{
+				err := pkg.Parse()
+				if err != nil {
+					slog.Error("Command failed", slogex.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
+					t.Fatalf("unexpected error: %v", err)
+				}
+				err = pkg.Validate()
+				if err != nil {
+					slog.Error("Command failed", slogex.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
+					t.Fatalf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
 func Test_InvalidPackage(t *testing.T) {
 	testsupp.InitLog(t)
 
