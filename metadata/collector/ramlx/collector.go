@@ -321,9 +321,6 @@ func (c *RAMLXCollector) ReadCTIType(base *raml.BaseShape) error {
 	if ctis == nil {
 		return nil
 	}
-	if _, ok := base.Shape.(*raml.ObjectShape); !ok {
-		return fmt.Errorf("cti type %v must be object", base.Name)
-	}
 
 	for _, cti := range ctis {
 		if _, ok := c.ramlCtiTypes[cti]; ok {
@@ -375,7 +372,10 @@ func (c *RAMLXCollector) readAndMakeCtiInstances(annotation *raml.DomainExtensio
 		items = base
 	}
 
-	ctiType := items.Shape.(*raml.ObjectShape)
+	ctiType, ok := items.Shape.(*raml.ObjectShape)
+	if !ok {
+		return errors.New("instance must be created from an object type")
+	}
 	// CTI types are checked before collecting CTI instances.
 	// We can be sure that if annotation includes cti.cti, it uses array of objects schema.
 	idProp := c.findPropertyWithAnnotation(ctiType, consts.ID)
