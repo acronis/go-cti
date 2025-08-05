@@ -28,12 +28,9 @@ func CompileJSONSchemaCTIWithValidation(schema *JSONSchemaCTI) (*gojsonschema.Sc
 	// NewRawLoader() will load provided interface{} directly without Marshal/Unmarshal.
 	// It is ok since JSONSchemaCTI already uses json.Number that are required by gojsonschema.
 	schemaLoader := gojsonschema.NewRawLoader(schema.Map())
-	res, err := CompiledMetaSchemaDraft07.Validate(schemaLoader)
+	err := ValidateWrapper(CompiledMetaSchemaDraft07, schemaLoader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to run merged schema validation: %w", err)
-	}
-	if !res.Valid() {
-		return nil, stacktrace.NewWrapped("failed to validate schema", FormatValidatorMessages(res.Errors()))
+		return nil, stacktrace.NewWrapped("failed to validate merged schema", err)
 	}
 	s, err := gojsonschema.NewSchemaLoader().Compile(schemaLoader)
 	if err != nil {
