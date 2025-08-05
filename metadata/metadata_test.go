@@ -780,11 +780,11 @@ func TestEntityType_GetMergedTraits(t *testing.T) {
 	}
 }
 
-func TestEntityType_Validate(t *testing.T) {
-	obj := &EntityType{}
-	err := obj.Validate(struct{}{})
-	require.Nil(t, err)
-}
+// func TestEntityType_Validate(t *testing.T) {
+// 	obj := &EntityType{}
+// 	err := obj.Validate(struct{}{})
+// 	require.Nil(t, err)
+// }
 
 func TestEntityType_ReplacePointer(t *testing.T) {
 	tests := []struct {

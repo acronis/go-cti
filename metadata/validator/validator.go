@@ -3,7 +3,6 @@ package validator
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
@@ -83,10 +82,6 @@ type MetadataValidator struct {
 	// customData is a map of custom data that can be used by rules.
 	customData map[string]any
 
-	metaSchema              *gojsonschema.Schema
-	schemaLoaderCache       map[string]*gojsonschema.Schema
-	traitsSchemaLoaderCache map[string]*gojsonschema.Schema
-
 	// TODO: Probably need global expressions cache.
 	expressionsCache map[string]*cti.Expression
 }
@@ -112,12 +107,6 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 		instanceRules: make(map[string][]InstanceRule),
 
 		customData: make(map[string]any),
-
-		// NOTE: gojsonschema loads and compiles the meta-schema from the URL without caching on each validation.
-		// Here we pre-compile the meta-schema from local source to avoid network calls and recompilation.
-		metaSchema:              MustCompileSchema(jsonschema.MetaSchemaDraft07),
-		schemaLoaderCache:       make(map[string]*gojsonschema.Schema),
-		traitsSchemaLoaderCache: make(map[string]*gojsonschema.Schema),
 	}
 
 	for _, opt := range opts {
@@ -332,11 +321,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		return fmt.Errorf("%s is derived from final type %s", currentCti, parent.GetCTI())
 	}
 
-	mergedSchema, err := entity.GetMergedSchema()
-	if err != nil {
-		return fmt.Errorf("failed to get merged schema for %s: %w", currentCti, err)
-	}
-	if _, err := v.getOrCacheSchema(entity.CTI, mergedSchema, v.schemaLoaderCache); err != nil {
+	if _, err := entity.GetSchemaValidator(); err != nil {
 		return fmt.Errorf("%s contains invalid schema: %w", entity.CTI, err)
 	}
 
@@ -350,11 +335,11 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		if parentWithTraits == nil {
 			return fmt.Errorf("%s type specifies traits but none of the parents define traits schema", entity.CTI)
 		}
-		s, err := v.getOrCacheSchema(parentWithTraits.CTI, parentWithTraits.TraitsSchema, v.traitsSchemaLoaderCache)
+		s, err := parentWithTraits.GetTraitsSchemaValidator()
 		if err != nil {
 			return fmt.Errorf("%s traits schema is invalid: %w", parentWithTraits.CTI, err)
 		}
-		if err := v.validateJSONDocument(s, gojsonschema.NewGoLoader(entity.Traits)); err != nil {
+		if err := jsonschema.ValidateWrapper(s, gojsonschema.NewGoLoader(entity.Traits)); err != nil {
 			return fmt.Errorf("%s contains invalid values: %w", entity.CTI, err)
 		}
 		if parentWithTraits.TraitsAnnotations != nil {
@@ -371,7 +356,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 	}
 
 	if entity.TraitsSchema != nil {
-		if _, err := v.getOrCacheSchema(entity.CTI, entity.TraitsSchema, v.traitsSchemaLoaderCache); err != nil {
+		if _, err := entity.GetTraitsSchemaValidator(); err != nil {
 			return fmt.Errorf("%s contains invalid schema: %w", entity.CTI, err)
 		}
 		if entity.TraitsAnnotations != nil {
@@ -512,17 +497,8 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 	if parent == nil {
 		return fmt.Errorf("%s instance has no parent type", currentCti)
 	}
-	// TODO: Move to entity.Validate()
-	mergedSchema, err := parent.GetMergedSchema()
-	if err != nil {
-		return fmt.Errorf("failed to get merged schema for %s: %w", parent.CTI, err)
-	}
-	s, err := v.getOrCacheSchema(parent.CTI, mergedSchema, v.schemaLoaderCache)
-	if err != nil {
-		return fmt.Errorf("%s contains invalid schema: %w", parent.CTI, err)
-	}
-	if err = v.validateJSONDocument(s, gojsonschema.NewGoLoader(entity.Values)); err != nil {
-		return fmt.Errorf("%s contains invalid values: %w", currentCti, err)
+	if err := parent.Validate(entity.Values); err != nil {
+		return fmt.Errorf("%s failed to validate values: %w", currentCti, err)
 	}
 	if parent.Annotations != nil {
 		values, err := entity.GetRawValues()
@@ -617,49 +593,6 @@ func (v *MetadataValidator) matchRefAgainstRef(refCTI, compCTI string) error {
 			return fmt.Errorf("%s doesn't match: %w", compCTI, err)
 		}
 		return fmt.Errorf("%s doesn't match", compCTI)
-	}
-	return nil
-}
-
-func (v *MetadataValidator) getOrCacheSchema(
-	cti string,
-	schema *jsonschema.JSONSchemaCTI,
-	storage map[string]*gojsonschema.Schema,
-) (*gojsonschema.Schema, error) {
-	s, ok := storage[cti]
-	if ok {
-		return s, nil
-	}
-	data := schema.Map()
-	// NewRawLoader() will load provided interface{} directly without Marshal/Unmarshal.
-	// We use it to validate the JSON document against the meta-schema.
-	err := v.validateJSONDocument(v.metaSchema, gojsonschema.NewRawLoader(data))
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate JSON document for %s: %w", cti, err)
-	}
-	// And then to compile the schema for validation.
-	// TODO: To consider on-demand compilation.
-	s, err = gojsonschema.NewSchemaLoader().Compile(gojsonschema.NewRawLoader(data))
-	if err != nil {
-		return nil, fmt.Errorf("failed to make schema loader for %s: %w", cti, err)
-	}
-	storage[cti] = s
-	return s, nil
-}
-
-func (v *MetadataValidator) validateJSONDocument(s *gojsonschema.Schema, dl gojsonschema.JSONLoader) error {
-	res, err := s.Validate(dl)
-	if err != nil {
-		return fmt.Errorf("failed to validate JSON document: %w", err)
-	}
-	if !res.Valid() {
-		errs := res.Errors()
-		var b strings.Builder
-		for _, err := range errs {
-			b.WriteString("\n- ")
-			b.WriteString(err.Description())
-		}
-		return errors.New(b.String())
 	}
 	return nil
 }

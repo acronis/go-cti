@@ -12,6 +12,7 @@ import (
 	"github.com/acronis/go-cti/metadata/consts"
 	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/tidwall/gjson"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 type Entities []Entity
@@ -587,6 +588,12 @@ type EntityType struct {
 	// mergedSchema is a cached merged schema of the entity type and its parent chain.
 	mergedSchema *jsonschema.JSONSchemaCTI `json:"-" yaml:"-"`
 
+	// validatorSchema is a cached schema compiled with gojsonschema
+	validatorSchema *gojsonschema.Schema
+
+	// validatorTraitsSchema is a cached traits schema compiled with gojsonschema
+	validatorTraitsSchema *gojsonschema.Schema
+
 	// mergedTraits is a cached map of merged traits from the entity type and its parent chain.
 	mergedTraits map[string]any `json:"-" yaml:"-"`
 
@@ -705,6 +712,7 @@ func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 // This is useful when Schema has been modified and needs to be reloaded.
 func (e *EntityType) ResetMergedSchema() {
 	e.mergedSchema = nil
+	e.validatorSchema = nil
 }
 
 // GetTraitsSchema returns the traits schema of the entity type.
@@ -827,10 +835,61 @@ func (e *EntityType) ResetMergedTraits() {
 	e.mergedTraits = nil
 }
 
+// ValidateBytes validates the values against the entity type schema.
+func (e *EntityType) ValidateBytes(j []byte) error {
+	s, err := e.GetSchemaValidator()
+	if err != nil {
+		return fmt.Errorf("get schema validator: %w", err)
+	}
+	return jsonschema.ValidateWrapper(s, gojsonschema.NewBytesLoader(j))
+}
+
 // Validate validates the values against the entity type schema.
-func (e *EntityType) Validate(values any) error {
-	// TODO: Implement
-	return nil
+//
+// Note that this function will first marshal Go interface into bytes and then
+// unmarshal again. If your data already comes in bytes, consider using ValidateBytes
+// for better performance.
+func (e *EntityType) Validate(j any) error {
+	s, err := e.GetSchemaValidator()
+	if err != nil {
+		return fmt.Errorf("get schema validator: %w", err)
+	}
+	return jsonschema.ValidateWrapper(s, gojsonschema.NewGoLoader(j))
+}
+
+// GetSchemaValidator compiles, caches and returns the validator schema based on the merged schema.
+//
+// This method is useful only for metadata validation. For payloads validation, please use Validate and ValidateBytes
+// methods.
+func (e *EntityType) GetSchemaValidator() (*gojsonschema.Schema, error) {
+	if e.validatorSchema != nil {
+		return e.validatorSchema, nil
+	}
+	mergedSchema, err := e.GetMergedSchema()
+	if err != nil {
+		return nil, fmt.Errorf("get merged schema: %w", err)
+	}
+	s, err := jsonschema.CompileJSONSchemaCTIWithValidation(mergedSchema)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema: %w", err)
+	}
+	e.validatorSchema = s
+	return e.validatorSchema, nil
+}
+
+// GetTraitsSchemaValidator compiles, caches and returns the traits schema validator.
+//
+// This method is useful only for metadata validation.
+func (e *EntityType) GetTraitsSchemaValidator() (*gojsonschema.Schema, error) {
+	if e.validatorTraitsSchema != nil {
+		return e.validatorTraitsSchema, nil
+	}
+	s, err := jsonschema.CompileJSONSchemaCTIWithValidation(e.TraitsSchema)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema: %w", err)
+	}
+	e.validatorTraitsSchema = s
+	return e.validatorTraitsSchema, nil
 }
 
 // ReplacePointer replaces the pointer receiver with the provided object.
