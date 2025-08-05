@@ -186,7 +186,7 @@ schema:
 ```
 
 In order to validate against the `cti.a.p.alert.v1.0~a.p.user.v1.0` schema, you can use the `Validate` or `ValidateBytes`
-method:
+method. These methods take care of making a complete schema and caching, making subsequent calls fast and simple:
 
 ```go
 import (
