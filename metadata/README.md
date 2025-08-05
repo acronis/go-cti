@@ -153,9 +153,6 @@ schema:
           type: string
           description: A unique identifier of the alert.
           format: uuid
-        type:
-          type: string
-          description: A CTI that was used to create the alert.
         data:
           type: object
           description: An alert payload.
@@ -186,7 +183,7 @@ schema:
 ```
 
 In order to validate against the `cti.a.p.alert.v1.0~a.p.user.v1.0` schema, you can use the `Validate` or `ValidateBytes`
-method. These methods take care of making a complete schema and caching, making subsequent calls fast and simple:
+method. These methods take care of making a complete schema and caching, making subsequent calls fast and simple.
 
 ```go
 import (
@@ -196,12 +193,62 @@ import (
   "github.com/acronis/go-cti/metadata"
 )
 
-type UserLoginAttemptAlert struct {
-  ID   string `json:"id"`
-  Type string `json:"type"`
-  Data struct {
-    UserAgent string `json:"user_agent"`
-  } `json:"data"`
+// AlertRequest is a payload wrapper that provides the information
+// about the underlying payload type.
+type AlertRequest struct {
+  Type    string          `json:"type"`
+  Payload json.RawMessage `json:"payload"`
+}
+
+// AlertBase is the alert type as defined by cti.a.p.alert.v1.0.
+type AlertBase struct {
+  ID    string  `json:"id"`
+  Data  any     `json:"data"`
+}
+
+/*
+Assuming that payload is the following JSON text:
+{
+  "type": "cti.a.p.alert.v1.0~a.p.user.v1.0",
+  "payload": {
+    "id": "71128772-75ce-46fd-ae22-251503a17961",
+    "data": { "user_agent": "MyUserAgent/1.0.0" }
+  }
+}
+*/
+func validateData(payload []byte) error {
+  var req AlertRequest
+  if err := json.Unmarshal(payload, &req) {
+    return err
+  }
+  // Get the CTI type by identifier from the storage
+  userAlertType := getCTIType(req.Type)
+  // Validate the payload against the type
+  err := userAlertType.ValidateBytes([]byte(req.Payload))
+  if err != nil {
+    return fmt.Errorf("validation failed: %w", err)
+  }
+}
+```
+
+In case your base type provides information about the type within the payload, you can use third-party library
+like [tidwall/gjson](https://github.com/tidwall/gjson) to extract the type and then validate against it like
+in the following example:
+
+```go
+import (
+  "fmt"
+  "encoding/json"
+
+  "github.com/tidwall/gjson"
+  "github.com/acronis/go-cti/metadata"
+)
+
+// AlertBase is the alert type as defined by cti.a.p.alert.v1.0.
+type AlertBase struct {
+  ID    string   `json:"id"`
+  Type  string   `json:"type"`
+  Data  any      `json:"data"`
 }
 
 /*
@@ -213,12 +260,9 @@ Assuming that payload is the following JSON text:
 }
 */
 func validateData(payload []byte) error {
-  var data UserLoginAttemptAlert
-  if err := json.Unmarshal(payload, &data) {
-    return err
-  }
+  typ := gjson.Get(payload, "type")
   // Get the CTI type by identifier from the storage
-  userAlertType := getCTIType(data.Type)
+  userAlertType := getCTIType(typ.String())
   // Validate the payload against the type
   err := userAlertType.ValidateBytes(payload)
   if err != nil {
