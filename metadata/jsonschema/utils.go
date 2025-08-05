@@ -15,7 +15,7 @@ func MustCompileSchema(schema string) *gojsonschema.Schema {
 	return s
 }
 
-func FormatValidatorMessages(errResults []gojsonschema.ResultError) *stacktrace.StackTrace {
+func ValidatorMessagesAsStackTrace(errResults []gojsonschema.ResultError) *stacktrace.StackTrace {
 	st := stacktrace.New("validation failed")
 	for i := range errResults {
 		errResult := errResults[i]
@@ -46,7 +46,7 @@ func ValidateWrapper(s *gojsonschema.Schema, loader gojsonschema.JSONLoader) err
 		return fmt.Errorf("failed to run validator: %w", err)
 	}
 	if !res.Valid() {
-		return stacktrace.NewWrapped("failed to validate data", FormatValidatorMessages(res.Errors()))
+		return stacktrace.NewWrapped("failed to validate data", ValidatorMessagesAsStackTrace(res.Errors()))
 	}
 	return nil
 }
