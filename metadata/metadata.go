@@ -839,7 +839,7 @@ func (e *EntityType) ResetMergedTraits() {
 func (e *EntityType) ValidateBytes(j []byte) error {
 	s, err := e.GetSchemaValidator()
 	if err != nil {
-		return fmt.Errorf("failed to get validator schema: %w", err)
+		return fmt.Errorf("get schema validator: %w", err)
 	}
 	return jsonschema.ValidateWrapper(s, gojsonschema.NewBytesLoader(j))
 }
@@ -852,7 +852,7 @@ func (e *EntityType) ValidateBytes(j []byte) error {
 func (e *EntityType) Validate(j any) error {
 	s, err := e.GetSchemaValidator()
 	if err != nil {
-		return fmt.Errorf("failed to get validator schema: %w", err)
+		return fmt.Errorf("get schema validator: %w", err)
 	}
 	return jsonschema.ValidateWrapper(s, gojsonschema.NewGoLoader(j))
 }
@@ -867,11 +867,11 @@ func (e *EntityType) GetSchemaValidator() (*gojsonschema.Schema, error) {
 	}
 	mergedSchema, err := e.GetMergedSchema()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get merged schema: %w", err)
+		return nil, fmt.Errorf("get merged schema: %w", err)
 	}
 	s, err := jsonschema.CompileJSONSchemaCTIWithValidation(mergedSchema)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile schema: %w", err)
+		return nil, fmt.Errorf("compile schema: %w", err)
 	}
 	e.validatorSchema = s
 	return e.validatorSchema, nil
@@ -886,7 +886,7 @@ func (e *EntityType) GetTraitsSchemaValidator() (*gojsonschema.Schema, error) {
 	}
 	s, err := jsonschema.CompileJSONSchemaCTIWithValidation(e.TraitsSchema)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile schema: %w", err)
+		return nil, fmt.Errorf("compile schema: %w", err)
 	}
 	e.validatorTraitsSchema = s
 	return e.validatorTraitsSchema, nil
