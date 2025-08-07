@@ -637,6 +637,8 @@ func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 		return nil, errors.New("entity type schema is nil")
 	} else if e.parent == nil {
 		return e.Schema, nil
+	} else if e.mergedSchema != nil {
+		return e.mergedSchema, nil
 	}
 
 	// Copy the child schema since it will be modified during the merge process.
