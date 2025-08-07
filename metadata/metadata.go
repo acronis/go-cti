@@ -631,7 +631,7 @@ func (e *EntityType) SetParent(entity *EntityType) error {
 // GetMergedSchema returns the merged schema of the entity type and its parent chain.
 //
 // Method provides lazy initialization of the merged schema and caches the result.
-// Use ClearMergedSchema to reset the cached schema if necessary.
+// Use ResetMergedSchema to reset the cached schema if necessary.
 func (e *EntityType) GetMergedSchema() (*jsonschema.JSONSchemaCTI, error) {
 	if e.Schema == nil {
 		return nil, errors.New("entity type schema is nil")
