@@ -7,6 +7,10 @@ import (
 
 const (
 	manualTestInfo = `
+	Test is marked as manual and will not run automatically.
+
+	%s
+
 	To enable manual tests please define environmental variable GO_MANUAL_TEST. 
 	To enable test in VSCode add to settings.json: 
 	
@@ -16,9 +20,9 @@ const (
 	`
 )
 
-func ManualTest(t *testing.T) {
+func ManualTest(t *testing.T, explanation string) {
 	t.Helper()
 	if os.Getenv("GO_MANUAL_TEST") != "1" {
-		t.Skip(manualTestInfo)
+		t.Skipf(manualTestInfo, explanation)
 	}
 }
