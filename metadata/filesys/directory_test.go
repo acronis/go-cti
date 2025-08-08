@@ -9,7 +9,7 @@ import (
 )
 
 func Test_CopyWithReplace(t *testing.T) {
-	testsupp.ManualTest(t)
+	testsupp.ManualTest(t, "replacing directories with copy")
 	defer os.RemoveAll("fixtures/dir3")
 
 	hasFile := func(name string) error {

@@ -14,7 +14,7 @@ import (
 )
 
 func TestValidateManual(t *testing.T) {
-	testsupp.ManualTest(t)
+	testsupp.ManualTest(t, "manual test for package validation")
 
 	packagePath := ``
 
