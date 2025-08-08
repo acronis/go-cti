@@ -76,6 +76,15 @@ func WithEntities(entities []string) InitializeOption {
 	}
 }
 
+func WithDependencies(deps map[string]string) InitializeOption {
+	return func(pkg *Package) error {
+		if deps != nil {
+			pkg.Index.Depends = deps
+		}
+		return nil
+	}
+}
+
 func (pkg *Package) Read() error {
 	idx, err := ReadIndex(pkg.BaseDir)
 	if err != nil {
