@@ -14,11 +14,11 @@ func (c *RAMLXCollector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseSha
 		return nil, errors.New("shape is nil")
 	}
 
-	if base.ShapeVisited {
-		base.SetUnwrapped()
+	// Skip already unwrapped shapes
+	if base.IsUnwrapped() {
 		return base, nil
 	}
-	base.ShapeVisited = true
+	base.SetUnwrapped()
 
 	var source *raml.BaseShape
 	if base.Alias != nil {
@@ -82,12 +82,8 @@ func (c *RAMLXCollector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseSha
 		if errInherit != nil {
 			return nil, fmt.Errorf("merge shapes: %w", errInherit)
 		}
-		is.ShapeVisited = false
-		is.SetUnwrapped()
 		return is, nil
 	}
-	base.ShapeVisited = false
-	base.SetUnwrapped()
 	return base, nil
 }
 
