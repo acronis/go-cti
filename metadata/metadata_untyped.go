@@ -122,11 +122,12 @@ func ConvertUntypedEntityToEntity(untypedEntity UntypedEntity) (Entity, error) {
 			return nil, fmt.Errorf("untyped entity %s has traits annotations, but it is not allowed for entity instances", untypedEntity.GetCTI())
 		}
 
+		if len(annotations) != 0 {
+			return nil, fmt.Errorf("untyped entity %s has annotations, but it is not allowed for entity instances", untypedEntity.GetCTI())
+		}
+
 		var sourceMap InstanceSourceMap
 		if !hasLegacySourceAnnotations {
-			if untypedEntity.GetAnnotations() != nil {
-				return nil, fmt.Errorf("untyped entity %s has annotations, but it is not allowed for entity instances", untypedEntity.GetCTI())
-			}
 			untypedSourceMap := untypedEntity.GetSourceMap()
 			sourceMap = InstanceSourceMap{
 				AnnotationType: untypedSourceMap.AnnotationType,
@@ -136,9 +137,6 @@ func ConvertUntypedEntityToEntity(untypedEntity UntypedEntity) (Entity, error) {
 				},
 			}
 		} else {
-			if len(annotations) != 0 {
-				return nil, fmt.Errorf("untyped entity %s has annotations, but it is not allowed for entity instances", untypedEntity.GetCTI())
-			}
 			if err := json.Unmarshal(rawAnnotations, &sourceMap); err != nil {
 				return nil, fmt.Errorf("unmarshal source map for %s: %w", untypedEntity.GetCTI(), err)
 			}
