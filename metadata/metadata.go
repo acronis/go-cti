@@ -284,7 +284,7 @@ type entity struct {
 	ctx *MContext `json:"-" yaml:"-"`
 }
 
-type EntitySourceMap struct {
+type DocumentSourceMap struct {
 	// SourcePath is a relative path to the source file where the CTI parent is defined.
 	SourcePath string `json:"$sourcePath,omitempty" yaml:"$sourcePath,omitempty"`
 
@@ -581,6 +581,9 @@ type EntityType struct {
 	// TraitsAnnotations is a map of annotations for the traits schema. Must be present if TraitsSchema is set.
 	TraitsAnnotations map[GJsonPath]*Annotations `json:"traits_annotations,omitempty" yaml:"traits_annotations,omitempty"`
 
+	// TraitsSourceMap is the information about the source of traits schema.
+	TraitsSourceMap *TypeSourceMap `json:"traits_source_map,omitempty" yaml:"traits_source_map,omitempty"`
+
 	// Traits is a map of traits for the entity type.
 	// Optional, may be present if parent entity type defines traits schema.
 	Traits map[string]any `json:"traits,omitempty" yaml:"traits,omitempty"`
@@ -604,13 +607,14 @@ type EntityType struct {
 	rawTraitValues []byte `json:"-" yaml:"-"`
 
 	// SourceMap is the information about the source of the entity.
-	SourceMap EntityTypeSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
+	SourceMap *TypeSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
 
-type EntityTypeSourceMap struct {
+type TypeSourceMap struct {
 	// Name is the name of the entity type as it was defined in the source.
-	Name            string `json:"$name,omitempty" yaml:"$name,omitempty"`
-	EntitySourceMap `yaml:",inline"`
+	Name string `json:"$name,omitempty" yaml:"$name,omitempty"`
+
+	DocumentSourceMap `yaml:",inline"`
 }
 
 // SetParent sets the parent EntityType for the entity.
@@ -922,8 +926,13 @@ func (e *EntityType) SetTraits(traits map[string]any) {
 }
 
 // SetSourceMap sets the source map for the entity type.
-func (e *EntityType) SetSourceMap(sourceMap EntityTypeSourceMap) {
+func (e *EntityType) SetSourceMap(sourceMap *TypeSourceMap) {
 	e.SourceMap = sourceMap
+}
+
+// SetTraitsSourceMap sets the source map for the traits schema.
+func (e *EntityType) SetTraitsSourceMap(sourceMap *TypeSourceMap) {
+	e.TraitsSourceMap = sourceMap
 }
 
 // IsNil checks if the underlying pointer receiver is nil.
@@ -969,13 +978,14 @@ type EntityInstance struct {
 	rawValues []byte `json:"-" yaml:"-"`
 
 	// SourceMap is the information about the source of the entity instance.
-	SourceMap EntityInstanceSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
+	SourceMap *InstanceSourceMap `json:"source_map,omitempty" yaml:"source_map,omitempty"`
 }
 
-type EntityInstanceSourceMap struct {
+type InstanceSourceMap struct {
 	// AnnotationType is the information about the annotation type that was used to define the instance.
-	AnnotationType  AnnotationType `json:"$annotationType,omitempty" yaml:"$annotationType,omitempty"`
-	EntitySourceMap `yaml:",inline"`
+	AnnotationType AnnotationType `json:"$annotationType,omitempty" yaml:"$annotationType,omitempty"`
+
+	DocumentSourceMap `yaml:",inline"`
 }
 
 // SetParent sets the parent EntityType for the entity instance.
@@ -1047,7 +1057,7 @@ func (e *EntityInstance) ReplacePointer(src Entity) error {
 }
 
 // SetSourceMap sets the source map for the entity instance.
-func (e *EntityInstance) SetSourceMap(sourceMap EntityInstanceSourceMap) {
+func (e *EntityInstance) SetSourceMap(sourceMap *InstanceSourceMap) {
 	e.SourceMap = sourceMap
 }
 

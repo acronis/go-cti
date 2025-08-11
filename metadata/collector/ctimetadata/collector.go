@@ -52,8 +52,8 @@ func (c *CTIMetadataCollector) Collect() (*registry.MetadataRegistry, error) {
 			if err = yaml.Unmarshal(raw, &typ); err != nil {
 				return nil, fmt.Errorf("unmarshal type %s: %w", fragmentName, err)
 			}
-			typ.SetSourceMap(metadata.EntityTypeSourceMap{
-				EntitySourceMap: metadata.EntitySourceMap{
+			typ.SetSourceMap(&metadata.TypeSourceMap{
+				DocumentSourceMap: metadata.DocumentSourceMap{
 					OriginalPath: filepath.ToSlash(fragmentName),
 					SourcePath:   filepath.ToSlash(fragmentName),
 				},
@@ -64,11 +64,11 @@ func (c *CTIMetadataCollector) Collect() (*registry.MetadataRegistry, error) {
 			if err = yaml.Unmarshal(raw, &instance); err != nil {
 				return nil, fmt.Errorf("unmarshal instance %s: %w", fragmentName, err)
 			}
-			instance.SetSourceMap(metadata.EntityInstanceSourceMap{
+			instance.SetSourceMap(&metadata.InstanceSourceMap{
 				AnnotationType: metadata.AnnotationType{
 					Name: instance.CTI,
 				},
-				EntitySourceMap: metadata.EntitySourceMap{
+				DocumentSourceMap: metadata.DocumentSourceMap{
 					OriginalPath: filepath.ToSlash(fragmentName),
 					SourcePath:   filepath.ToSlash(fragmentName),
 				},
