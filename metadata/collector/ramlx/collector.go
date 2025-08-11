@@ -161,13 +161,24 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 		if err != nil {
 			return nil, fmt.Errorf("convert traits schema: %w", err)
 		}
+		originalPath, _ := filepath.Rel(c.BaseDir, t.Base.Location)
+		sourcePath, _ := filepath.Rel(c.BaseDir, t.Base.Location)
+		entity.SetTraitsSourceMap(&metadata.TypeSourceMap{
+			Name: t.Base.Name,
+			DocumentSourceMap: metadata.DocumentSourceMap{
+				OriginalPath: filepath.ToSlash(originalPath),
+				SourcePath:   filepath.ToSlash(sourcePath),
+				Line:         t.Base.Line,
+			},
+		})
+
 		// Annotations will be collected later during the transformation phase.
 		entity.SetTraitsSchema(traitsJsonSchema, map[metadata.GJsonPath]*metadata.Annotations{})
 	}
 
-	entity.SetSourceMap(metadata.EntityTypeSourceMap{
+	entity.SetSourceMap(&metadata.TypeSourceMap{
 		Name: shape.Name,
-		EntitySourceMap: metadata.EntitySourceMap{
+		DocumentSourceMap: metadata.DocumentSourceMap{
 			OriginalPath: filepath.ToSlash(originalPath),
 			SourcePath:   filepath.ToSlash(sourcePath),
 			Line:         shape.Line,
@@ -216,13 +227,13 @@ func (c *RAMLXCollector) MakeMetadataInstance(
 	originalPath, _ := filepath.Rel(c.BaseDir, extension.Location)
 	reference, _ := filepath.Rel(c.BaseDir, definedBy.Location)
 
-	entity.SetSourceMap(metadata.EntityInstanceSourceMap{
+	entity.SetSourceMap(&metadata.InstanceSourceMap{
 		AnnotationType: metadata.AnnotationType{
 			Name:      definedBy.Name,
 			Type:      definedBy.Type,
 			Reference: filepath.ToSlash(reference),
 		},
-		EntitySourceMap: metadata.EntitySourceMap{
+		DocumentSourceMap: metadata.DocumentSourceMap{
 			OriginalPath: filepath.ToSlash(originalPath),
 			SourcePath:   filepath.ToSlash(originalPath),
 			Line:         extension.Line,

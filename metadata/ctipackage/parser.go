@@ -262,6 +262,7 @@ type cachedEntity struct {
 	Schema            json.RawMessage           `json:"schema,omitempty"`
 	TraitsSchema      json.RawMessage           `json:"traits_schema,omitempty"`
 	TraitsAnnotations json.RawMessage           `json:"traits_annotations,omitempty"`
+	TraitsSourceMap   metadata.UntypedSourceMap `json:"traits_source_map,omitempty"`
 	Traits            json.RawMessage           `json:"traits,omitempty"`
 	Annotations       json.RawMessage           `json:"annotations,omitempty"`
 	SourceMap         metadata.UntypedSourceMap `json:"source_map,omitempty"`
@@ -309,6 +310,10 @@ func (ue *cachedEntity) GetTraitsSchema() json.RawMessage {
 
 func (ue *cachedEntity) GetTraitsAnnotations() json.RawMessage {
 	return ue.TraitsAnnotations
+}
+
+func (ue *cachedEntity) GetTraitsSourceMap() metadata.UntypedSourceMap {
+	return ue.TraitsSourceMap
 }
 
 func (ue *cachedEntity) GetTraits() json.RawMessage {
