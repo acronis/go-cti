@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,14 @@ import (
 )
 
 type Entities []Entity
+
+// Sort sorts the entities by their CTI identifiers.
+func (items Entities) Sort() {
+	sort.Slice(items, func(a, b int) bool {
+		return items[a].GetCTI() < items[b].GetCTI()
+	})
+}
+
 type EntityTypeMap map[string]*EntityType
 type EntityInstanceMap map[string]*EntityInstance
 type EntityMap map[string]Entity
