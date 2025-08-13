@@ -131,7 +131,7 @@ func (v *MetadataValidator) ValidateAll() (bool, error) {
 		if err == nil {
 			continue
 		}
-		_ = st.Append(err)
+		st = st.Append(err)
 		if err.Severity.String() == string(SeverityError) {
 			pass = false
 		}
@@ -301,20 +301,6 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		return errors.New("entity type has no schema")
 	}
 
-	for _, rule := range v.typeRules[entity.CTI] {
-		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
-			if vErr, ok := err.(*stacktrace.StackTrace); ok {
-				return stacktrace.NewWrapped(
-					"validation rule",
-					vErr,
-					stacktrace.WithSeverity(*vErr.Severity),
-					stacktrace.WithInfo("rule", rule.ID),
-				)
-			}
-			return fmt.Errorf("validation rule '%s': %w", rule.ID, err)
-		}
-	}
-
 	currentCti := entity.GetCTI()
 	parent := entity.Parent()
 	if parent != nil && parent.IsFinal() {
@@ -380,6 +366,25 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 			if err := v.validateCtiSchema(key, annotation, entity, nil); err != nil {
 				return fmt.Errorf("%s@%s: %w", currentCti, key, err)
 			}
+		}
+	}
+
+	for _, rule := range v.typeRules[entity.CTI] {
+		st := stacktrace.New("custom validation rules")
+		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
+			severity := SeverityError
+			if vErr, ok := err.(*stacktrace.StackTrace); ok {
+				severity = *vErr.Severity
+			}
+			st = st.Append(stacktrace.NewWrapped(
+				"validation rule",
+				err,
+				stacktrace.WithSeverity(severity),
+				stacktrace.WithInfo("rule", rule.ID),
+			))
+		}
+		if len(st.List) > 0 {
+			return st
 		}
 	}
 
@@ -478,20 +483,6 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 		return errors.New("entity instance has no values")
 	}
 
-	for _, rule := range v.instanceRules[entity.CTI] {
-		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
-			if vErr, ok := err.(*stacktrace.StackTrace); ok {
-				return stacktrace.NewWrapped(
-					"validation rule",
-					vErr,
-					stacktrace.WithSeverity(*vErr.Severity),
-					stacktrace.WithInfo("rule", rule.ID),
-				)
-			}
-			return fmt.Errorf("validation rule '%s': %w", rule.ID, err)
-		}
-	}
-
 	currentCti := entity.GetCTI()
 	parent := entity.Parent()
 	if parent == nil {
@@ -514,6 +505,26 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 			}
 		}
 	}
+
+	for _, rule := range v.instanceRules[entity.CTI] {
+		st := stacktrace.New("custom validation rules")
+		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
+			severity := SeverityError
+			if vErr, ok := err.(*stacktrace.StackTrace); ok {
+				severity = *vErr.Severity
+			}
+			st = st.Append(stacktrace.NewWrapped(
+				"validation rule",
+				err,
+				stacktrace.WithSeverity(severity),
+				stacktrace.WithInfo("rule", rule.ID),
+			))
+		}
+		if len(st.List) > 0 {
+			return st
+		}
+	}
+
 	return nil
 }
 
