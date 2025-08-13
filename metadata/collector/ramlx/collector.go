@@ -190,7 +190,8 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 
 func (c *RAMLXCollector) MakeMetadataInstance(
 	id string,
-	definedBy *raml.ArrayShape,
+	definedBy *raml.BaseShape,
+	ctiType *raml.ObjectShape,
 	extension *raml.DomainExtension,
 	values map[string]any,
 ) (*metadata.EntityInstance, error) {
@@ -199,28 +200,26 @@ func (c *RAMLXCollector) MakeMetadataInstance(
 		return nil, fmt.Errorf("make entity instance: %w", err)
 	}
 
-	ctiType := definedBy.Items.Shape.(*raml.ObjectShape)
-
 	entity.SetResilient(false) // TODO
 
 	displayNameProp := c.findPropertyWithAnnotation(ctiType, consts.DisplayName)
 	if displayNameProp != nil {
-		if _, ok := values[displayNameProp.Name]; ok {
-			entity.SetDescription(values[displayNameProp.Name].(string))
+		if v, ok := values[displayNameProp.Name]; ok {
+			entity.SetDisplayName(v.(string))
 		}
 	}
 
 	descriptionProp := c.findPropertyWithAnnotation(ctiType, consts.Description)
 	if descriptionProp != nil {
-		if _, ok := values[descriptionProp.Name]; ok {
-			entity.SetDescription(values[descriptionProp.Name].(string))
+		if v, ok := values[descriptionProp.Name]; ok {
+			entity.SetDescription(v.(string))
 		}
 	}
 
 	accessFieldProp := c.findPropertyWithAnnotation(ctiType, consts.AccessField)
 	if accessFieldProp != nil {
-		if _, ok := values[accessFieldProp.Name]; ok {
-			entity.SetAccess(values[accessFieldProp.Name].(consts.AccessModifier))
+		if v, ok := values[accessFieldProp.Name]; ok {
+			entity.SetAccess(v.(consts.AccessModifier))
 		}
 	}
 
@@ -407,7 +406,7 @@ func (c *RAMLXCollector) readAndMakeCtiInstances(annotation *raml.DomainExtensio
 			return fmt.Errorf("child cti doesn't match parent cti: %w", err)
 		}
 
-		entity, err := c.MakeMetadataInstance(id, s, annotation, obj)
+		entity, err := c.MakeMetadataInstance(id, definedBy, ctiType, annotation, obj)
 		if err != nil {
 			return fmt.Errorf("make cti instance: %w", err)
 		}
