@@ -82,7 +82,7 @@ types:
       value: integer
   SampleDerivedEntity:
     (cti.cti): cti.x.y.sample_entity.v1.0~x.y._.v1.0
-    type: object
+    type: SampleEntity
   MultiCtiEntity:
     (cti.cti):
     - cti.x.y.multi_cti_entity_1.v1.0
@@ -146,7 +146,7 @@ types:
     type: object
   FinalEntity:
     (cti.cti): cti.x.y.non_final_entity.v1.0~x.y._.v1.0
-    type: object
+    type: NonFinalEntity
 `),
 					"entities/id.raml": strings.TrimSpace(`
 #%RAML 1.0 Library

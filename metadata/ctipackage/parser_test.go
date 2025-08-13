@@ -237,7 +237,7 @@ types:
 
   TypeWithInstanceCti:
     (cti.cti): cti.x.y.sample_entity.v1.0~x.y._.v1.0
-    type: object
+    type: SampleEntity
 `) + "\n"},
 			},
 			expectedError: "duplicate cti entity cti.x.y.sample_entity.v1.0~x.y._.v1.0",

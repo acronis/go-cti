@@ -61,6 +61,7 @@ types:
         type: object
 
   RecursiveChild:
+    type: PlainParent
     (cti.cti): cti.x.y.plain_parent.v1.0~x.y.recursive_child.v1.0
     properties:
       external_recursion:
