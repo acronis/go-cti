@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/acronis/go-cti/metadata"
@@ -186,17 +185,24 @@ func (pkg *Package) generateRAML(includeExamples bool) string {
 	return sb.String()
 }
 
-func (pkg *Package) DumpCache() error {
-	var items []metadata.Entity
-	for _, v := range pkg.LocalRegistry.Index {
-		items = append(items, v)
+// GetEntities returns a sorted list of entities in the local package registry.
+func (pkg *Package) GetEntities() metadata.Entities {
+	if pkg.LocalRegistry == nil {
+		return nil
 	}
-	// Sort entities by CTI to make the cache deterministic
-	sort.Slice(items, func(a, b int) bool {
-		return items[a].GetCTI() < items[b].GetCTI()
-	})
+	entities := make(metadata.Entities, 0, len(pkg.LocalRegistry.Index))
+	for _, v := range pkg.LocalRegistry.Index {
+		entities = append(entities, v)
+	}
+	entities.Sort()
+	return entities
+}
 
-	bytes, err := json.Marshal(items)
+// DumpCache serializes the local package entities to a cache file.
+// This is used to speed up the parsing process in subsequent runs.
+func (pkg *Package) DumpCache() error {
+	entities := pkg.GetEntities()
+	bytes, err := json.Marshal(entities)
 	if err != nil {
 		return fmt.Errorf("serialize entities: %w", err)
 	}
