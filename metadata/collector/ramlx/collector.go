@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"slices"
+
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/collector"
@@ -323,6 +325,32 @@ func (c *RAMLXCollector) readMetadataCti(base *raml.BaseShape) ([]string, error)
 	return nil, errors.New("cti.cti must be string or array of strings")
 }
 
+func (c *RAMLXCollector) verifyCTIChain(cti string, shape *raml.BaseShape) error {
+	parentCTI := metadata.GetParentCTI(cti)
+	if parentCTI == "" {
+		return nil
+	} else if len(shape.Inherits) == 0 && parentCTI != "" {
+		return fmt.Errorf("type %s has no parent, but specifies cti inheritance to %s", shape.Name, cti)
+	}
+	// NOTE: We expect child CTI to be directly inherited from one of the parents.
+	for _, parentShape := range shape.Inherits {
+		// If parent shape is an alias, we need to resolve it.
+		// This is required to handle multiple inheritance where
+		// parent is an alias to another type.
+		if parentShape.Alias != nil {
+			parentShape = parentShape.Alias
+		}
+		parentCTIs, err := c.readMetadataCti(parentShape)
+		if err != nil {
+			return fmt.Errorf("read parent cti: %w", err)
+		}
+		if slices.Contains(parentCTIs, parentCTI) {
+			return nil // Found a parent with matching CTI
+		}
+	}
+	return fmt.Errorf("type %s specifies cti inheritance to %s but none of the parents has matching cti", shape.Name, cti)
+}
+
 func (c *RAMLXCollector) ReadCTIType(base *raml.BaseShape) error {
 	ctis, err := c.readMetadataCti(base)
 	if err != nil {
@@ -336,9 +364,11 @@ func (c *RAMLXCollector) ReadCTIType(base *raml.BaseShape) error {
 		if _, ok := c.ramlCtiTypes[cti]; ok {
 			return fmt.Errorf("duplicate cti.cti: %s", cti)
 		}
-		_, err = c.CTIParser.ParseIdentifier(cti)
-		if err != nil {
+		if _, err = c.CTIParser.ParseIdentifier(cti); err != nil {
 			return fmt.Errorf("parse cti.cti: %w", err)
+		}
+		if err := c.verifyCTIChain(cti, base); err != nil {
+			return fmt.Errorf("verify cti chain: %w", err)
 		}
 		c.ramlCtiTypes[cti] = base
 	}
