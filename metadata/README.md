@@ -17,6 +17,11 @@ The library provides tools for parsing, validating, and managing CTI entities an
   - [Getting CTI instance values](#getting-cti-instance-values)
 - [Advanced usage scenarios](#advanced-usage-scenarios)
   - [Getting CTI parent](#getting-cti-parent)
+  - [Making custom validation rules](#making-custom-validation-rules)
+    - [Rule definition](#rule-definition)
+    - [Errors handling](#errors-handling)
+    - [Custom data](#custom-data)
+    - [Applying rules to validator](#applying-rules-to-validator)
 
 ## Overview
 
@@ -440,5 +445,166 @@ func processEntity(entity *metadata.EntityType) error {
       // Will print: "entity parent is cti.a.p.alert.v1.0"
     fmt.Printf("entity parent is %s", parent.CTI)
   }
+}
+```
+
+### Making custom validation rules
+
+The go-cti metadata library provides a flexible validation mechanism that allows developers to implement custom validation rules
+for CTI entities. This is particularly useful when you need to enforce specific business logic or constraints
+that are not covered by the default validation provided by the library.
+
+#### Rule definition
+
+A rule represents a validation function and optional custom data function that can be registered with
+the validator by CTI expression.
+
+Function hook signature provides the following parameters:
+
+- `v *validator.MetadataValidator` - the validator instance. Provides access to GlobalRegistry, LocalRegistry
+ and CustomData.
+- `e *metadata.EntityType | *metadata.EntityInstance` - the entity that is being validated.
+ Depending on the rule type, it can be either an entity type or an entity instance.
+- `customData any` - the custom data that was set during the rule registration. It can be used to pass additional
+ context or configuration to the validation logic.
+
+The following example shows how to define a rule for validating the "language" trait of a DTS function:
+
+```go
+package dts
+
+import (
+  "fmt"
+
+  "github.com/acronis/go-cti/metadata"
+  "github.com/acronis/go-cti/metadata/validator"
+)
+
+const (
+  DTSFunctionGoLanguage  = "GO"
+  DTSFunctionSWFLanguage = "SERVERLESS_WORKFLOW"
+)
+
+// ValidateDTSFunctionLanguage validates whether the language trait of a DTS function is set correctly
+// according to the following rules:
+//   - An empty value indicates a declarative function, and `return` must be set.
+//   - If `language` is set to SERVERLESS_WORKFLOW, `source` must also be set.
+//   - If `language` is set to GO, `module` and `ref_name` must also be set.
+func ValidateDTSFunctionLanguage(v *validator.MetadataValidator, e *metadata.EntityType, _ any) error {
+  // Collects all traits of the entity in the chain.
+  traits := e.GetMergedTraits()
+
+  switch v := traits["language"].(type) {
+  case string:
+    switch v {
+    case DTSFunctionGoLanguage:
+      if _, ok := traits["module"]; !ok {
+        return fmt.Errorf("DTS function with language %s must have 'module' trait set", v)
+      }
+      if _, ok := traits["ref_name"]; !ok {
+        return fmt.Errorf("DTS function with language %s must have 'ref_name' trait set", v)
+      }
+    case DTSFunctionSWFLanguage:
+      if _, ok := traits["source"]; !ok {
+        return fmt.Errorf("DTS function with language %s must have 'source' trait set", v)
+      }
+    default:
+      return fmt.Errorf("unsupported language %s for DTS function", v)
+    }
+  case nil:
+    // If language is not set, it indicates a declarative function or interface.
+    // NOTE: If traits are not set for the function, it is considered as an interface.
+    if len(traits) == 0 {
+      return nil
+    }
+    if _, ok := traits["return"]; !ok {
+      return fmt.Errorf("declarative DTS function must have 'return' trait set")
+    }
+  default:
+    return fmt.Errorf("unexpected type for language trait: %T", v)
+  }
+  return nil
+}
+```
+
+#### Errors handling
+
+Validator supports errors with different severity levels that allow the developers to distinguish
+between errors, warnings and informational problems. To be able to provide the severity level,
+you can use the following methods:
+
+- `validator.NewValidationIssue` - a wrapper function that creates a `go-stacktrace.StackTrace` object.
+- `validator.NewValidationIssueWrapped` - a wrapper function that creates a `go-stacktrace.StackTrace` object
+  with an additional wrapped error.
+
+If your rule always returns an error, you can also use the standard Go error handling and return an error constructed
+with `errors.New` or `fmt.Errorf`. Errors constructed via default Go error functions will be treated as validation errors.
+However, it is recommended to use the `NewValidationIssue` or `NewValidationIssueWrapped` functions.
+
+Example usage for plain error with specific severity:
+
+```go
+return validator.NewValidationIssue("failed to validate property", validator.SeverityWarning, stacktrace.WithInfo("property", "name"))
+```
+
+Example usage for wrapped error with specific severity:
+
+```go
+_, err := someFunction()
+if err != nil {
+  // Wrap the error with a validation issue
+  return validator.NewValidationIssueWrapped("failed to validate property", err, validator.SeverityWarning, stacktrace.WithInfo("property", "name"))
+}
+```
+
+#### Custom data
+
+You can pass custom data with the rule where you can store additional context or configuration that your
+validation logic might need before validation.
+
+In order to set custom data, you can provide a function hook in the `CustomDataHook` field.
+During the rule registration, this custom data hook function will be invoked and its value stored
+in the `customData` map of the validator instance. This value then will be passed to the rule's hook function.
+
+For example, you can define a rule with custom data like this:
+
+```go
+package my_domain
+
+import "github.com/acronis/go-cti/metadata/validator"
+
+validator.TypeRule{
+  ID: "my-custom-rule",
+  Expression: "cti.a.p.my_domain.mytype.v1.0~*",
+  ValidationHook: func(v *validator.MetadataValidator, e *metadata.EntityType, customData any) error {
+    // This will print: "Custom data: Hello, CTI!"
+    fmt.Printf("Custom data: %v", customData)
+    return nil
+  },
+  CustomDataHook: func(v *validator.MetadataValidator) (any, error) {
+    return "Hello, CTI!", nil
+  },
+}
+```
+
+#### Applying rules to validator
+
+Rules can be applied to the validator by passing them as options when creating a new validator instance.
+For example, to apply the `ValidateDTSFunctionLanguage` rule, you can do the following:
+
+```go
+package main
+
+import "github.com/acronis/go-cti/metadata/validator"
+
+func NewValidator(pkg *ctipackage.Package) (*validator.MetadataValidator, error) {
+  // Create a new validator with custom rules
+  opts := []validator.ValidatorOption{
+    // Register the custom rule for DTS function language validation and apply it to types derived from `cti.a.p.dts.func.v1.0`
+    validator.WithTypeRule(validator.TypeRule{
+      {ID: "dts-invalid-language", Expression: "cti.a.p.dts.func.v1.0~*", ValidationHook: dts.ValidateDTSFunctionLanguage},
+    }),
+  }
+  return validator.New(pkg, opts)
 }
 ```
