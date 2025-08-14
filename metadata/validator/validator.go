@@ -372,11 +372,15 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 	}
 
 	stacktraces := make([]*stacktrace.StackTrace, 0)
+	highestSeverity := SeverityWarning
 	for _, rule := range v.typeRules[entity.CTI] {
 		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
 			severity := SeverityError
 			if vErr, ok := err.(*stacktrace.StackTrace); ok {
 				severity = *vErr.Severity
+			}
+			if severity == SeverityError {
+				highestSeverity = SeverityError
 			}
 			stacktraces = append(stacktraces, stacktrace.NewWrapped(
 				"validation rule",
@@ -387,7 +391,7 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		}
 	}
 	if len(stacktraces) > 0 {
-		st := stacktrace.New("custom type validation rules")
+		st := stacktrace.New("custom type validation rules", stacktrace.WithSeverity(highestSeverity))
 		st.List = stacktraces
 		return st
 	}
@@ -511,11 +515,15 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 	}
 
 	stacktraces := make([]*stacktrace.StackTrace, 0)
+	highestSeverity := SeverityWarning
 	for _, rule := range v.instanceRules[entity.CTI] {
 		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
 			severity := SeverityError
 			if vErr, ok := err.(*stacktrace.StackTrace); ok {
 				severity = *vErr.Severity
+			}
+			if severity == SeverityError {
+				highestSeverity = SeverityError
 			}
 			stacktraces = append(stacktraces, stacktrace.NewWrapped(
 				"validation rule",
@@ -526,7 +534,7 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 		}
 	}
 	if len(stacktraces) > 0 {
-		st := stacktrace.New("custom instance validation rules")
+		st := stacktrace.New("custom instance validation rules", stacktrace.WithSeverity(highestSeverity))
 		st.List = stacktraces
 		return st
 	}
