@@ -125,18 +125,20 @@ func New(vendor, pkg string, gr, lr *registry.MetadataRegistry, opts ...Validato
 // ValidateAll validates well-formedness of all metadata entities in the local metadata registry.
 func (v *MetadataValidator) ValidateAll() (bool, error) {
 	pass := true
-	st := stacktrace.New("validation issues")
+	stacktraces := make([]*stacktrace.StackTrace, 0)
 	for _, object := range v.LocalRegistry.Index {
 		err := v.Validate(object)
 		if err == nil {
 			continue
 		}
-		st = st.Append(err)
+		stacktraces = append(stacktraces, err)
 		if err.Severity.String() == string(SeverityError) {
 			pass = false
 		}
 	}
-	if len(st.List) > 0 {
+	if len(stacktraces) > 0 {
+		st := stacktrace.New("validation issues")
+		st.List = stacktraces
 		return pass, st
 	}
 	return pass, nil
@@ -369,23 +371,25 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		}
 	}
 
+	stacktraces := make([]*stacktrace.StackTrace, 0)
 	for _, rule := range v.typeRules[entity.CTI] {
-		st := stacktrace.New("custom validation rules")
 		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
 			severity := SeverityError
 			if vErr, ok := err.(*stacktrace.StackTrace); ok {
 				severity = *vErr.Severity
 			}
-			st = st.Append(stacktrace.NewWrapped(
+			stacktraces = append(stacktraces, stacktrace.NewWrapped(
 				"validation rule",
 				err,
 				stacktrace.WithSeverity(severity),
 				stacktrace.WithInfo("rule", rule.ID),
 			))
 		}
-		if len(st.List) > 0 {
-			return st
-		}
+	}
+	if len(stacktraces) > 0 {
+		st := stacktrace.New("custom type validation rules")
+		st.List = stacktraces
+		return st
 	}
 
 	return nil
@@ -506,23 +510,25 @@ func (v *MetadataValidator) ValidateInstance(entity *metadata.EntityInstance) er
 		}
 	}
 
+	stacktraces := make([]*stacktrace.StackTrace, 0)
 	for _, rule := range v.instanceRules[entity.CTI] {
-		st := stacktrace.New("custom validation rules")
 		if err := rule.ValidationHook(v, entity, v.customData[rule.ID]); err != nil {
 			severity := SeverityError
 			if vErr, ok := err.(*stacktrace.StackTrace); ok {
 				severity = *vErr.Severity
 			}
-			st = st.Append(stacktrace.NewWrapped(
+			stacktraces = append(stacktraces, stacktrace.NewWrapped(
 				"validation rule",
 				err,
 				stacktrace.WithSeverity(severity),
 				stacktrace.WithInfo("rule", rule.ID),
 			))
 		}
-		if len(st.List) > 0 {
-			return st
-		}
+	}
+	if len(stacktraces) > 0 {
+		st := stacktrace.New("custom instance validation rules")
+		st.List = stacktraces
+		return st
 	}
 
 	return nil
