@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"slices"
+
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/collector"
@@ -190,7 +192,8 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 
 func (c *RAMLXCollector) MakeMetadataInstance(
 	id string,
-	definedBy *raml.ArrayShape,
+	definedBy *raml.BaseShape,
+	ctiType *raml.ObjectShape,
 	extension *raml.DomainExtension,
 	values map[string]any,
 ) (*metadata.EntityInstance, error) {
@@ -199,28 +202,26 @@ func (c *RAMLXCollector) MakeMetadataInstance(
 		return nil, fmt.Errorf("make entity instance: %w", err)
 	}
 
-	ctiType := definedBy.Items.Shape.(*raml.ObjectShape)
-
 	entity.SetResilient(false) // TODO
 
 	displayNameProp := c.findPropertyWithAnnotation(ctiType, consts.DisplayName)
 	if displayNameProp != nil {
-		if _, ok := values[displayNameProp.Name]; ok {
-			entity.SetDescription(values[displayNameProp.Name].(string))
+		if v, ok := values[displayNameProp.Name]; ok {
+			entity.SetDisplayName(v.(string))
 		}
 	}
 
 	descriptionProp := c.findPropertyWithAnnotation(ctiType, consts.Description)
 	if descriptionProp != nil {
-		if _, ok := values[descriptionProp.Name]; ok {
-			entity.SetDescription(values[descriptionProp.Name].(string))
+		if v, ok := values[descriptionProp.Name]; ok {
+			entity.SetDescription(v.(string))
 		}
 	}
 
 	accessFieldProp := c.findPropertyWithAnnotation(ctiType, consts.AccessField)
 	if accessFieldProp != nil {
-		if _, ok := values[accessFieldProp.Name]; ok {
-			entity.SetAccess(values[accessFieldProp.Name].(consts.AccessModifier))
+		if v, ok := values[accessFieldProp.Name]; ok {
+			entity.SetAccess(v.(consts.AccessModifier))
 		}
 	}
 
@@ -324,6 +325,32 @@ func (c *RAMLXCollector) readMetadataCti(base *raml.BaseShape) ([]string, error)
 	return nil, errors.New("cti.cti must be string or array of strings")
 }
 
+func (c *RAMLXCollector) verifyCTIChain(cti string, shape *raml.BaseShape) error {
+	parentCTI := metadata.GetParentCTI(cti)
+	if parentCTI == "" {
+		return nil
+	} else if len(shape.Inherits) == 0 && parentCTI != "" {
+		return fmt.Errorf("type %s has no parent, but specifies cti inheritance to %s", shape.Name, cti)
+	}
+	// NOTE: We expect child CTI to be directly inherited from one of the parents.
+	for _, parentShape := range shape.Inherits {
+		// If parent shape is an alias, we need to resolve it.
+		// This is required to handle multiple inheritance where
+		// parent is an alias to another type.
+		if parentShape.Alias != nil {
+			parentShape = parentShape.Alias
+		}
+		parentCTIs, err := c.readMetadataCti(parentShape)
+		if err != nil {
+			return fmt.Errorf("read parent cti: %w", err)
+		}
+		if slices.Contains(parentCTIs, parentCTI) {
+			return nil // Found a parent with matching CTI
+		}
+	}
+	return fmt.Errorf("type %s specifies cti inheritance to %s but none of the parents has matching cti", shape.Name, cti)
+}
+
 func (c *RAMLXCollector) ReadCTIType(base *raml.BaseShape) error {
 	ctis, err := c.readMetadataCti(base)
 	if err != nil {
@@ -337,9 +364,11 @@ func (c *RAMLXCollector) ReadCTIType(base *raml.BaseShape) error {
 		if _, ok := c.ramlCtiTypes[cti]; ok {
 			return fmt.Errorf("duplicate cti.cti: %s", cti)
 		}
-		_, err = c.CTIParser.ParseIdentifier(cti)
-		if err != nil {
+		if _, err = c.CTIParser.ParseIdentifier(cti); err != nil {
 			return fmt.Errorf("parse cti.cti: %w", err)
+		}
+		if err := c.verifyCTIChain(cti, base); err != nil {
+			return fmt.Errorf("verify cti chain: %w", err)
 		}
 		c.ramlCtiTypes[cti] = base
 	}
@@ -407,7 +436,7 @@ func (c *RAMLXCollector) readAndMakeCtiInstances(annotation *raml.DomainExtensio
 			return fmt.Errorf("child cti doesn't match parent cti: %w", err)
 		}
 
-		entity, err := c.MakeMetadataInstance(id, s, annotation, obj)
+		entity, err := c.MakeMetadataInstance(id, definedBy, ctiType, annotation, obj)
 		if err != nil {
 			return fmt.Errorf("make cti instance: %w", err)
 		}

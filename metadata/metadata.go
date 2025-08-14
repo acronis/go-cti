@@ -467,19 +467,19 @@ func (e *entity) Expression() (*cti.Expression, error) {
 }
 
 // IsA checks if the entity is a subtype of the given EntityType.
-func (e *entity) IsA(entity *EntityType) bool {
-	if entity == nil {
+func (e *entity) IsA(typ *EntityType) bool {
+	if typ == nil {
 		return false
 	}
-	return strings.HasPrefix(e.CTI, entity.CTI)
+	return strings.HasPrefix(e.CTI, typ.CTI)
 }
 
 // IsChildOf checks if the entity is a direct child of the given EntityType.
-func (e *entity) IsChildOf(entity *EntityType) bool {
-	if entity == nil {
+func (e *entity) IsChildOf(parent *EntityType) bool {
+	if parent == nil {
 		return false
 	}
-	return entity.CTI == GetParentCTI(e.CTI)
+	return GetParentCTI(e.CTI) == parent.CTI
 }
 
 // Match checks if the entity matches the other entity based on their CTI expressions.
