@@ -564,7 +564,7 @@ func NewEntityType(
 		entity: entity{
 			CTI:         id,
 			Final:       true, // All entities are final by default
-			Access:      consts.AccessModifierProtected,
+			Access:      consts.AccessModifierPublic,
 			Annotations: annotations,
 		},
 		Schema: schema,
@@ -962,7 +962,7 @@ func NewEntityInstance(id string, values any) (*EntityInstance, error) {
 		entity: entity{
 			CTI:         id,
 			Final:       true, // All entities are final by default
-			Access:      consts.AccessModifierProtected,
+			Access:      consts.AccessModifierPublic,
 			Annotations: make(map[GJsonPath]*Annotations),
 		},
 		Values: values,

@@ -284,12 +284,12 @@ func (v *MetadataValidator) validateBaseProperties(object metadata.Entity) error
 		if !object.IsChildOf(parent) {
 			return fmt.Errorf("%s is not a child of %s", currentCti, parentCti)
 		}
-		// if parent.Access.Integer() > object.GetAccess().Integer() {
-		// 	return fmt.Errorf("%s access is less restrictive than parent %s", currentCti, parentCti)
-		// }
-		// if err = parent.IsAccessibleBy(object); err != nil {
-		// 	return fmt.Errorf("%s is not accessible by %s: %w", currentCti, parentCti, err)
-		// }
+		if parent.Access.Integer() > object.GetAccess().Integer() {
+			return fmt.Errorf("%s access is less restrictive than parent %s", currentCti, parentCti)
+		}
+		if err := parent.IsAccessibleBy(object); err != nil {
+			return fmt.Errorf("%s is not accessible by %s: %w", currentCti, parentCti, err)
+		}
 	}
 	return nil
 }
@@ -421,9 +421,9 @@ func (v *MetadataValidator) validateCtiSchema(_ metadata.GJsonPath, annotation *
 		if _, err = refObject.GetSchemaByAttributeSelectorInChain(attributeSelector); err != nil {
 			return fmt.Errorf("cti schema %s does not contain attribute %s: %w", schemaRef, attributeSelector, err)
 		}
-		// if err := refObject.IsAccessibleBy(child); err != nil {
-		// 	return fmt.Errorf("cti schema %s is not accessible by %s: %w", currentRef, child.GetCTI(), err)
-		// }
+		if err := refObject.IsAccessibleBy(child); err != nil {
+			return fmt.Errorf("cti schema %s is not accessible by %s: %w", schemaRef, child.GetCTI(), err)
+		}
 	}
 	return nil
 }
@@ -474,7 +474,7 @@ func (v *MetadataValidator) validateTypeReference(key metadata.GJsonPath, annota
 			return nil
 		}
 		for _, currentRef := range currentRefs {
-			if _, err := v.getOrCacheExpression(currentRef, v.ctiParser.ParseIdentifier); err != nil {
+			if _, err := v.getOrCacheExpression(currentRef, v.ctiParser.ParseReference); err != nil {
 				return fmt.Errorf("failed to parse cti.reference %s: %w", currentRef, err)
 			}
 		}
