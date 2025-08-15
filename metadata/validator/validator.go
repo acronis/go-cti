@@ -474,7 +474,7 @@ func (v *MetadataValidator) validateTypeReference(key metadata.GJsonPath, annota
 			return nil
 		}
 		for _, currentRef := range currentRefs {
-			if _, err := v.getOrCacheExpression(currentRef, v.ctiParser.ParseIdentifier); err != nil {
+			if _, err := v.getOrCacheExpression(currentRef, v.ctiParser.ParseReference); err != nil {
 				return fmt.Errorf("failed to parse cti.reference %s: %w", currentRef, err)
 			}
 		}
