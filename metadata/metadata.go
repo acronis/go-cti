@@ -259,14 +259,14 @@ func (k GJsonPath) String() string {
 //
 // [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#metadata-structure
 type entity struct {
+	// CTI is the CTI identifier of the entity.
+	CTI string `json:"cti" yaml:"cti"`
+
 	// Final indicates that the entity is final and cannot be extended or modified.
 	Final bool `json:"final" yaml:"final"`
 
 	// Access indicates the access modifier of the entity.
 	Access consts.AccessModifier `json:"access" yaml:"access"`
-
-	// CTI is the CTI identifier of the entity.
-	CTI string `json:"cti" yaml:"cti"`
 
 	// Resilient indicates that the entity is resilient and can be used in resilient contexts.
 	Resilient bool `json:"resilient" yaml:"resilient"`
@@ -581,6 +581,10 @@ func NewEntityType(
 type EntityType struct {
 	entity `yaml:",inline"`
 
+	// Traits is a map of traits for the entity type.
+	// Optional, may be present if parent entity type defines traits schema.
+	Traits map[string]any `json:"traits,omitempty" yaml:"traits,omitempty"`
+
 	// Schema is the JSON schema of the entity type. Must be present.
 	Schema *jsonschema.JSONSchemaCTI `json:"schema" yaml:"schema"`
 
@@ -592,10 +596,6 @@ type EntityType struct {
 
 	// TraitsSourceMap is the information about the source of traits schema.
 	TraitsSourceMap *TypeSourceMap `json:"traits_source_map,omitempty" yaml:"traits_source_map,omitempty"`
-
-	// Traits is a map of traits for the entity type.
-	// Optional, may be present if parent entity type defines traits schema.
-	Traits map[string]any `json:"traits,omitempty" yaml:"traits,omitempty"`
 
 	// mergedSchema is a cached merged schema of the entity type and its parent chain.
 	mergedSchema *jsonschema.JSONSchemaCTI `json:"-" yaml:"-"`
