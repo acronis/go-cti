@@ -29,8 +29,8 @@ type testUntypedEntity struct {
 	SourceMap         UntypedSourceMap
 }
 
-func (te *testUntypedEntity) GetFinal() bool                        { return te.Final }
 func (te *testUntypedEntity) GetCTI() string                        { return te.CTI }
+func (te *testUntypedEntity) GetFinal() bool                        { return te.Final }
 func (te *testUntypedEntity) GetResilient() bool                    { return te.Resilient }
 func (te *testUntypedEntity) GetAccess() consts.AccessModifier      { return te.Access }
 func (te *testUntypedEntity) GetDisplayName() string                { return te.DisplayName }
@@ -171,8 +171,7 @@ func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errContains)
+				require.ErrorContains(t, err, tt.errContains)
 				require.Nil(t, entity)
 			} else {
 				require.NoError(t, err)
@@ -210,15 +209,13 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 	}
 	traitsSchemaJSON, _ := json.Marshal(traitsSchema)
 
-	tests := []struct {
-		name          string
+	tests := map[string]struct {
 		untypedEntity *testUntypedEntity
 		wantErr       bool
 		errContains   string
 		validate      func(t *testing.T, entity Entity)
 	}{
-		{
-			name: "valid entity type",
+		"valid entity type": {
 			untypedEntity: &testUntypedEntity{
 				CTI:         "cti.test.type.v1.0",
 				Final:       false,
@@ -254,8 +251,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 				require.Equal(t, "test/original.raml", entityType.SourceMap.OriginalPath)
 			},
 		},
-		{
-			name: "entity type with traits schema and traits",
+		"entity type with traits schema and traits": {
 			untypedEntity: &testUntypedEntity{
 				CTI:          "cti.test.type.v1.0",
 				Final:        true,
@@ -276,23 +272,20 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 				require.Equal(t, map[string]any{"trait1": "traitValue"}, entityType.Traits)
 			},
 		},
-		{
-			name: "entity type with annotations",
+		"entity type with annotations": {
 			untypedEntity: &testUntypedEntity{
 				CTI:         "cti.test.type.v1.0",
 				Schema:      simpleSchemaJSON,
-				Annotations: json.RawMessage(`{".": {"cti.cti": "test.annotation"}}`), // Fixed JSON key
+				Annotations: json.RawMessage(`{".field": {"cti.schema": "test.annotation"}}`), // Fixed JSON key
 			},
 			wantErr: false,
 			validate: func(t *testing.T, entity Entity) {
-				annotations := entity.GetAnnotations()
-				require.NotNil(t, annotations)
-				require.Contains(t, annotations, GJsonPath("."))
-				require.Equal(t, "test.annotation", annotations["."].CTI)
+				require.EqualValues(t, map[GJsonPath]*Annotations{
+					GJsonPath(".field"): {Schema: "test.annotation"},
+				}, entity.GetAnnotations())
 			},
 		},
-		{
-			name: "entity type with legacy source map",
+		"entity type with legacy source map": {
 			untypedEntity: &testUntypedEntity{
 				CTI:         "cti.test.type.v1.0",
 				Schema:      simpleSchemaJSON,
@@ -306,12 +299,11 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 				require.Equal(t, "Type", entityType.SourceMap.Name)
 			},
 		},
-		{
-			name: "entity type with legacy annotations and source map",
+		"entity type with legacy annotations and source map": {
 			untypedEntity: &testUntypedEntity{
 				CTI:         "cti.test.type.v1.0",
 				Schema:      simpleSchemaJSON,
-				Annotations: json.RawMessage(`{".": {"cti.cti": "test.annotation"}, "$name": "Type"}`), // Fixed JSON key
+				Annotations: json.RawMessage(`{".field": {"cti.schema": "test.annotation"}, "$name": "Type"}`), // Fixed JSON key
 			},
 			wantErr: false,
 			validate: func(t *testing.T, entity Entity) {
@@ -319,30 +311,28 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 				require.True(t, ok)
 				require.NotNil(t, entityType.SourceMap)
 				require.Equal(t, "Type", entityType.SourceMap.Name)
-				require.Contains(t, entityType.Annotations, GJsonPath("."))
-				require.Equal(t, "test.annotation", entityType.Annotations["."].CTI)
-				require.NotContains(t, entityType.Annotations, GJsonPath("$name"))
+				require.EqualValues(t, map[GJsonPath]*Annotations{
+					GJsonPath(".field"): {Schema: "test.annotation"},
+				}, entityType.Annotations)
 			},
 		},
-		{
-			name: "entity type with traits annotations",
+		"entity type with traits annotations": {
 			untypedEntity: &testUntypedEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
 				TraitsSchema:      traitsSchemaJSON,
-				TraitsAnnotations: json.RawMessage(`{".trait1": {"cti.cti": "trait.annotation"}}`), // Fixed JSON key
+				TraitsAnnotations: json.RawMessage(`{".trait1": {"cti.schema": "trait.annotation"}}`), // Fixed JSON key
 			},
 			wantErr: false,
 			validate: func(t *testing.T, entity Entity) {
 				entityType, ok := entity.(*EntityType)
 				require.True(t, ok)
-				require.NotNil(t, entityType.TraitsAnnotations)
-				require.Contains(t, entityType.TraitsAnnotations, GJsonPath(".trait1"))
-				require.Equal(t, "trait.annotation", entityType.TraitsAnnotations[".trait1"].CTI)
+				require.EqualValues(t, map[GJsonPath]*Annotations{
+					GJsonPath(".trait1"): {Schema: "trait.annotation"},
+				}, entityType.TraitsAnnotations)
 			},
 		},
-		{
-			name: "entity type with legacy traits source map",
+		"entity type with legacy traits source map": {
 			untypedEntity: &testUntypedEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
@@ -357,13 +347,12 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 				require.Equal(t, "cti-traits?", entityType.TraitsSourceMap.Name)
 			},
 		},
-		{
-			name: "entity type with legacy traits annotations and source map",
+		"entity type with legacy traits annotations and source map": {
 			untypedEntity: &testUntypedEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
 				TraitsSchema:      traitsSchemaJSON,
-				TraitsAnnotations: json.RawMessage(`{".trait1": {"cti.cti": "trait.annotation"}, "$name": "cti-traits?"}`), // Legacy source map annotation
+				TraitsAnnotations: json.RawMessage(`{".trait1": {"cti.schema": "trait.annotation"}, "$name": "cti-traits?"}`), // Legacy source map annotation
 			},
 			wantErr: false,
 			validate: func(t *testing.T, entity Entity) {
@@ -371,14 +360,12 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 				require.True(t, ok)
 				require.NotNil(t, entityType.TraitsSourceMap)
 				require.Equal(t, "cti-traits?", entityType.TraitsSourceMap.Name)
-				require.NotNil(t, entityType.TraitsAnnotations)
-				require.Contains(t, entityType.TraitsAnnotations, GJsonPath(".trait1"))
-				require.Equal(t, "trait.annotation", entityType.TraitsAnnotations[".trait1"].CTI)
-				require.NotContains(t, entityType.TraitsAnnotations, GJsonPath("$name"))
+				require.EqualValues(t, map[GJsonPath]*Annotations{
+					GJsonPath(".trait1"): {Schema: "trait.annotation"},
+				}, entityType.TraitsAnnotations)
 			},
 		},
-		{
-			name: "entity type with invalid schema JSON",
+		"entity type with invalid schema JSON": {
 			untypedEntity: &testUntypedEntity{
 				CTI:    "cti.test.type.v1.0",
 				Schema: json.RawMessage(`invalid json`),
@@ -386,8 +373,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			wantErr:     true,
 			errContains: "unmarshal schema for",
 		},
-		{
-			name: "entity type with invalid annotations JSON",
+		"entity type with invalid annotations JSON": {
 			untypedEntity: &testUntypedEntity{
 				CTI:         "cti.test.type.v1.0",
 				Schema:      simpleSchemaJSON,
@@ -396,8 +382,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			wantErr:     true,
 			errContains: "get annotations for",
 		},
-		{
-			name: "entity type with invalid traits schema JSON",
+		"entity type with invalid traits schema JSON": {
 			untypedEntity: &testUntypedEntity{
 				CTI:          "cti.test.type.v1.0",
 				Schema:       simpleSchemaJSON,
@@ -406,8 +391,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			wantErr:     true,
 			errContains: "unmarshal traits schema for",
 		},
-		{
-			name: "entity type with invalid traits annotations JSON",
+		"entity type with invalid traits annotations JSON": {
 			untypedEntity: &testUntypedEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
@@ -417,8 +401,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			wantErr:     true,
 			errContains: "get traits annotations for",
 		},
-		{
-			name: "entity type with invalid traits JSON",
+		"entity type with invalid traits JSON": {
 			untypedEntity: &testUntypedEntity{
 				CTI:    "cti.test.type.v1.0",
 				Schema: simpleSchemaJSON,
@@ -429,12 +412,11 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errContains)
+				require.ErrorContains(t, err, tt.errContains)
 				require.Nil(t, entity)
 			} else {
 				require.NoError(t, err)
@@ -475,8 +457,7 @@ func TestConvertUntypedEntityToEntity_ErrorCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.errContains)
+			require.ErrorContains(t, err, tt.errContains)
 			require.Nil(t, entity)
 		})
 	}
@@ -525,9 +506,8 @@ func TestConvertUntypedEntityToEntity_ComplexEntityType(t *testing.T) {
 		Description: "A complex entity type with nested schemas",
 		Schema:      complexSchemaJSON,
 		Annotations: json.RawMessage(`{
-			".": {"cti.cti": "root.annotation"},
 			".name": {"cti.schema": "string.schema"},
-			".address": {"cti.cti": "address.annotation"}
+			".address": {"cti.reference": "address.annotation"}
 		}`),
 		TraitsSchema: json.RawMessage(`{
 			"type": "object",
@@ -542,7 +522,7 @@ func TestConvertUntypedEntityToEntity_ComplexEntityType(t *testing.T) {
 			}
 		}`),
 		TraitsAnnotations: json.RawMessage(`{
-			".timestamps": {"cti.cti": "timestamps.trait"},
+			".timestamps": {"cti.schema": "timestamps.trait"},
 			".timestamps.created": {"cti.meta": "iso8601"}
 		}`),
 		Traits: json.RawMessage(`{
@@ -585,19 +565,20 @@ func TestConvertUntypedEntityToEntity_ComplexEntityType(t *testing.T) {
 	// Validate annotations
 	annotations := entity.GetAnnotations()
 	require.NotNil(t, annotations)
-	require.Contains(t, annotations, GJsonPath("."))
-	require.Contains(t, annotations, GJsonPath(".name"))
-	require.Contains(t, annotations, GJsonPath(".address"))
-	require.Equal(t, "root.annotation", annotations["."].CTI)
+	require.EqualValues(t, map[GJsonPath]*Annotations{
+		GJsonPath(".name"):    {Schema: "string.schema"},
+		GJsonPath(".address"): {Reference: "address.annotation"},
+	}, annotations)
 
 	// Validate traits schema
 	require.NotNil(t, entityType.TraitsSchema)
 	require.Equal(t, "object", entityType.TraitsSchema.Type)
 
 	// Validate traits annotations
-	require.NotNil(t, entityType.TraitsAnnotations)
-	require.Contains(t, entityType.TraitsAnnotations, GJsonPath(".timestamps"))
-	require.Contains(t, entityType.TraitsAnnotations, GJsonPath(".timestamps.created"))
+	require.EqualValues(t, map[GJsonPath]*Annotations{
+		GJsonPath(".timestamps"):         {Schema: "timestamps.trait"},
+		GJsonPath(".timestamps.created"): {Meta: "iso8601"},
+	}, entityType.TraitsAnnotations)
 
 	// Validate traits
 	require.NotNil(t, entityType.Traits)
@@ -662,8 +643,7 @@ func TestConvertUntypedEntityToEntity_EdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errContains)
+				require.ErrorContains(t, err, tt.errContains)
 				require.Nil(t, entity)
 			} else {
 				require.NoError(t, err)

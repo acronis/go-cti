@@ -42,16 +42,6 @@ func TestEntity_GetParent(t *testing.T) {
 	require.Equal(t, parent, obj.Parent())
 }
 
-func TestEntity_GetAnnotations(t *testing.T) {
-	annotations := map[GJsonPath]*Annotations{
-		".": {CTI: "cti.vendor.app.test.v1.0"},
-	}
-	obj := &entity{
-		Annotations: annotations,
-	}
-	require.Equal(t, annotations, obj.GetAnnotations())
-}
-
 // TestEntity_FindAnnotationsByPredicateInChain tests the FindAnnotationsByPredicateInChain method
 // Note: This test uses a custom implementation to avoid a bug in the original method
 func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
@@ -65,13 +55,13 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 			name: "find in object",
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{
-					".": {CTI: "cti.vendor.app.test.v1.0"},
+					".field": {Schema: "cti.vendor.app.test.v1.0"},
 				},
 			},
 			predicate: func(a *Annotations) bool {
-				return a.CTI != nil
+				return a.Schema != nil
 			},
-			wantResult: &Annotations{CTI: "cti.vendor.app.test.v1.0"},
+			wantResult: &Annotations{Schema: "cti.vendor.app.test.v1.0"},
 		},
 		{
 			name: "find in parent",
@@ -80,15 +70,15 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 				parent: &EntityType{
 					entity: entity{
 						Annotations: map[GJsonPath]*Annotations{
-							".": {CTI: "cti.vendor.app.test.v1.0"},
+							".field": {Schema: "cti.vendor.app.test.v1.0"},
 						},
 					},
 				},
 			},
 			predicate: func(a *Annotations) bool {
-				return a.CTI != nil
+				return a.Schema != nil
 			},
-			wantResult: &Annotations{CTI: "cti.vendor.app.test.v1.0"},
+			wantResult: &Annotations{Schema: "cti.vendor.app.test.v1.0"},
 		},
 		{
 			name: "not found",
@@ -96,7 +86,7 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 				Annotations: map[GJsonPath]*Annotations{},
 			},
 			predicate: func(a *Annotations) bool {
-				return a.CTI != nil
+				return a.Schema != nil
 			},
 			wantResult: nil,
 		},
@@ -143,14 +133,14 @@ func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
 			name: "find in object",
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{
-					".": {
-						CTI: "cti.vendor.app.test.v1.0",
+					".field": {
+						Schema: "cti.vendor.app.test.v1.0",
 					},
 				},
 			},
-			key: ".",
+			key: ".field",
 			wantResult: &Annotations{
-				CTI: "cti.vendor.app.test.v1.0",
+				Schema: "cti.vendor.app.test.v1.0",
 			},
 		},
 		{
@@ -160,16 +150,16 @@ func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
 				parent: &EntityType{
 					entity: entity{
 						Annotations: map[GJsonPath]*Annotations{
-							".": {
-								CTI: "cti.vendor.app.test.v1.0",
+							".field": {
+								Schema: "cti.vendor.app.test.v1.0",
 							},
 						},
 					},
 				},
 			},
-			key: ".",
+			key: ".field",
 			wantResult: &Annotations{
-				CTI: "cti.vendor.app.test.v1.0",
+				Schema: "cti.vendor.app.test.v1.0",
 			},
 		},
 		{
@@ -177,7 +167,7 @@ func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{},
 			},
-			key:        ".",
+			key:        ".field",
 			wantResult: nil,
 		},
 	}
@@ -1017,47 +1007,6 @@ func TestAnnotations_ReadCTISchema(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			a := Annotations{Schema: tt.schema}
 			result := a.ReadCTISchema()
-			require.ElementsMatch(t, tt.expected, result)
-		})
-	}
-}
-func TestAnnotations_ReadCTI(t *testing.T) {
-	tests := []struct {
-		name     string
-		cti      interface{}
-		expected []string
-	}{
-		{
-			name:     "nil CTI",
-			cti:      nil,
-			expected: []string{},
-		},
-		{
-			name:     "CTI as string",
-			cti:      "cti.vendor.app.test.v1.0",
-			expected: []string{"cti.vendor.app.test.v1.0"},
-		},
-		{
-			name:     "CTI as []interface{} with strings",
-			cti:      []interface{}{"cti.vendor.app.test.v1.0", "cti.vendor.app.test.v2.0"},
-			expected: []string{"cti.vendor.app.test.v1.0", "cti.vendor.app.test.v2.0"},
-		},
-		{
-			name:     "CTI as []interface{} with mixed types",
-			cti:      []interface{}{"cti.vendor.app.test.v1.0", 123, "cti.vendor.app.test.v2.0"},
-			expected: []string{"cti.vendor.app.test.v1.0", "cti.vendor.app.test.v2.0"},
-		},
-		{
-			name:     "CTI as []interface{} with no strings",
-			cti:      []interface{}{123, 456},
-			expected: []string{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := Annotations{CTI: tt.cti}
-			result := a.ReadCTI()
 			require.ElementsMatch(t, tt.expected, result)
 		})
 	}

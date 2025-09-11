@@ -115,11 +115,7 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 		return nil, fmt.Errorf("convert schema: %w", err)
 	}
 
-	entity, err := metadata.NewEntityType(
-		id,
-		jsonSchema,
-		map[metadata.GJsonPath]*metadata.Annotations{},
-	)
+	entity, err := metadata.NewEntityType(id, jsonSchema, nil)
 	if err != nil {
 		return nil, fmt.Errorf("make entity type: %w", err)
 	}

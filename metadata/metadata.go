@@ -130,21 +130,17 @@ type Entity interface {
 //
 // [CTI specification]: https://github.com/acronis/go-cti/blob/main/cti-spec/SPEC.md#cti-type-extensions
 type Annotations struct {
-	CTI           any                   `json:"cti.cti,omitempty" yaml:"cti.cti,omitempty"` // string or []string
-	ID            *bool                 `json:"cti.id,omitempty" yaml:"cti.id,omitempty"`
-	Access        consts.AccessModifier `json:"cti.access,omitempty" yaml:"cti.access,omitempty"`
-	AccessField   *bool                 `json:"cti.access_field,omitempty" yaml:"cti.access_field,omitempty"`
-	DisplayName   *bool                 `json:"cti.display_name,omitempty" yaml:"cti.display_name,omitempty"`
-	Description   *bool                 `json:"cti.description,omitempty" yaml:"cti.description,omitempty"`
-	Reference     any                   `json:"cti.reference,omitempty" yaml:"cti.reference,omitempty"` // bool or string or []string
-	Overridable   *bool                 `json:"cti.overridable,omitempty" yaml:"cti.overridable,omitempty"`
-	Final         *bool                 `json:"cti.final,omitempty" yaml:"cti.final,omitempty"`
-	Resilient     *bool                 `json:"cti.resilient,omitempty" yaml:"cti.resilient,omitempty"`
-	Asset         *bool                 `json:"cti.asset,omitempty" yaml:"cti.asset,omitempty"`
-	L10N          *bool                 `json:"cti.l10n,omitempty" yaml:"cti.l10n,omitempty"`
-	Schema        any                   `json:"cti.schema,omitempty" yaml:"cti.schema,omitempty"` // string or []string
-	Meta          string                `json:"cti.meta,omitempty" yaml:"cti.meta,omitempty"`     // string
-	PropertyNames map[string]any        `json:"cti.propertyNames,omitempty" yaml:"cti.propertyNames,omitempty"`
+	ID            *bool          `json:"cti.id,omitempty" yaml:"cti.id,omitempty"`
+	AccessField   *bool          `json:"cti.access_field,omitempty" yaml:"cti.access_field,omitempty"`
+	DisplayName   *bool          `json:"cti.display_name,omitempty" yaml:"cti.display_name,omitempty"`
+	Description   *bool          `json:"cti.description,omitempty" yaml:"cti.description,omitempty"`
+	Reference     any            `json:"cti.reference,omitempty" yaml:"cti.reference,omitempty"` // bool or string or []string
+	Overridable   *bool          `json:"cti.overridable,omitempty" yaml:"cti.overridable,omitempty"`
+	Asset         *bool          `json:"cti.asset,omitempty" yaml:"cti.asset,omitempty"`
+	L10N          *bool          `json:"cti.l10n,omitempty" yaml:"cti.l10n,omitempty"`
+	Schema        any            `json:"cti.schema,omitempty" yaml:"cti.schema,omitempty"` // string or []string
+	Meta          string         `json:"cti.meta,omitempty" yaml:"cti.meta,omitempty"`     // string
+	PropertyNames map[string]any `json:"cti.propertyNames,omitempty" yaml:"cti.propertyNames,omitempty"`
 }
 
 type AnnotationType struct {
@@ -155,27 +151,6 @@ type AnnotationType struct {
 
 	// Reference is a reference to the annotation type that was used to define the instance.
 	Reference string `json:"reference,omitempty"`
-}
-
-// ReadCTI returns a slice of CTI identifiers.
-// If the CTI annotation is a string, it returns a slice with that string.
-// If it is a slice, it returns a slice with all strings from the slice.
-// If the CTI annotation is nil, it returns an empty slice.
-// If the Schema annotation is not a string or a slice, it returns an empty slice.
-func (a *Annotations) ReadCTI() []string {
-	if a == nil || a.CTI == nil {
-		return []string{}
-	}
-	if val, ok := a.CTI.(string); ok {
-		return []string{val}
-	}
-	var vals []string
-	for _, val := range a.CTI.([]any) {
-		if strVal, ok := val.(string); ok {
-			vals = append(vals, strVal)
-		}
-	}
-	return vals
 }
 
 // ReadSchema returns a slice of CTI schema identifiers.
@@ -960,10 +935,9 @@ func NewEntityInstance(id string, values any) (*EntityInstance, error) {
 
 	obj := &EntityInstance{
 		entity: entity{
-			CTI:         id,
-			Final:       true, // All entities are final by default
-			Access:      consts.AccessModifierPublic,
-			Annotations: make(map[GJsonPath]*Annotations),
+			CTI:    id,
+			Final:  true, // All entities are final by default
+			Access: consts.AccessModifierPublic,
 		},
 		Values: values,
 	}
