@@ -43,14 +43,12 @@ func Test_EmptyIndex(t *testing.T) {
 }
 
 func Test_GenerateIndexRaml(t *testing.T) {
-	tests := []struct {
-		name            string
+	tests := map[string]struct {
 		pkg             Package
 		includeExamples bool
 		expectedOutput  string
 	}{
-		{
-			name: "WithoutExamples",
+		"no examples": {
 			pkg: Package{
 				Index: &Index{
 					Entities: []string{"entity1.raml", "entity2.raml"},
@@ -60,8 +58,7 @@ func Test_GenerateIndexRaml(t *testing.T) {
 			includeExamples: false,
 			expectedOutput:  "#%RAML 1.0 Library\nuses:\n  e1: entity1.raml\n  e2: entity2.raml",
 		},
-		{
-			name: "WithExamples",
+		"with examples": {
 			pkg: Package{
 				Index: &Index{
 					Entities: []string{"entity1.raml"},
@@ -73,8 +70,8 @@ func Test_GenerateIndexRaml(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			output := tt.pkg.generateRAML(tt.includeExamples)
 			require.Equal(t, tt.expectedOutput, output)
 		})
@@ -84,9 +81,8 @@ func Test_GenerateIndexRaml(t *testing.T) {
 func Test_ValidPackage(t *testing.T) {
 	testsupp.InitLog(t)
 
-	testCases := []testsupp.PackageTestCase{
-		{
-			Name:     "valid CTI types",
+	testCases := map[string]testsupp.PackageTestCase{
+		"valid CTI types": {
 			PkgId:    "x.y",
 			Entities: []string{"entities.raml", "instance.yaml"},
 			Files: map[string]string{"entities.raml": strings.TrimSpace(`
@@ -121,10 +117,10 @@ values: my_value
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
 
-			pkg, err := New(testsupp.InitTestPackageFiles(t, tc),
+			pkg, err := New(testsupp.InitTestPackageFiles(t, name, tc),
 				WithRamlxVersion("1.0"),
 				WithID(tc.PkgId),
 				WithEntities(tc.Entities))
@@ -152,15 +148,12 @@ values: my_value
 func Test_InvalidPackage(t *testing.T) {
 	testsupp.InitLog(t)
 
-	type testCase struct {
+	testCases := map[string]struct {
 		testsupp.PackageTestCase
 		expectedError string
-	}
-
-	testCases := []testCase{
-		{
+	}{
+		"duplicate type": {
 			PackageTestCase: testsupp.PackageTestCase{
-				Name:     "duplicate type",
 				PkgId:    "x.y",
 				Entities: []string{"entities.raml"},
 				Files: map[string]string{"entities.raml": strings.TrimSpace(`
@@ -181,9 +174,8 @@ types:
 			},
 			expectedError: "duplicate cti.cti: cti.x.y.unique_entity.v1.0",
 		},
-		{
+		"duplicate instance": {
 			PackageTestCase: testsupp.PackageTestCase{
-				Name:     "duplicate instance",
 				PkgId:    "x.y",
 				Entities: []string{"entities.raml"},
 				Files: map[string]string{"entities.raml": strings.TrimSpace(`
@@ -210,9 +202,8 @@ types:
 			},
 			expectedError: "duplicate cti entity cti.x.y.sample_entity.v1.0~x.y._.v1.0",
 		},
-		{
+		"duplicate type instance": {
 			PackageTestCase: testsupp.PackageTestCase{
-				Name:     "duplicate type instance",
 				PkgId:    "x.y",
 				Entities: []string{"entities.raml"},
 				Files: map[string]string{"entities.raml": strings.TrimSpace(`
@@ -242,9 +233,8 @@ types:
 			},
 			expectedError: "duplicate cti entity cti.x.y.sample_entity.v1.0~x.y._.v1.0",
 		},
-		{
+		"missing file": {
 			PackageTestCase: testsupp.PackageTestCase{
-				Name:     "missing file",
 				PkgId:    "x.y",
 				Entities: []string{"non_existent_file.raml"},
 			},
@@ -254,10 +244,10 @@ types:
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
 
-			pkg, err := New(testsupp.InitTestPackageFiles(t, tc.PackageTestCase),
+			pkg, err := New(testsupp.InitTestPackageFiles(t, name, tc.PackageTestCase),
 				WithRamlxVersion("1.0"),
 				WithID(tc.PkgId),
 				WithEntities(tc.Entities))

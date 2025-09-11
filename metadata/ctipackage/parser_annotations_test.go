@@ -15,18 +15,15 @@ import (
 func Test_ParseAnnotations(t *testing.T) {
 	testsupp.InitLog(t)
 
-	type testCase struct {
+	testCases := map[string]struct {
 		testsupp.PackageTestCase
 
 		total     int
 		types     int
 		instances int
-	}
-
-	testCases := []testCase{
-		{
+	}{
+		"annotations": {
 			PackageTestCase: testsupp.PackageTestCase{
-				Name:  "annotations",
 				PkgId: "x.y",
 				Entities: []string{
 					"entities/cti.raml",
@@ -262,9 +259,9 @@ types:
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
-			pkg, err := New(testsupp.InitTestPackageFiles(t, tc.PackageTestCase),
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			pkg, err := New(testsupp.InitTestPackageFiles(t, name, tc.PackageTestCase),
 				WithRamlxVersion("1.0"),
 				WithID(tc.PkgId),
 				WithEntities(tc.Entities))

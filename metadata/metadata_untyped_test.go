@@ -10,8 +10,8 @@ import (
 	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
-// testUntypedEntity is a test implementation of UntypedEntity interface
-type testUntypedEntity struct {
+// mockEntity is a test implementation of UntypedEntity interface
+type mockEntity struct {
 	Final             bool
 	CTI               string
 	Resilient         bool
@@ -29,33 +29,31 @@ type testUntypedEntity struct {
 	SourceMap         UntypedSourceMap
 }
 
-func (te *testUntypedEntity) GetCTI() string                        { return te.CTI }
-func (te *testUntypedEntity) GetFinal() bool                        { return te.Final }
-func (te *testUntypedEntity) GetResilient() bool                    { return te.Resilient }
-func (te *testUntypedEntity) GetAccess() consts.AccessModifier      { return te.Access }
-func (te *testUntypedEntity) GetDisplayName() string                { return te.DisplayName }
-func (te *testUntypedEntity) GetDescription() string                { return te.Description }
-func (te *testUntypedEntity) GetDictionaries() map[string]any       { return te.Dictionaries }
-func (te *testUntypedEntity) GetValues() json.RawMessage            { return te.Values }
-func (te *testUntypedEntity) GetSchema() json.RawMessage            { return te.Schema }
-func (te *testUntypedEntity) GetTraitsSchema() json.RawMessage      { return te.TraitsSchema }
-func (te *testUntypedEntity) GetTraitsAnnotations() json.RawMessage { return te.TraitsAnnotations }
-func (te *testUntypedEntity) GetTraitsSourceMap() UntypedSourceMap  { return te.TraitsSourceMap }
-func (te *testUntypedEntity) GetTraits() json.RawMessage            { return te.Traits }
-func (te *testUntypedEntity) GetAnnotations() json.RawMessage       { return te.Annotations }
-func (te *testUntypedEntity) GetSourceMap() UntypedSourceMap        { return te.SourceMap }
+func (e *mockEntity) GetCTI() string                        { return e.CTI }
+func (e *mockEntity) GetFinal() bool                        { return e.Final }
+func (e *mockEntity) GetResilient() bool                    { return e.Resilient }
+func (e *mockEntity) GetAccess() consts.AccessModifier      { return e.Access }
+func (e *mockEntity) GetDisplayName() string                { return e.DisplayName }
+func (e *mockEntity) GetDescription() string                { return e.Description }
+func (e *mockEntity) GetDictionaries() map[string]any       { return e.Dictionaries }
+func (e *mockEntity) GetValues() json.RawMessage            { return e.Values }
+func (e *mockEntity) GetSchema() json.RawMessage            { return e.Schema }
+func (e *mockEntity) GetTraitsSchema() json.RawMessage      { return e.TraitsSchema }
+func (e *mockEntity) GetTraitsAnnotations() json.RawMessage { return e.TraitsAnnotations }
+func (e *mockEntity) GetTraitsSourceMap() UntypedSourceMap  { return e.TraitsSourceMap }
+func (e *mockEntity) GetTraits() json.RawMessage            { return e.Traits }
+func (e *mockEntity) GetAnnotations() json.RawMessage       { return e.Annotations }
+func (e *mockEntity) GetSourceMap() UntypedSourceMap        { return e.SourceMap }
 
 func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
-	tests := []struct {
-		name          string
-		untypedEntity *testUntypedEntity
+	tests := map[string]struct {
+		untypedEntity *mockEntity
 		wantErr       bool
 		errContains   string
 		validate      func(t *testing.T, entity Entity)
 	}{
-		{
-			name: "valid entity instance",
-			untypedEntity: &testUntypedEntity{
+		"valid entity instance": {
+			untypedEntity: &mockEntity{
 				CTI:         "cti.test.instance.v1.0",
 				Final:       true,
 				Resilient:   true,
@@ -91,9 +89,8 @@ func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 				require.Equal(t, "test/original.raml", instance.SourceMap.OriginalPath)
 			},
 		},
-		{
-			name: "entity instance with non-final flag should fail",
-			untypedEntity: &testUntypedEntity{
+		"entity instance with non-final flag should fail": {
+			untypedEntity: &mockEntity{
 				CTI:    "cti.test.instance.v1.0",
 				Final:  false,
 				Values: json.RawMessage(`{"field1": "value1"}`),
@@ -101,9 +98,8 @@ func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 			wantErr:     true,
 			errContains: "is not final, cannot convert to typed entity instance",
 		},
-		{
-			name: "entity instance with invalid JSON values should fail",
-			untypedEntity: &testUntypedEntity{
+		"entity instance with invalid JSON values should fail": {
+			untypedEntity: &mockEntity{
 				CTI:    "cti.test.instance.v1.0",
 				Final:  true,
 				Values: json.RawMessage(`{"field1": "value1", "field2": 42`), // Missing closing brace
@@ -111,9 +107,8 @@ func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 			wantErr:     true,
 			errContains: "unmarshal values for cti.test.instance.v1.0",
 		},
-		{
-			name: "entity instance with traits schema should fail",
-			untypedEntity: &testUntypedEntity{
+		"entity instance with traits schema should fail": {
+			untypedEntity: &mockEntity{
 				CTI:          "cti.test.instance.v1.0",
 				Final:        true,
 				Values:       json.RawMessage(`{"field1": "value1"}`),
@@ -122,9 +117,8 @@ func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 			wantErr:     true,
 			errContains: "has traits schema, but it is not allowed for entity instances",
 		},
-		{
-			name: "entity instance with traits should fail",
-			untypedEntity: &testUntypedEntity{
+		"entity instance with traits should fail": {
+			untypedEntity: &mockEntity{
 				CTI:    "cti.test.instance.v1.0",
 				Final:  true,
 				Values: json.RawMessage(`{"field1": "value1"}`),
@@ -133,9 +127,8 @@ func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 			wantErr:     true,
 			errContains: "has traits, but it is not allowed for entity instances",
 		},
-		{
-			name: "entity instance with traits annotations should fail",
-			untypedEntity: &testUntypedEntity{
+		"entity instance with traits annotations should fail": {
+			untypedEntity: &mockEntity{
 				CTI:               "cti.test.instance.v1.0",
 				Final:             true,
 				Values:            json.RawMessage(`{"field1": "value1"}`),
@@ -144,9 +137,8 @@ func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 			wantErr:     true,
 			errContains: "has traits annotations, but it is not allowed for entity instances",
 		},
-		{
-			name: "entity instance with annotations should fail",
-			untypedEntity: &testUntypedEntity{
+		"entity instance with annotations should fail": {
+			untypedEntity: &mockEntity{
 				CTI:         "cti.test.instance.v1.0",
 				Final:       true,
 				Values:      json.RawMessage(`{"field1": "value1"}`),
@@ -155,9 +147,8 @@ func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 			wantErr:     true,
 			errContains: "has annotations, but it is not allowed for entity instances",
 		},
-		{
-			name: "entity instance with invalid values JSON",
-			untypedEntity: &testUntypedEntity{
+		"entity instance with invalid values JSON": {
+			untypedEntity: &mockEntity{
 				CTI:    "cti.test.instance.v1.0",
 				Final:  true,
 				Values: json.RawMessage(`invalid json`),
@@ -167,17 +158,18 @@ func TestConvertUntypedEntityToEntity_EntityInstance(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			if tt.wantErr {
 				require.ErrorContains(t, err, tt.errContains)
 				require.Nil(t, entity)
-			} else {
-				require.NoError(t, err)
-				require.NotNil(t, entity)
-				tt.validate(t, entity)
+				return
 			}
+
+			require.NoError(t, err)
+			require.NotNil(t, entity)
+			tt.validate(t, entity)
 		})
 	}
 }
@@ -210,13 +202,13 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 	traitsSchemaJSON, _ := json.Marshal(traitsSchema)
 
 	tests := map[string]struct {
-		untypedEntity *testUntypedEntity
+		untypedEntity *mockEntity
 		wantErr       bool
 		errContains   string
 		validate      func(t *testing.T, entity Entity)
 	}{
 		"valid entity type": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:         "cti.test.type.v1.0",
 				Final:       false,
 				Resilient:   true,
@@ -252,7 +244,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			},
 		},
 		"entity type with traits schema and traits": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:          "cti.test.type.v1.0",
 				Final:        true,
 				Schema:       simpleSchemaJSON,
@@ -273,7 +265,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			},
 		},
 		"entity type with annotations": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:         "cti.test.type.v1.0",
 				Schema:      simpleSchemaJSON,
 				Annotations: json.RawMessage(`{".field": {"cti.schema": "test.annotation"}}`), // Fixed JSON key
@@ -286,7 +278,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			},
 		},
 		"entity type with legacy source map": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:         "cti.test.type.v1.0",
 				Schema:      simpleSchemaJSON,
 				Annotations: json.RawMessage(`{"$name": "Type"}`), // Fixed JSON key
@@ -300,7 +292,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			},
 		},
 		"entity type with legacy annotations and source map": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:         "cti.test.type.v1.0",
 				Schema:      simpleSchemaJSON,
 				Annotations: json.RawMessage(`{".field": {"cti.schema": "test.annotation"}, "$name": "Type"}`), // Fixed JSON key
@@ -317,7 +309,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			},
 		},
 		"entity type with traits annotations": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
 				TraitsSchema:      traitsSchemaJSON,
@@ -333,7 +325,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			},
 		},
 		"entity type with legacy traits source map": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
 				TraitsSchema:      traitsSchemaJSON,
@@ -348,7 +340,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			},
 		},
 		"entity type with legacy traits annotations and source map": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
 				TraitsSchema:      traitsSchemaJSON,
@@ -366,7 +358,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			},
 		},
 		"entity type with invalid schema JSON": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:    "cti.test.type.v1.0",
 				Schema: json.RawMessage(`invalid json`),
 			},
@@ -374,7 +366,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			errContains: "unmarshal schema for",
 		},
 		"entity type with invalid annotations JSON": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:         "cti.test.type.v1.0",
 				Schema:      simpleSchemaJSON,
 				Annotations: json.RawMessage(`invalid json`),
@@ -383,7 +375,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			errContains: "get annotations for",
 		},
 		"entity type with invalid traits schema JSON": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:          "cti.test.type.v1.0",
 				Schema:       simpleSchemaJSON,
 				TraitsSchema: json.RawMessage(`invalid json`),
@@ -392,7 +384,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			errContains: "unmarshal traits schema for",
 		},
 		"entity type with invalid traits annotations JSON": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            simpleSchemaJSON,
 				TraitsSchema:      traitsSchemaJSON,
@@ -402,7 +394,7 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 			errContains: "get traits annotations for",
 		},
 		"entity type with invalid traits JSON": {
-			untypedEntity: &testUntypedEntity{
+			untypedEntity: &mockEntity{
 				CTI:    "cti.test.type.v1.0",
 				Schema: simpleSchemaJSON,
 				Traits: json.RawMessage(`invalid json`),
@@ -428,23 +420,20 @@ func TestConvertUntypedEntityToEntity_EntityType(t *testing.T) {
 }
 
 func TestConvertUntypedEntityToEntity_ErrorCases(t *testing.T) {
-	tests := []struct {
-		name          string
-		untypedEntity *testUntypedEntity
+	tests := map[string]struct {
+		untypedEntity *mockEntity
 		wantErr       bool
 		errContains   string
 	}{
-		{
-			name: "entity with neither schema nor values",
-			untypedEntity: &testUntypedEntity{
+		"entity with neither schema nor values": {
+			untypedEntity: &mockEntity{
 				CTI: "cti.test.empty.v1.0",
 			},
 			wantErr:     true,
 			errContains: "has neither schema nor values",
 		},
-		{
-			name: "entity with both schema and values",
-			untypedEntity: &testUntypedEntity{
+		"entity with both schema and values": {
+			untypedEntity: &mockEntity{
 				CTI:    "cti.test.both.v1.0",
 				Schema: json.RawMessage(`{"type": "object"}`),
 				Values: json.RawMessage(`{"field1": "value1"}`),
@@ -454,8 +443,8 @@ func TestConvertUntypedEntityToEntity_ErrorCases(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			require.ErrorContains(t, err, tt.errContains)
 			require.Nil(t, entity)
@@ -497,7 +486,7 @@ func TestConvertUntypedEntityToEntity_ComplexEntityType(t *testing.T) {
 	}
 	complexSchemaJSON, _ := json.Marshal(complexSchema)
 
-	untypedEntity := &testUntypedEntity{
+	untypedEntity := &mockEntity{
 		CTI:         "cti.test.complex.v1.0",
 		Final:       false,
 		Resilient:   true,
@@ -594,16 +583,14 @@ func TestConvertUntypedEntityToEntity_ComplexEntityType(t *testing.T) {
 }
 
 func TestConvertUntypedEntityToEntity_EdgeCases(t *testing.T) {
-	tests := []struct {
-		name          string
-		untypedEntity *testUntypedEntity
+	tests := map[string]struct {
+		untypedEntity *mockEntity
 		wantErr       bool
 		errContains   string
 		validate      func(t *testing.T, entity Entity)
 	}{
-		{
-			name: "entity type with empty traits and annotations",
-			untypedEntity: &testUntypedEntity{
+		"entity type with empty traits and annotations": {
+			untypedEntity: &mockEntity{
 				CTI:               "cti.test.type.v1.0",
 				Schema:            json.RawMessage(`{"type": "object"}`),
 				Traits:            json.RawMessage(`{}`),
@@ -618,9 +605,8 @@ func TestConvertUntypedEntityToEntity_EdgeCases(t *testing.T) {
 				require.Empty(t, entityType.TraitsAnnotations)
 			},
 		},
-		{
-			name: "entity with minimal required fields only",
-			untypedEntity: &testUntypedEntity{
+		"entity with minimal required fields only": {
+			untypedEntity: &mockEntity{
 				CTI:    "cti.minimal.v1.0",
 				Schema: json.RawMessage(`{"type": "string"}`),
 			},
@@ -639,17 +625,18 @@ func TestConvertUntypedEntityToEntity_EdgeCases(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			entity, err := ConvertUntypedEntityToEntity(tt.untypedEntity)
 			if tt.wantErr {
 				require.ErrorContains(t, err, tt.errContains)
 				require.Nil(t, entity)
-			} else {
-				require.NoError(t, err)
-				require.NotNil(t, entity)
-				tt.validate(t, entity)
+				return
 			}
+
+			require.NoError(t, err)
+			require.NotNil(t, entity)
+			tt.validate(t, entity)
 		})
 	}
 }

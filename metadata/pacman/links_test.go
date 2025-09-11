@@ -7,12 +7,10 @@ import (
 )
 
 func Test_replaceCaptureGroup(t *testing.T) {
-	type testCase struct {
+	for _, tc := range []struct {
 		input  string
 		output string
-	}
-
-	for _, tc := range []testCase{
+	}{
 		{
 			input:  "123123 .dep/123/323",
 			output: "123123 ../.dep/123/323",

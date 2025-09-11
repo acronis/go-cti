@@ -53,8 +53,7 @@ types:
 `
 
 func TestCheckPackagesCompatibility(t *testing.T) {
-	oldPackagePath := testsupp.InitTestPackageFiles(t, testsupp.PackageTestCase{
-		Name:     "old_package",
+	oldPackagePath := testsupp.InitTestPackageFiles(t, "old_package", testsupp.PackageTestCase{
 		PkgId:    "x.y",
 		Entities: []string{"types.raml"},
 		Files: map[string]string{
@@ -62,8 +61,7 @@ func TestCheckPackagesCompatibility(t *testing.T) {
 			"types.raml": oldPackageTypesRAML,
 		},
 	})
-	newPackagePath := testsupp.InitTestPackageFiles(t, testsupp.PackageTestCase{
-		Name:     "new_package",
+	newPackagePath := testsupp.InitTestPackageFiles(t, "new_package", testsupp.PackageTestCase{
 		PkgId:    "x.y",
 		Entities: []string{"types.raml"},
 		Files: map[string]string{
@@ -138,8 +136,7 @@ func TestCheckPackagesCompatibility(t *testing.T) {
 }
 
 func TestCheckPackagesCompatibilityWithSamePackages(t *testing.T) {
-	oldPackagePath := testsupp.InitTestPackageFiles(t, testsupp.PackageTestCase{
-		Name:     "old_package",
+	oldPackagePath := testsupp.InitTestPackageFiles(t, "old_package", testsupp.PackageTestCase{
 		PkgId:    "x.y",
 		Entities: []string{"types.raml"},
 		Files: map[string]string{

@@ -10,16 +10,15 @@ import (
 )
 
 type PackageTestCase struct {
-	Name     string
 	PkgId    string
 	Entities []string
 	Files    map[string]string
 }
 
-func InitTestPackageFiles(t *testing.T, tc PackageTestCase) string {
+func InitTestPackageFiles(t *testing.T, name string, tc PackageTestCase) string {
 	t.Helper()
 
-	testDir := filepath.Join("./testdata", strings.ReplaceAll(tc.Name, " ", "_"))
+	testDir := filepath.Join("./testdata", strings.ReplaceAll(name, " ", "_"))
 	require.NoError(t, os.RemoveAll(testDir))
 	require.NoError(t, os.MkdirAll(testDir, os.ModePerm))
 
