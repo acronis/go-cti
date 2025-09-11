@@ -8,3 +8,6 @@ testdata/
 ./cti
 
 metadata/pacman/fixtures/_packages/
+
+
+__debug*

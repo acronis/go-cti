@@ -19,7 +19,13 @@ func initIndexFixture(t *testing.T, content []byte) {
 }
 
 func Test_ReadIndexFile(t *testing.T) {
-	validIndexContent := []byte(`{
+
+	tests := map[string]struct {
+		content     []byte
+		expectError bool
+	}{
+		"valid": {
+			[]byte(`{
 		"package_id": "test.pkg",
 		"ramlx_version": "1.0",
 		"apis": ["api.raml"],
@@ -29,9 +35,11 @@ func Test_ReadIndexFile(t *testing.T) {
 		"depends": {"dep": "1.0.0"},
 		"examples": ["example.raml"],
 		"serialized": [".cache.json"]
-	}`)
-
-	invalidIndexContent := []byte(`{
+	}`),
+			false,
+		},
+		"invalid": {
+			[]byte(`{
 		"package_id": "",
 		"ramlx_version": "1.0",
 		"apis": ["api.raml"],
@@ -41,19 +49,13 @@ func Test_ReadIndexFile(t *testing.T) {
 		"depends": {"dep": "1.0.0"},
 		"examples": ["example.raml"],
 		"serialized": [".cache.json"]
-	}`)
-
-	tests := []struct {
-		name        string
-		content     []byte
-		expectError bool
-	}{
-		{"ValidIndexFile", validIndexContent, false},
-		{"InvalidIndexFile", invalidIndexContent, true},
+	}`),
+			true,
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			initIndexFixture(t, tt.content)
 			idx, err := ReadIndexFile(filepath.Join("testdata", "indexes", "index.json"))
 			if tt.expectError {
@@ -68,26 +70,22 @@ func Test_ReadIndexFile(t *testing.T) {
 }
 
 func Test_DecodeIndex(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		input       string
 		expectError bool
 	}{
-		{
-			name: "ValidIndex",
-			input: `{"package_id":"test.pkg","apis":["api.raml"]}
-`,
+		"valid": {
+			input:       `{"package_id":"test.pkg","apis":["api.raml"]}`,
 			expectError: false,
 		},
-		{
-			name:        "InvalidJSON",
+		"invalid JSON": {
 			input:       `{invalid json`,
 			expectError: true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			reader := strings.NewReader(tt.input)
 			idx, err := DecodeIndex(reader)
 			if tt.expectError {
@@ -158,28 +156,25 @@ func Test_Save(t *testing.T) {
 }
 
 func Test_PutSerialized(t *testing.T) {
-	tests := []struct {
-		name           string
+	tests := map[string]struct {
 		initSerialized []string
 		newFile        string
 		expected       []string
 	}{
-		{
-			name:           "AddNewFile",
+		"AddNewFile": {
 			initSerialized: []string{"file1.json"},
 			newFile:        "file2.json",
 			expected:       []string{"file1.json", "file2.json"},
 		},
-		{
-			name:           "DuplicateFile",
+		"DuplicateFile": {
 			initSerialized: []string{"file1.json"},
 			newFile:        "file1.json",
 			expected:       []string{"file1.json"},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			idx := &Index{Serialized: tt.initSerialized}
 			idx.PutSerialized(tt.newFile)
 			require.Equal(t, tt.expected, idx.Serialized)
@@ -209,97 +204,88 @@ func Test_GetAssets(t *testing.T) {
 }
 
 func Test_IndexCheck(t *testing.T) {
-	tests := []struct {
-		name        string
-		index       Index
-		expectError bool
+	tests := map[string]struct {
+		index   Index
+		wantErr bool
 	}{
-		{
-			name: "ValidIndex",
+		"ok": {
 			index: Index{
 				PackageID: "test.pkg",
 				Apis:      []string{"api1.raml"},
 				Entities:  []string{"entity1.raml"},
 				Examples:  []string{"example1.raml"},
 			},
-			expectError: false,
+			wantErr: false,
 		},
-		{
-			name: "EmptyApiPath",
+		"err. empty api path": {
 			index: Index{
 				PackageID: "test.pkg",
 				Apis:      []string{""},
 				Entities:  []string{"entity1.raml"},
 				Examples:  []string{"example1.raml"},
 			},
-			expectError: true,
+			wantErr: true,
 		},
-		{
-			name: "InvalidApiExtension",
+		"err. invalid api extension": {
 			index: Index{
 				PackageID: "test.pkg",
 				Apis:      []string{"api1.txt"},
 				Entities:  []string{"entity1.raml"},
 				Examples:  []string{"example1.raml"},
 			},
-			expectError: true,
+			wantErr: true,
 		},
-		{
-			name: "EmptyEntityPath",
+		"err. empty entity path": {
 			index: Index{
 				PackageID: "test.pkg",
 				Apis:      []string{"api1.raml"},
 				Entities:  []string{""},
 				Examples:  []string{"example1.raml"},
 			},
-			expectError: true,
+			wantErr: true,
 		},
-		{
-			name: "InvalidEntityExtension",
+		"err. invalid entity extension": {
 			index: Index{
 				PackageID: "test.pkg",
 				Apis:      []string{"api1.raml"},
 				Entities:  []string{"entity1.txt"},
 				Examples:  []string{"example1.raml"},
 			},
-			expectError: true,
+			wantErr: true,
 		},
-		{
-			name: "EmptyExamplePath",
+		"err. empty example path": {
 			index: Index{
 				PackageID: "test.pkg",
 				Apis:      []string{"api1.raml"},
 				Entities:  []string{"entity1.raml"},
 				Examples:  []string{""},
 			},
-			expectError: true,
+			wantErr: true,
 		},
-		{
-			name: "InvalidExampleExtension",
+		"err. invalid example extension": {
 			index: Index{
 				PackageID: "test.pkg",
 				Apis:      []string{"api1.raml"},
 				Entities:  []string{"entity1.raml"},
 				Examples:  []string{"example1.txt"},
 			},
-			expectError: true,
+			wantErr: true,
 		},
-		{
-			name: "MissingPackageID",
+		"err. missing package id": {
 			index: Index{
 				PackageID: "",
 				Apis:      []string{"api1.raml"},
 				Entities:  []string{"entity1.raml"},
 				Examples:  []string{"example1.raml"},
 			},
-			expectError: true,
+			wantErr: true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			err := tt.index.Check()
-			if tt.expectError {
+			if tt.wantErr {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)

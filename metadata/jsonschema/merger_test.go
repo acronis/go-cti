@@ -9,34 +9,30 @@ import (
 )
 
 func TestMergeRequired(t *testing.T) {
-	tests := []struct {
-		name          string
+	tests := map[string]struct {
 		source        *JSONSchemaCTI
 		target        *JSONSchemaCTI
 		expected      []string
 		expectedError bool
 	}{
-		{
-			name:     "simple required merge",
+		"simple required merge": {
 			source:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"foo", "bar"}}},
 			target:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"baz", "bar"}}},
 			expected: []string{"foo", "bar", "baz"},
 		},
-		{
-			name:     "empty source required",
+		"empty source required": {
 			source:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{}},
 			target:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"baz", "bar"}}},
 			expected: []string{"baz", "bar"},
 		},
-		{
-			name:     "empty target required",
+		"empty target required": {
 			source:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Required: []string{"foo", "bar"}}},
 			target:   &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{}},
 			expected: []string{"foo", "bar"},
 		},
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			required := mergeRequired(tc.source, tc.target)
 			require.Equal(t, tc.expected, required)
 		})
@@ -44,24 +40,21 @@ func TestMergeRequired(t *testing.T) {
 }
 
 func TestFixSelfReferences(t *testing.T) {
-	tests := []struct {
-		name           string
+	tests := map[string]struct {
 		schema         *JSONSchemaCTI
 		sourceRefType  string
 		refsToReplace  map[string]struct{}
 		expectedSchema *JSONSchemaCTI
-		expectedError  bool
+		wantErr        bool
 	}{
-		{
-			name:           "simple ref replacement",
+		"simple ref replacement": {
 			schema:         &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/OldRef"}},
 			sourceRefType:  "#/definitions/NewRef",
 			refsToReplace:  map[string]struct{}{"#/definitions/OldRef": {}},
 			expectedSchema: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/NewRef"}},
-			expectedError:  false,
+			wantErr:        false,
 		},
-		{
-			name: "nested items ref replacement",
+		"nested items ref replacement": {
 			schema: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Items: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/OldRef"}},
 			}},
@@ -70,10 +63,9 @@ func TestFixSelfReferences(t *testing.T) {
 			expectedSchema: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Items: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/NewRef"}},
 			}},
-			expectedError: false,
+			wantErr: false,
 		},
-		{
-			name: "nested properties ref replacement",
+		"nested properties ref replacement": {
 			schema: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Properties: orderedmap.New[string, *JSONSchemaCTI](orderedmap.WithInitialData(
 					orderedmap.Pair[string, *JSONSchemaCTI]{
@@ -92,10 +84,9 @@ func TestFixSelfReferences(t *testing.T) {
 					},
 				)),
 			}},
-			expectedError: false,
+			wantErr: false,
 		},
-		{
-			name: "nested anyOf ref replacement",
+		"nested anyOf ref replacement": {
 			schema: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				AnyOf: []*JSONSchemaCTI{
 					{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/OldRef"}},
@@ -108,21 +99,20 @@ func TestFixSelfReferences(t *testing.T) {
 					{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/NewRef"}},
 				},
 			}},
-			expectedError: false,
+			wantErr: false,
 		},
-		{
-			name:           "no replacement when ref not in refsToReplace",
+		"no replacement when ref not in refsToReplace": {
 			schema:         &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/AnotherRef"}},
 			sourceRefType:  "#/definitions/NewRef",
 			refsToReplace:  map[string]struct{}{"#/definitions/OldRef": {}},
 			expectedSchema: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/AnotherRef"}},
-			expectedError:  false,
+			wantErr:        false,
 		},
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			err := FixSelfReferences(tc.schema, tc.sourceRefType, tc.refsToReplace)
-			if tc.expectedError {
+			if tc.wantErr {
 				require.Error(t, err)
 				require.Nil(t, tc.schema)
 			} else {
@@ -134,14 +124,12 @@ func TestFixSelfReferences(t *testing.T) {
 }
 
 func TestMergeString(t *testing.T) {
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		source   *JSONSchemaCTI
 		target   *JSONSchemaCTI
 		expected *JSONSchemaCTI
 	}{
-		{
-			name: "target missing all string properties",
+		"target missing all string properties": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Format:           "email",
 				Pattern:          "^[a-z]+$",
@@ -160,8 +148,7 @@ func TestMergeString(t *testing.T) {
 				MaxLength:        &[]uint64{10}[0],
 			}},
 		},
-		{
-			name: "target has some string properties, source has others",
+		"target has some string properties, source has others": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Format:    "date-time",
 				Pattern:   "[0-9]+",
@@ -179,8 +166,7 @@ func TestMergeString(t *testing.T) {
 				MaxLength: &[]uint64{20}[0],
 			}},
 		},
-		{
-			name: "target has all string properties set",
+		"target has all string properties set": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Format:    "uri",
 				Pattern:   "abc",
@@ -205,8 +191,8 @@ func TestMergeString(t *testing.T) {
 			}},
 		},
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			result, err := mergeString(tc.source, tc.target)
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, result)
@@ -215,14 +201,12 @@ func TestMergeString(t *testing.T) {
 }
 
 func TestMergeNumeric(t *testing.T) {
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		source   *JSONSchemaCTI
 		target   *JSONSchemaCTI
 		expected *JSONSchemaCTI
 	}{
-		{
-			name: "target missing all numeric properties",
+		"target missing all numeric properties": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Minimum:    json.Number("1"),
 				Maximum:    json.Number("10"),
@@ -235,8 +219,7 @@ func TestMergeNumeric(t *testing.T) {
 				MultipleOf: json.Number("3"),
 			}},
 		},
-		{
-			name: "target has some numeric properties, source has others",
+		"target has some numeric properties, source has others": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Minimum:    json.Number("5"),
 				Maximum:    json.Number("20"),
@@ -251,8 +234,7 @@ func TestMergeNumeric(t *testing.T) {
 				MultipleOf: json.Number("2"),
 			}},
 		},
-		{
-			name: "target has all numeric properties set",
+		"target has all numeric properties set": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Minimum:    json.Number("0"),
 				Maximum:    json.Number("50"),
@@ -270,8 +252,8 @@ func TestMergeNumeric(t *testing.T) {
 			}},
 		},
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			result, err := mergeNumeric(tc.source, tc.target)
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, result)
@@ -280,15 +262,13 @@ func TestMergeNumeric(t *testing.T) {
 }
 
 func TestMergeArrays(t *testing.T) {
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		source   *JSONSchemaCTI
 		target   *JSONSchemaCTI
 		expected *JSONSchemaCTI
 		wantErr  bool
 	}{
-		{
-			name: "target missing all array properties",
+		"target missing all array properties": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				MinItems:    &[]uint64{1}[0],
 				MaxItems:    &[]uint64{10}[0],
@@ -302,8 +282,7 @@ func TestMergeArrays(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "target has some array properties, source has others",
+		"target has some array properties, source has others": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				MinItems: &[]uint64{2}[0],
 				MaxItems: &[]uint64{5}[0],
@@ -319,8 +298,7 @@ func TestMergeArrays(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "target has all array properties set",
+		"target has all array properties set": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				MinItems:    &[]uint64{0}[0],
 				MaxItems:    &[]uint64{50}[0],
@@ -338,8 +316,7 @@ func TestMergeArrays(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "target missing items, source has items",
+		"target missing items, source has items": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Items: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", Pattern: "^[a-z]+$"}},
 			}},
@@ -349,8 +326,7 @@ func TestMergeArrays(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "both source and target have items, merge items",
+		"both source and target have items, merge items": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Items: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", Pattern: "^[a-z]+$"}},
 			}},
@@ -363,8 +339,8 @@ func TestMergeArrays(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			result, err := mergeArrays(tc.source, tc.target)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -377,15 +353,13 @@ func TestMergeArrays(t *testing.T) {
 }
 
 func TestMergeObjects(t *testing.T) {
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		source   *JSONSchemaCTI
 		target   *JSONSchemaCTI
 		expected *JSONSchemaCTI
 		wantErr  bool
 	}{
-		{
-			name: "target missing all object properties",
+		"target missing all object properties": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				MinProperties:        &[]uint64{1}[0],
 				MaxProperties:        &[]uint64{10}[0],
@@ -399,8 +373,7 @@ func TestMergeObjects(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "target has some object properties, source has others",
+		"target has some object properties, source has others": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				MinProperties: &[]uint64{2}[0],
 			}},
@@ -413,8 +386,7 @@ func TestMergeObjects(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "target has all object properties set",
+		"target has all object properties set": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				MinProperties:        &[]uint64{0}[0],
 				MaxProperties:        &[]uint64{50}[0],
@@ -432,8 +404,7 @@ func TestMergeObjects(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "merge patternProperties, target missing",
+		"merge patternProperties, target missing": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				PatternProperties: orderedmap.New[string, *JSONSchemaCTI](orderedmap.WithInitialData(
 					orderedmap.Pair[string, *JSONSchemaCTI]{
@@ -453,8 +424,7 @@ func TestMergeObjects(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "merge patternProperties, both present, merge inner",
+		"merge patternProperties, both present, merge inner": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				PatternProperties: orderedmap.New[string, *JSONSchemaCTI](orderedmap.WithInitialData(
 					orderedmap.Pair[string, *JSONSchemaCTI]{
@@ -489,8 +459,7 @@ func TestMergeObjects(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "merge properties, target missing",
+		"merge properties, target missing": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Properties: orderedmap.New[string, *JSONSchemaCTI](orderedmap.WithInitialData(
 					orderedmap.Pair[string, *JSONSchemaCTI]{
@@ -510,8 +479,7 @@ func TestMergeObjects(t *testing.T) {
 			}},
 			wantErr: false,
 		},
-		{
-			name: "merge properties, both present, merge inner",
+		"merge properties, both present, merge inner": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Properties: orderedmap.New[string, *JSONSchemaCTI](orderedmap.WithInitialData(
 					orderedmap.Pair[string, *JSONSchemaCTI]{
@@ -548,8 +516,8 @@ func TestMergeObjects(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			result, err := mergeObjects(tc.source, tc.target)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -562,15 +530,13 @@ func TestMergeObjects(t *testing.T) {
 }
 
 func TestMergeTargetAnyOf(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		source      *JSONSchemaCTI
 		target      *JSONSchemaCTI
 		expected    *JSONSchemaCTI
 		expectError bool
 	}{
-		{
-			name:   "simple merge with compatible types",
+		"simple merge with compatible types": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", Pattern: "^[a-z]+$"}},
 			target: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{AnyOf: []*JSONSchemaCTI{
 				{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", MinLength: &[]uint64{2}[0]}},
@@ -582,8 +548,7 @@ func TestMergeTargetAnyOf(t *testing.T) {
 			}}},
 			expectError: false,
 		},
-		{
-			name:   "merge fails for incompatible types",
+		"merge fails for incompatible types": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "number"}},
 			target: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{AnyOf: []*JSONSchemaCTI{
 				{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string"}},
@@ -591,8 +556,7 @@ func TestMergeTargetAnyOf(t *testing.T) {
 			expected:    nil,
 			expectError: true,
 		},
-		{
-			name:   "merge with multiple compatible types",
+		"merge with multiple compatible types": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string"}},
 			target: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{AnyOf: []*JSONSchemaCTI{
 				{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", MinLength: &[]uint64{1}[0]}},
@@ -604,8 +568,7 @@ func TestMergeTargetAnyOf(t *testing.T) {
 			}}},
 			expectError: false,
 		},
-		{
-			name:   "merge with an incompatible type",
+		"merge with an incompatible type": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", MinLength: &[]uint64{1}[0]}},
 			target: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{AnyOf: []*JSONSchemaCTI{
 				{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string"}},
@@ -615,8 +578,8 @@ func TestMergeTargetAnyOf(t *testing.T) {
 			expectError: true,
 		},
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			result, err := mergeTargetAnyOf(tc.source, tc.target)
 			if tc.expectError {
 				require.Error(t, err)
@@ -629,15 +592,13 @@ func TestMergeTargetAnyOf(t *testing.T) {
 }
 
 func TestMergeSourceAnyOf(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		source      *JSONSchemaCTI
 		target      *JSONSchemaCTI
 		expected    *JSONSchemaCTI
 		expectError bool
 	}{
-		{
-			name: "target is not anyOf, source anyOf with compatible type",
+		"target is not anyOf, source anyOf with compatible type": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				AnyOf: []*JSONSchemaCTI{
 					{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", Pattern: "^[a-z]+$"}},
@@ -655,8 +616,7 @@ func TestMergeSourceAnyOf(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name: "target is not anyOf, source anyOf with multiple compatible types",
+		"target is not anyOf, source anyOf with multiple compatible types": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				AnyOf: []*JSONSchemaCTI{
 					{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", MaxLength: &[]uint64{5}[0]}},
@@ -676,8 +636,7 @@ func TestMergeSourceAnyOf(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name: "target is not anyOf, source anyOf with no compatible type",
+		"target is not anyOf, source anyOf with no compatible type": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				AnyOf: []*JSONSchemaCTI{
 					{JSONSchemaGeneric: JSONSchemaGeneric{Type: "number"}},
@@ -689,8 +648,7 @@ func TestMergeSourceAnyOf(t *testing.T) {
 			expected:    nil,
 			expectError: true,
 		},
-		{
-			name: "target is not anyOf, source anyOf with only 'any' type",
+		"target is not anyOf, source anyOf with only 'any' type": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				AnyOf: []*JSONSchemaCTI{
 					{JSONSchemaGeneric: JSONSchemaGeneric{}},
@@ -704,8 +662,7 @@ func TestMergeSourceAnyOf(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name: "target is anyOf, both source and target anyOf with compatible types",
+		"target is anyOf, both source and target anyOf with compatible types": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				AnyOf: []*JSONSchemaCTI{
 					{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", Pattern: "^[a-z]+$"}},
@@ -726,8 +683,7 @@ func TestMergeSourceAnyOf(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name: "target is anyOf, source anyOf with no compatible types",
+		"target is anyOf, source anyOf with no compatible types": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				AnyOf: []*JSONSchemaCTI{
 					{JSONSchemaGeneric: JSONSchemaGeneric{Type: "boolean"}},
@@ -743,8 +699,8 @@ func TestMergeSourceAnyOf(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			result, err := mergeSourceAnyOf(tc.source, tc.target)
 			if tc.expectError {
 				require.Error(t, err)
@@ -757,15 +713,13 @@ func TestMergeSourceAnyOf(t *testing.T) {
 }
 
 func TestMergeSchemas(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		source      *JSONSchemaCTI
 		target      *JSONSchemaCTI
 		expected    *JSONSchemaCTI
 		expectError bool
 	}{
-		{
-			name: "merge string schemas with missing target properties",
+		"merge string schemas with missing target properties": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Type:    "string",
 				Format:  "email",
@@ -781,8 +735,7 @@ func TestMergeSchemas(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name: "merge numeric schemas with target properties set",
+		"merge numeric schemas with target properties set": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Type:    "number",
 				Minimum: json.Number("1"),
@@ -799,8 +752,7 @@ func TestMergeSchemas(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name: "merge array schemas with items",
+		"merge array schemas with items": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Type:  "array",
 				Items: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", Pattern: "^[a-z]+$"}},
@@ -815,8 +767,7 @@ func TestMergeSchemas(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name: "merge object schemas with properties",
+		"merge object schemas with properties": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Type: "object",
 				Properties: orderedmap.New[string, *JSONSchemaCTI](orderedmap.WithInitialData(
@@ -850,22 +801,19 @@ func TestMergeSchemas(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name:        "merge incompatible types returns error",
+		"merge incompatible types returns error": {
 			source:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string"}},
 			target:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "number"}},
 			expected:    nil,
 			expectError: true,
 		},
-		{
-			name:        "merge with $ref in target returns target as is",
+		"merge with $ref in target returns target as is": {
 			source:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "object"}},
 			target:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/SomeRef"}},
 			expected:    &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Ref: "#/definitions/SomeRef"}},
 			expectError: false,
 		},
-		{
-			name: "merge with anyOf in source",
+		"merge with anyOf in source": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				AnyOf: []*JSONSchemaCTI{
 					{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string", Pattern: "^[a-z]+$"}},
@@ -883,8 +831,7 @@ func TestMergeSchemas(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name: "merge with anyOf in target",
+		"merge with anyOf in target": {
 			source: &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{
 				Type:    "string",
 				Pattern: "^[a-z]+$",
@@ -903,36 +850,31 @@ func TestMergeSchemas(t *testing.T) {
 			}},
 			expectError: false,
 		},
-		{
-			name:        "merge with source type not a string returns error",
+		"merge with source type not a string returns error": {
 			source:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "123"}},
 			target:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "string"}},
 			expected:    nil,
 			expectError: true,
 		},
-		{
-			name:        "merge with unsupported type returns error",
+		"merge with unsupported type returns error": {
 			source:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "unsupportedType"}},
 			target:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "unsupportedType"}},
 			expected:    nil,
 			expectError: true,
 		},
-		{
-			name:        "merge with boolean type returns target as is",
+		"merge with boolean type returns target as is": {
 			source:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "boolean", Default: true}},
 			target:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "boolean"}},
 			expected:    &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "boolean"}},
 			expectError: false,
 		},
-		{
-			name:        "merge with null type returns target as is",
+		"merge with null type returns target as is": {
 			source:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "null", Default: nil}},
 			target:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "null"}},
 			expected:    &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Type: "null"}},
 			expectError: false,
 		},
-		{
-			name:        "merge with no type and not anyOf returns target as is",
+		"merge with no type and not anyOf returns target as is": {
 			source:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Title: "Parent"}},
 			target:      &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Title: "Child"}},
 			expected:    &JSONSchemaCTI{JSONSchemaGeneric: JSONSchemaGeneric{Title: "Child"}},
@@ -940,8 +882,8 @@ func TestMergeSchemas(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			result, err := mergeSchemas(tc.source, tc.target)
 			if tc.expectError {
 				require.Error(t, err)

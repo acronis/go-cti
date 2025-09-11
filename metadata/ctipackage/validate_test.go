@@ -14,36 +14,29 @@ import (
 )
 
 func TestValidateManual(t *testing.T) {
-	testsupp.ManualTest(t, "manual test for package validation")
+	packagePath := `` // put path to the package to test here
 
-	packagePath := ``
+	if packagePath == "" {
+		t.Skip("packagePath is empty, skipping manual test")
+	}
 
 	// Create and parse the package
 	pkg, err := New(packagePath)
-	if err != nil {
-		t.Fatalf("Failed to create package: %v", err)
-	}
-	if err = pkg.Read(); err != nil {
-		t.Fatalf("Failed to read package: %v", err)
-	}
-	if err = pkg.Validate(); err != nil {
-		t.Fatalf("Failed to validate package: %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, pkg.Read())
+	require.NoError(t, pkg.Validate())
 }
 
 func Test_PackageValidations(t *testing.T) {
 	testsupp.InitLog(t)
 
-	type testCase struct {
+	testCases := map[string]struct {
 		testsupp.PackageTestCase
 		wantError bool
 		validate  func(*Package)
-	}
-
-	testCases := []testCase{
-		{
+	}{
+		"recursive types validation": {
 			PackageTestCase: testsupp.PackageTestCase{
-				Name:     "recursive types validation",
 				PkgId:    "x.y",
 				Entities: []string{"types.raml"},
 				Files: map[string]string{"types.raml": strings.TrimSpace(`
@@ -389,10 +382,10 @@ types:
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
 
-			pkg, err := New(testsupp.InitTestPackageFiles(t, tc.PackageTestCase),
+			pkg, err := New(testsupp.InitTestPackageFiles(t, name, tc.PackageTestCase),
 				WithRamlxVersion("1.0"),
 				WithID(tc.PkgId),
 				WithEntities(tc.Entities))
@@ -405,12 +398,12 @@ types:
 			{
 				err = pkg.Validate()
 				if tc.wantError {
-					require.Error(t, err, "Expected error for package %s", tc.Name)
+					require.Error(t, err, "Expected error for package %s", name)
 					slog.Error("Command failed", slogex.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
 				} else {
 					if err != nil {
 						slog.Error("Command failed", slogex.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
-						t.Fatalf("Unexpected error for package %s: %v", tc.Name, err)
+						t.Fatalf("Unexpected error for package %s: %v", name, err)
 					}
 				}
 				tc.validate(pkg)

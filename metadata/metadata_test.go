@@ -45,14 +45,12 @@ func TestEntity_GetParent(t *testing.T) {
 // TestEntity_FindAnnotationsByPredicateInChain tests the FindAnnotationsByPredicateInChain method
 // Note: This test uses a custom implementation to avoid a bug in the original method
 func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
-	tests := []struct {
-		name       string
+	tests := map[string]struct {
 		obj        *entity
 		predicate  func(*Annotations) bool
 		wantResult *Annotations
 	}{
-		{
-			name: "find in object",
+		"find in object": {
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{
 					".field": {Schema: "cti.vendor.app.test.v1.0"},
@@ -63,8 +61,7 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 			},
 			wantResult: &Annotations{Schema: "cti.vendor.app.test.v1.0"},
 		},
-		{
-			name: "find in parent",
+		"find in parent": {
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{},
 				parent: &EntityType{
@@ -80,8 +77,7 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 			},
 			wantResult: &Annotations{Schema: "cti.vendor.app.test.v1.0"},
 		},
-		{
-			name: "not found",
+		"not found": {
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{},
 			},
@@ -92,8 +88,8 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			// Custom implementation to avoid the bug in the original method
 			var result *Annotations
 
@@ -123,14 +119,12 @@ func TestEntity_FindAnnotationsByPredicateInChain(t *testing.T) {
 // TestEntity_FindAnnotationsByKeyInChain tests the FindAnnotationsByKeyInChain method
 // Note: This test uses a custom implementation to avoid a bug in the original method
 func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
-	tests := []struct {
-		name       string
+	tests := map[string]struct {
 		obj        *entity
 		key        GJsonPath
 		wantResult *Annotations
 	}{
-		{
-			name: "find in object",
+		"find in object": {
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{
 					".field": {
@@ -143,8 +137,7 @@ func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
 				Schema: "cti.vendor.app.test.v1.0",
 			},
 		},
-		{
-			name: "find in parent",
+		"find in parent": {
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{},
 				parent: &EntityType{
@@ -162,8 +155,7 @@ func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
 				Schema: "cti.vendor.app.test.v1.0",
 			},
 		},
-		{
-			name: "not found",
+		"not found": {
 			obj: &entity{
 				Annotations: map[GJsonPath]*Annotations{},
 			},
@@ -172,8 +164,8 @@ func TestEntity_FindAnnotationsByKeyInChain(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			// Custom implementation to avoid the bug in the original method
 			var result *Annotations
 
@@ -212,44 +204,34 @@ func TestEntity_ReplacePointer(t *testing.T) {
 }
 
 func TestEntity_IsFinal(t *testing.T) {
-	tests := []struct {
-		name      string
+	tests := map[string]struct {
 		obj       *entity
 		wantFinal bool
 	}{
-		{
-			name: "final true",
-			obj: &entity{
-				Final: true,
-			},
+		"final true": {
+			obj:       &entity{Final: true},
 			wantFinal: true,
 		},
-		{
-			name: "final false",
-			obj: &entity{
-				Final: false,
-			},
+		"final false": {
+			obj:       &entity{Final: false},
 			wantFinal: false,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.obj.IsFinal()
-			require.Equal(t, tt.wantFinal, result)
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, tt.wantFinal, tt.obj.IsFinal())
 		})
 	}
 }
 
 func TestEntityType_GetMergedSchema(t *testing.T) {
-	tests := []struct {
-		name          string
+	tests := map[string]struct {
 		root          *EntityType
 		expectedError string
 		validate      func(t *testing.T, parentSchema, childSchema, mergedSchema *jsonschema.JSONSchemaCTI)
 	}{
-		{
-			name: "simple merge with single parent",
+		"simple merge with single parent": {
 			root: &EntityType{
 				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
 					"Child": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
@@ -275,9 +257,9 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 
 				parent := definitions["Parent"]
 				_, ok := parent.Properties.Get("field1")
-				require.False(t, ok) // Must be absent in parent but present in child
+				require.Falsef(t, ok, "field1 must be absent in parent but present in child")
 				_, ok = parent.Properties.Get("field2")
-				require.True(t, ok) // Must be present in parent
+				require.Truef(t, ok, "field2 must be present in parent")
 
 				// Verify child schema
 				require.Equal(t, "#/definitions/Child", childSchema.Ref)
@@ -287,9 +269,9 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 
 				child := definitions["Child"]
 				_, ok = child.Properties.Get("field1")
-				require.True(t, ok) // Must be present in child
+				require.Truef(t, ok, "field1 must be present in child")
 				_, ok = child.Properties.Get("field2")
-				require.False(t, ok) // Must be absent in child but present in parent
+				require.Falsef(t, ok, "field2 must be absent in child but present in parent")
 
 				// Verify merged schema
 				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema.Version)
@@ -302,11 +284,10 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 				_, ok = child.Properties.Get("field1")
 				require.True(t, ok)
 				_, ok = child.Properties.Get("field2")
-				require.True(t, ok) // Must be inherited from parent
+				require.Truef(t, ok, "field2 must be inherited from parent")
 			},
 		},
-		{
-			name: "merge with single recursive parent",
+		"merge with single recursive parent": {
 			root: &EntityType{
 				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
 					"Child": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{}),
@@ -335,8 +316,7 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 				require.Equal(t, "#/definitions/Child", prop.Ref)
 			},
 		},
-		{
-			name: "merge with anyOf",
+		"merge with anyOf": {
 			root: &EntityType{
 				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
 					"Child": makeAnyOfSchema([]*jsonschema.JSONSchemaCTI{
@@ -344,7 +324,7 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 							{Key: "field2", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}}},
 							{Key: "field3", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"}}},
 						}),
-						&jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
+						{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
 					}),
 				}),
 				entity: entity{
@@ -354,7 +334,7 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 								makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
 									{Key: "field1", Value: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "number"}}},
 								}),
-								&jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
+								{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
 							}),
 						}),
 					},
@@ -371,11 +351,11 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 				require.Len(t, parent.AnyOf, 2)
 				firstMember := parent.AnyOf[0]
 				_, ok := firstMember.Properties.Get("field1")
-				require.True(t, ok) // Must be present in parent
+				require.Truef(t, ok, "field1 must be present in parent")
 				_, ok = firstMember.Properties.Get("field2")
-				require.False(t, ok) // Must be absent in parent but present in child
+				require.Falsef(t, ok, "field2 must be absent in parent but present in child")
 				_, ok = firstMember.Properties.Get("field3")
-				require.False(t, ok) // Must be absent in parent but present in child
+				require.Falsef(t, ok, "field3 must be absent in parent but present in child")
 
 				// Verify child schema
 				require.Equal(t, "http://json-schema.org/draft-07/schema", childSchema.Version)
@@ -388,11 +368,11 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 
 				firstMember = child.AnyOf[0]
 				_, ok = firstMember.Properties.Get("field2")
-				require.True(t, ok) // Must be present in child
+				require.Truef(t, ok, "field2 must be present in child")
 				_, ok = firstMember.Properties.Get("field3")
-				require.True(t, ok) // Must be present in child
+				require.Truef(t, ok, "field3 must be present in child")
 				_, ok = firstMember.Properties.Get("field1")
-				require.False(t, ok) // Must be absent in child but present in parent
+				require.Falsef(t, ok, "field1 must be absent in child but present in parent")
 
 				// Verify merged schema
 				require.Equal(t, "http://json-schema.org/draft-07/schema", mergedSchema.Version)
@@ -405,20 +385,18 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 
 				firstMember = child.AnyOf[0]
 				_, ok = firstMember.Properties.Get("field1")
-				require.True(t, ok) // Must be inherited from parent
+				require.Truef(t, ok, "field1 must be inherited from parent")
 				_, ok = firstMember.Properties.Get("field2")
-				require.True(t, ok) // Must be inherited from child
+				require.Truef(t, ok, "field2 must be inherited from child")
 				_, ok = firstMember.Properties.Get("field3")
-				require.True(t, ok) // Must be inherited from child
+				require.Truef(t, ok, "field3 must be inherited from child")
 			},
 		},
-		{
-			name:          "no schema in root",
+		"no schema in root": {
 			root:          &EntityType{},
 			expectedError: "entity type schema is nil",
 		},
-		{
-			name: "missing parent schema",
+		"missing parent schema": {
 			root: &EntityType{
 				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
 					"Child": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{}),
@@ -427,8 +405,7 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 			},
 			expectedError: "failed to extract parent schema definition: invalid schema",
 		},
-		{
-			name: "complex nested schema merge",
+		"complex nested schema merge": {
 			root: &EntityType{
 				Schema: makeSchemaWithDefs("Child", map[string]*jsonschema.JSONSchemaCTI{
 					"Child": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
@@ -494,12 +471,11 @@ func TestEntityType_GetMergedSchema(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			mergedSchema, err := tc.root.GetMergedSchema()
 			if tc.expectedError != "" {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tc.expectedError)
+				require.ErrorContains(t, err, tc.expectedError)
 			} else {
 				require.NoError(t, err)
 				tc.validate(t, tc.root.parent.Schema, tc.root.Schema, mergedSchema)
@@ -610,13 +586,11 @@ func TestEntityType_GetTraitsSchema(t *testing.T) {
 }
 
 func TestEntityType_FindTraitsSchemaInChain(t *testing.T) {
-	tests := []struct {
-		name       string
+	tests := map[string]struct {
 		obj        *EntityType
 		wantResult *jsonschema.JSONSchemaCTI
 	}{
-		{
-			name: "schema in object",
+		"schema in object": {
 			obj: &EntityType{
 				TraitsSchema: &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 					Type: "object",
@@ -626,8 +600,7 @@ func TestEntityType_FindTraitsSchemaInChain(t *testing.T) {
 				Type: "object",
 			}},
 		},
-		{
-			name: "schema in parent",
+		"schema in parent": {
 			obj: &EntityType{
 				entity: entity{
 					parent: &EntityType{
@@ -641,15 +614,14 @@ func TestEntityType_FindTraitsSchemaInChain(t *testing.T) {
 				Type: "object",
 			}},
 		},
-		{
-			name:       "schema not found",
+		"schema not found": {
 			obj:        &EntityType{},
 			wantResult: nil,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			result := tt.obj.FindTraitsSchemaInChain()
 			require.Equal(t, tt.wantResult, result)
 		})
@@ -665,13 +637,11 @@ func TestEntityType_GetTraits(t *testing.T) {
 }
 
 func TestEntityType_GetMergedTraits(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		traitsChain []*EntityType
 		expected    map[string]any
 	}{
-		{
-			name: "single entity with traits",
+		"single entity with traits": {
 			traitsChain: []*EntityType{
 				{
 					Traits: map[string]any{"trait1": "value1", "trait2": 2},
@@ -679,8 +649,7 @@ func TestEntityType_GetMergedTraits(t *testing.T) {
 			},
 			expected: map[string]any{"trait1": "value1", "trait2": 2},
 		},
-		{
-			name: "entity with parent traits, no overlap",
+		"entity with parent traits, no overlap": {
 			traitsChain: []*EntityType{
 				{
 					Traits: map[string]any{"trait1": "child"},
@@ -693,8 +662,7 @@ func TestEntityType_GetMergedTraits(t *testing.T) {
 			},
 			expected: map[string]any{"trait1": "child", "trait2": "parent"},
 		},
-		{
-			name: "entity with parent traits, child overrides parent",
+		"entity with parent traits, child overrides parent": {
 			traitsChain: []*EntityType{
 				{
 					Traits: map[string]any{"trait1": "child"},
@@ -707,13 +675,10 @@ func TestEntityType_GetMergedTraits(t *testing.T) {
 			},
 			expected: map[string]any{"trait1": "child", "trait2": "parent2"},
 		},
-		{
-			name: "entity with multiple parent chain",
+		"entity with multiple parent chain": {
 			traitsChain: []*EntityType{
 				{
-					Traits: map[string]any{
-						"trait1": "child",
-					},
+					Traits: map[string]any{"trait1": "child"},
 					entity: entity{
 						parent: &EntityType{
 							Traits: map[string]any{"trait2": "parent"},
@@ -728,8 +693,7 @@ func TestEntityType_GetMergedTraits(t *testing.T) {
 			},
 			expected: map[string]any{"trait1": "child", "trait2": "parent", "trait3": "grandparent"},
 		},
-		{
-			name: "entity with nil traits and parent",
+		"entity with nil traits and parent": {
 			traitsChain: []*EntityType{
 				{
 					Traits: nil,
@@ -742,8 +706,7 @@ func TestEntityType_GetMergedTraits(t *testing.T) {
 			},
 			expected: map[string]any{"trait1": "parent"},
 		},
-		{
-			name: "entity and all parents have nil traits",
+		"entity and all parents have nil traits": {
 			traitsChain: []*EntityType{
 				{
 					Traits: nil,
@@ -761,8 +724,8 @@ func TestEntityType_GetMergedTraits(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			obj := tt.traitsChain[0]
 			result := obj.GetMergedTraits()
 			require.Equal(t, tt.expected, result)
@@ -777,16 +740,14 @@ func TestEntityType_GetMergedTraits(t *testing.T) {
 // }
 
 func TestEntityType_ReplacePointer(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		obj         *EntityType
 		src         Entity
 		wantErr     bool
 		expectedErr string
 	}{
-		{
-			name: "valid replacement",
-			obj:  &EntityType{},
+		"valid replacement": {
+			obj: &EntityType{},
 			src: &EntityType{
 				entity: entity{
 					CTI: "cti.vendor.app.test.v1.0",
@@ -794,8 +755,7 @@ func TestEntityType_ReplacePointer(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{
-			name:        "invalid type",
+		"invalid type": {
 			obj:         &EntityType{},
 			src:         &entity{},
 			wantErr:     true,
@@ -803,31 +763,29 @@ func TestEntityType_ReplacePointer(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			err := tt.obj.ReplacePointer(tt.src)
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Equal(t, tt.expectedErr, err.Error())
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tt.src.(*EntityType).CTI, tt.obj.CTI)
+				require.ErrorContains(t, err, tt.expectedErr)
+				return
 			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.src.(*EntityType).CTI, tt.obj.CTI)
 		})
 	}
 }
 
 func TestEntityInstance_ReplacePointer(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		obj         *EntityInstance
 		src         Entity
 		wantErr     bool
 		expectedErr string
 	}{
-		{
-			name: "valid replacement",
-			obj:  &EntityInstance{},
+		"valid replacement": {
+			obj: &EntityInstance{},
 			src: &EntityInstance{
 				entity: entity{
 					CTI: "cti.vendor.app.test.v1.0",
@@ -835,8 +793,7 @@ func TestEntityInstance_ReplacePointer(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{
-			name:        "invalid type",
+		"invalid type": {
 			obj:         &EntityInstance{},
 			src:         &entity{},
 			wantErr:     true,
@@ -844,31 +801,27 @@ func TestEntityInstance_ReplacePointer(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			err := tt.obj.ReplacePointer(tt.src)
 			if tt.wantErr {
-				require.Error(t, err)
-				require.Equal(t, tt.expectedErr, err.Error())
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tt.src.(*EntityInstance).CTI, tt.obj.CTI)
+				require.ErrorContains(t, err, tt.expectedErr)
+				return
 			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.src.(*EntityInstance).CTI, tt.obj.CTI)
 		})
 	}
 }
 
 func Test_GJsonPathGetValue(t *testing.T) {
-	type testCase struct {
-		name   string
+	testCases := map[string]struct {
 		entity *entity
 		fn     func(e *entity) any
 		want   any
-	}
-
-	testCases := []testCase{
-		{
-			name: "get root by .",
+	}{
+		"get root by .": {
 			entity: &entity{
 				Annotations: map[GJsonPath]*Annotations{
 					".": {},
@@ -888,8 +841,7 @@ func Test_GJsonPathGetValue(t *testing.T) {
 			},
 			want: map[string]string{"val": "test"},
 		},
-		{
-			name: "get string by .val",
+		"get string by .val": {
 			entity: &entity{
 				Annotations: map[GJsonPath]*Annotations{
 					".val": {},
@@ -904,8 +856,7 @@ func Test_GJsonPathGetValue(t *testing.T) {
 			},
 			want: "test",
 		},
-		{
-			name: "get array by .val.#",
+		"get array by .val.#": {
 			entity: &entity{
 				Annotations: map[GJsonPath]*Annotations{
 					".val.#": {},
@@ -925,8 +876,7 @@ func Test_GJsonPathGetValue(t *testing.T) {
 			},
 			want: []string{"test", "test"},
 		},
-		{
-			name: "get nested item by .val.#",
+		"get nested item by .val.#": {
 			entity: &entity{
 				Annotations: map[GJsonPath]*Annotations{
 					".val.nested.#": {},
@@ -941,8 +891,7 @@ func Test_GJsonPathGetValue(t *testing.T) {
 			},
 			want: "test",
 		},
-		{
-			name: "get nested array by .val.#",
+		"get nested array by .val.#": {
 			entity: &entity{
 				Annotations: map[GJsonPath]*Annotations{
 					".val.arr.#": {},
@@ -964,47 +913,41 @@ func Test_GJsonPathGetValue(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
 			require.Equal(t, tc.fn(tc.entity), tc.want)
 		})
 	}
 }
 func TestAnnotations_ReadCTISchema(t *testing.T) {
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		schema   interface{}
 		expected []string
 	}{
-		{
-			name:     "nil schema",
+		"nil schema": {
 			schema:   nil,
 			expected: []string{},
 		},
-		{
-			name:     "schema as string",
+		"schema as string": {
 			schema:   "cti.schema.value",
 			expected: []string{"cti.schema.value"},
 		},
-		{
-			name:     "schema as []interface{} with strings",
+		"schema as []interface{} with strings": {
 			schema:   []interface{}{"cti.schema.one", "cti.schema.two"},
 			expected: []string{"cti.schema.one", "cti.schema.two"},
 		},
-		{
-			name:     "schema as []interface{} with mixed types",
+		"schema as []interface{} with mixed types": {
 			schema:   []interface{}{"cti.schema.one", 123, "cti.schema.two"},
 			expected: []string{"cti.schema.one", "cti.schema.two"},
 		},
-		{
-			name:     "schema as []interface{} with no strings",
+		"schema as []interface{} with no strings": {
 			schema:   []interface{}{123, 456},
 			expected: []string{},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			a := Annotations{Schema: tt.schema}
 			result := a.ReadCTISchema()
 			require.ElementsMatch(t, tt.expected, result)
@@ -1013,16 +956,13 @@ func TestAnnotations_ReadCTISchema(t *testing.T) {
 }
 
 func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
-	tests := []struct {
-		name           string
-		entityType     *EntityType
-		selector       string
-		want           *jsonschema.JSONSchemaCTI
-		wantErr        bool
-		wantErrContain string
+	tests := map[string]struct {
+		entityType *EntityType
+		selector   string
+		want       *jsonschema.JSONSchemaCTI
+		wantErr    string
 	}{
-		{
-			name: "returns property schema for valid selector",
+		"returns property schema for valid selector": {
 			entityType: &EntityType{
 				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{
 					"Test": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
@@ -1033,10 +973,8 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 			},
 			selector: "foo",
 			want:     &jsonschema.JSONSchemaCTI{JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"}},
-			wantErr:  false,
 		},
-		{
-			name: "returns error for invalid selector",
+		"returns error for invalid selector": {
 			entityType: &EntityType{
 				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{
 					"Test": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
@@ -1044,28 +982,22 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 					}),
 				}),
 			},
-			selector:       ".foo",
-			wantErr:        true,
-			wantErrContain: "create attribute selector",
+			selector: ".foo",
+			wantErr:  "create attribute selector",
 		},
-		{
-			name:           "returns error if merged schema is missing",
-			entityType:     &EntityType{},
-			selector:       "foo",
-			wantErr:        true,
-			wantErrContain: "get merged schema",
+		"returns error if merged schema is missing": {
+			entityType: &EntityType{},
+			selector:   "foo",
+			wantErr:    "get merged schema",
 		},
-		{
-			name: "returns error if schema definition extraction fails",
+		"returns error if schema definition extraction fails": {
 			entityType: &EntityType{
 				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{}),
 			},
-			selector:       "foo",
-			wantErr:        true,
-			wantErrContain: "failed to extract schema definition",
+			selector: "foo",
+			wantErr:  "failed to extract schema definition",
 		},
-		{
-			name: "returns error if selector not found",
+		"returns error if selector not found": {
 			entityType: &EntityType{
 				Schema: makeSchemaWithDefs("Test", map[string]*jsonschema.JSONSchemaCTI{
 					"Test": makeObjectSchema([]orderedmap.Pair[string, *jsonschema.JSONSchemaCTI]{
@@ -1073,20 +1005,16 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 					}),
 				}),
 			},
-			selector:       "notfound",
-			wantErr:        true,
-			wantErrContain: "not found",
+			selector: "notfound",
+			wantErr:  "not found",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			got, err := tt.entityType.GetSchemaByAttributeSelectorInChain(tt.selector)
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.wantErrContain != "" {
-					require.Contains(t, err.Error(), tt.wantErrContain)
-				}
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tt.want, got)
@@ -1096,49 +1024,40 @@ func TestEntityType_GetSchemaByAttributeSelectorInChain(t *testing.T) {
 }
 
 func TestEntityInstance_GetValueByAttributeSelector(t *testing.T) {
-	type testCase struct {
-		name             string
+	tests := map[string]struct {
 		values           any
 		selector         string
 		expected         any
 		expectErr        bool
 		expectedErrMatch string
-	}
-
-	tests := []testCase{
-		{
-			name:     "simple string value",
+	}{
+		"simple string value": {
 			values:   map[string]any{"foo": "bar"},
 			selector: "foo",
 			expected: "bar",
 		},
-		{
-			name:     "nested value",
+		"nested value": {
 			values:   map[string]any{"foo": map[string]any{"bar": 42}},
 			selector: "foo.bar",
 			expected: 42,
 		},
-		{
-			name:     "array value",
+		"array value": {
 			values:   map[string]any{"arr": []any{1, 2, 3}},
 			selector: "arr",
 			expected: []any{1, 2, 3},
 		},
-		{
-			name:      "invalid selector",
+		"invalid selector": {
 			values:    map[string]any{"foo": "bar"},
 			selector:  "foo[",
 			expectErr: true,
 		},
-		{
-			name:             "values not a map",
+		"values not a map": {
 			values:           []any{1, 2, 3},
 			selector:         "foo",
 			expectErr:        true,
 			expectedErrMatch: "values are not a map",
 		},
-		{
-			name:      "selector not found",
+		"selector not found": {
 			values:    map[string]any{"foo": "bar"},
 			selector:  "baz",
 			expected:  nil,
@@ -1146,8 +1065,8 @@ func TestEntityInstance_GetValueByAttributeSelector(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			inst := &EntityInstance{
 				Values: tc.values,
 			}
@@ -1155,7 +1074,7 @@ func TestEntityInstance_GetValueByAttributeSelector(t *testing.T) {
 			if tc.expectErr {
 				require.Error(t, err)
 				if tc.expectedErrMatch != "" {
-					require.Contains(t, err.Error(), tc.expectedErrMatch)
+					require.ErrorContains(t, err, tc.expectedErrMatch)
 				}
 			} else {
 				require.NoError(t, err)
@@ -1166,57 +1085,49 @@ func TestEntityInstance_GetValueByAttributeSelector(t *testing.T) {
 }
 
 func TestEntity_IsA(t *testing.T) {
-	tests := []struct {
-		name       string
+	tests := map[string]struct {
 		entityCTI  string
 		parentCTI  string
 		parentNil  bool
 		wantResult bool
 	}{
-		{
-			name:       "parent is nil",
+		"parent is nil": {
 			entityCTI:  "cti.v.a.parent.v1.0",
 			parentCTI:  "",
 			parentNil:  true,
 			wantResult: false,
 		},
-		{
-			name:       "entity is direct subtype of parent",
+		"entity is direct subtype of parent": {
 			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
 			parentCTI:  "cti.v.a.parent.v1.0",
 			parentNil:  false,
 			wantResult: true,
 		},
-		{
-			name:       "entity is an indirect subtype of parent",
+		"entity is an indirect subtype of parent": {
 			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0~v.a.grandchild.v1.0",
 			parentCTI:  "cti.v.a.parent.v1.0",
 			parentNil:  false,
 			wantResult: true,
 		},
-		{
-			name:       "entity is same as parent",
+		"entity is same as parent": {
 			entityCTI:  "cti.v.a.parent.v1.0",
 			parentCTI:  "cti.v.a.parent.v1.0",
 			parentNil:  false,
 			wantResult: true,
 		},
-		{
-			name:       "entity is not a subtype of parent",
+		"entity is not a subtype of parent": {
 			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
 			parentCTI:  "cti.v.b.parent.v1.0",
 			parentNil:  false,
 			wantResult: false,
 		},
-		{
-			name:       "entity CTI is empty",
+		"entity CTI is empty": {
 			entityCTI:  "",
 			parentCTI:  "cti.v.a.parent.v1.0",
 			parentNil:  false,
 			wantResult: false,
 		},
-		{
-			name:       "parent CTI is empty",
+		"parent CTI is empty": {
 			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
 			parentCTI:  "",
 			parentNil:  false,
@@ -1224,8 +1135,8 @@ func TestEntity_IsA(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			e := &entity{CTI: tt.entityCTI}
 			var parent *EntityType
 			if !tt.parentNil {
@@ -1239,50 +1150,43 @@ func TestEntity_IsA(t *testing.T) {
 }
 
 func TestEntity_IsChildOf(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		entityCTI   string
 		parentCTI   string
 		parentNil   bool
 		wantIsChild bool
 	}{
-		{
-			name:        "parent is nil",
+		"parent is nil": {
 			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0",
 			parentCTI:   "",
 			parentNil:   true,
 			wantIsChild: false,
 		},
-		{
-			name:        "entity is direct child of parent",
+		"entity is direct child of parent": {
 			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0",
 			parentCTI:   "cti.v.a.parent.v1.0",
 			parentNil:   false,
 			wantIsChild: true,
 		},
-		{
-			name:        "entity is not a direct child of parent",
+		"entity is not a direct child of parent": {
 			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0~v.a.grandchild.v1.0",
 			parentCTI:   "cti.v.a.parent.v1.0",
 			parentNil:   false,
 			wantIsChild: false,
 		},
-		{
-			name:        "entity is not a child of parent",
+		"entity is not a child of parent": {
 			entityCTI:   "cti.v.b.parent.v1.0~v.b.child.v1.0",
 			parentCTI:   "cti.v.a.parent.v1.0",
 			parentNil:   false,
 			wantIsChild: false,
 		},
-		{
-			name:        "entity CTI is empty",
+		"entity CTI is empty": {
 			entityCTI:   "",
 			parentCTI:   "cti.v.a.parent.v1.0",
 			parentNil:   false,
 			wantIsChild: false,
 		},
-		{
-			name:        "parent CTI is empty",
+		"parent CTI is empty": {
 			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0",
 			parentCTI:   "",
 			parentNil:   false,
@@ -1290,8 +1194,8 @@ func TestEntity_IsChildOf(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			e := &entity{CTI: tt.entityCTI}
 			var parent *EntityType
 			if !tt.parentNil {
@@ -1305,50 +1209,42 @@ func TestEntity_IsChildOf(t *testing.T) {
 }
 
 func TestAnnotations_ReadReference(t *testing.T) {
-	tests := []struct {
-		name      string
+	tests := map[string]struct {
 		reference interface{}
 		expected  []string
 	}{
-		{
-			name:      "nil reference",
+		"nil reference": {
 			reference: nil,
 			expected:  nil,
 		},
-		{
-			name:      "reference as bool true",
+		"reference as bool true": {
 			reference: true,
 			expected:  []string{"true"},
 		},
-		{
-			name:      "reference as bool false",
+		"reference as bool false": {
 			reference: false,
 			expected:  []string{"false"},
 		},
-		{
-			name:      "reference as string",
+		"reference as string": {
 			reference: "ref.value",
 			expected:  []string{"ref.value"},
 		},
-		{
-			name:      "reference as []any with strings",
+		"reference as []any with strings": {
 			reference: []any{"ref.one", "ref.two"},
 			expected:  []string{"ref.one", "ref.two"},
 		},
-		{
-			name:      "reference as []any with mixed types",
+		"reference as []any with mixed types": {
 			reference: []any{"ref.one", 123, "ref.two"},
 			expected:  []string{"ref.one", "ref.two"},
 		},
-		{
-			name:      "reference as []any with no strings",
+		"reference as []any with no strings": {
 			reference: []any{123, 456},
 			expected:  nil,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			a := Annotations{Reference: tt.reference}
 			result := a.ReadReference()
 			require.Equal(t, tt.expected, result)
