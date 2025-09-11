@@ -1,4 +1,4 @@
-package transformer
+package annotations_collector
 
 import (
 	"reflect"
@@ -6,11 +6,13 @@ import (
 
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/jsonschema"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 func TestAnnotationsCollector_Collect_NoAnnotations(t *testing.T) {
-	collector := NewAnnotationsCollector()
+	collector := New()
 	schema := &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			Type: "object",
@@ -18,19 +20,17 @@ func TestAnnotationsCollector_Collect_NoAnnotations(t *testing.T) {
 				props := orderedmap.New[string, *jsonschema.JSONSchemaCTI]()
 				props.Set("foo", &jsonschema.JSONSchemaCTI{
 					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"},
+					Annotations:       jsonschema.Annotations{CTICTI: "test.annotation"},
 				})
 				return props
 			}(),
 		},
 	}
-	result := collector.Collect(schema)
-	if len(result) != 0 {
-		t.Errorf("expected no annotations, got %d", len(result))
-	}
+	require.Empty(t, collector.Collect(schema))
 }
 
 func TestAnnotationsCollector_Collect_SingleAnnotation(t *testing.T) {
-	collector := NewAnnotationsCollector()
+	collector := New()
 	schema := &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			Type: "object",
@@ -38,23 +38,25 @@ func TestAnnotationsCollector_Collect_SingleAnnotation(t *testing.T) {
 				props := orderedmap.New[string, *jsonschema.JSONSchemaCTI]()
 				props.Set("foo", &jsonschema.JSONSchemaCTI{
 					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"},
-					Annotations:       jsonschema.Annotations{CTIFinal: &[]bool{true}[0]},
+					Annotations:       jsonschema.Annotations{CTISchema: "test.annotation"},
 				})
 				return props
 			}(),
 		},
 	}
 	result := collector.Collect(schema)
+	require.EqualValues(t, map[metadata.GJsonPath]*metadata.Annotations{
+		".foo": {Schema: "test.annotation"},
+	}, result)
+
 	expectedKey := metadata.GJsonPath(".foo")
-	if ann, ok := result[expectedKey]; !ok {
+	if _, ok := result[expectedKey]; !ok {
 		t.Errorf("expected annotation at %q", expectedKey)
-	} else if ann.Final == nil || *ann.Final != true {
-		t.Errorf("expected Final annotation to be true, got %+v", ann.Final)
 	}
 }
 
 func TestAnnotationsCollector_Collect_MultipleAnnotations(t *testing.T) {
-	collector := NewAnnotationsCollector()
+	collector := New()
 	schema := &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			Type: "object",
@@ -63,8 +65,6 @@ func TestAnnotationsCollector_Collect_MultipleAnnotations(t *testing.T) {
 				props.Set("bar", &jsonschema.JSONSchemaCTI{
 					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"},
 					Annotations: jsonschema.Annotations{
-						CTIFinal:       &[]bool{false}[0],
-						CTIResilient:   &[]bool{true}[0],
 						CTIDisplayName: &[]bool{true}[0],
 					},
 				})
@@ -78,60 +78,50 @@ func TestAnnotationsCollector_Collect_MultipleAnnotations(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected annotation at %q", expectedKey)
 	}
-	if ann.Final == nil || *ann.Final != false {
-		t.Errorf("expected Final annotation to be false, got %+v", ann.Final)
-	}
-	if ann.Resilient == nil || *ann.Resilient != true {
-		t.Errorf("expected Resilient annotation to be true, got %+v", ann.Resilient)
-	}
 	if ann.DisplayName == nil || *ann.DisplayName != true {
 		t.Errorf("expected DisplayName annotation to be true, got %+v", ann.DisplayName)
 	}
 }
 
 func TestAnnotationsCollector_Collect_UnionShape(t *testing.T) {
-	collector := NewAnnotationsCollector()
+	collector := New()
 	schema := &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			AnyOf: []*jsonschema.JSONSchemaCTI{
 				{
 					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"},
-					Annotations:       jsonschema.Annotations{CTIFinal: &[]bool{true}[0]},
+					Annotations:       jsonschema.Annotations{CTIID: &[]bool{true}[0]},
 				},
 				{
 					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "integer"},
-					Annotations:       jsonschema.Annotations{CTIResilient: &[]bool{false}[0]},
+					Annotations:       jsonschema.Annotations{CTIOverridable: &[]bool{false}[0]},
 				},
 			},
 		},
 	}
 	result := collector.Collect(schema)
-	foundFinal := false
-	foundResilient := false
+	foundID := false
+	foundOverridable := false
 	for _, ann := range result {
-		if ann.Final != nil && *ann.Final == true {
-			foundFinal = true
+		if ann.ID != nil && *ann.ID == true {
+			foundID = true
 		}
-		if ann.Resilient != nil && *ann.Resilient == false {
-			foundResilient = true
+		if ann.Overridable != nil && *ann.Overridable == false {
+			foundOverridable = true
 		}
 	}
-	if !foundFinal {
-		t.Error("expected to find Final annotation with value true")
-	}
-	if !foundResilient {
-		t.Error("expected to find Resilient annotation with value false")
-	}
+	assert.True(t, foundID, "expected to find ID annotation with value true")
+	assert.True(t, foundOverridable, "expected to find Overridable annotation with value false")
 }
 
 func TestAnnotationsCollector_Collect_ArrayShape(t *testing.T) {
-	collector := NewAnnotationsCollector()
+	collector := New()
 	schema := &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{
 			Type: "array",
 			Items: &jsonschema.JSONSchemaCTI{
 				JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Type: "string"},
-				Annotations:       jsonschema.Annotations{CTIFinal: &[]bool{true}[0]},
+				Annotations:       jsonschema.Annotations{CTIID: &[]bool{true}[0]},
 			},
 		},
 	}
@@ -141,13 +131,13 @@ func TestAnnotationsCollector_Collect_ArrayShape(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected annotation at %q", expectedKey)
 	}
-	if ann.Final == nil || *ann.Final != true {
-		t.Errorf("expected Final annotation to be true, got %+v", ann.Final)
+	if ann.ID == nil || *ann.ID != true {
+		t.Errorf("expected ID annotation to be true, got %+v", ann.ID)
 	}
 }
 
 func TestAnnotationsCollector_Collect_PropertyNamesAnnotation(t *testing.T) {
-	collector := NewAnnotationsCollector()
+	collector := New()
 	propertyNames := map[string]any{"foo": "bar"}
 	schema := &jsonschema.JSONSchemaCTI{
 		JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{

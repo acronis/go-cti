@@ -249,11 +249,6 @@ func (cc *CompatibilityChecker) checkAnnotationsCompatibility(ctx context, oldAn
 				cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.overridable mismatch: `%v` -> `%v`", path, *oldAnnotation.Overridable, *newAnnotation.Overridable))
 			}
 		}
-		if oldAnnotation.Final != nil && newAnnotation.Final != nil {
-			if *oldAnnotation.Final != *newAnnotation.Final {
-				cc.addMessage(ctx, SeverityError, fmt.Sprintf("`%s` cti.final mismatch: `%v` -> `%v`", path, *oldAnnotation.Final, *newAnnotation.Final))
-			}
-		}
 		if oldAnnotation.Schema != nil && newAnnotation.Schema != nil {
 			oldSchemas := ToSet(oldAnnotation.ReadCTISchema())
 			newSchemas := newAnnotation.ReadCTISchema()

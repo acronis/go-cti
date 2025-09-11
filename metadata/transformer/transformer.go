@@ -7,6 +7,7 @@ import (
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata"
+	"github.com/acronis/go-cti/metadata/annotations_collector"
 	"github.com/acronis/go-cti/metadata/consts"
 	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/registry"
@@ -133,24 +134,24 @@ func (t *Transformer) linkEntities() error {
 }
 
 func (t *Transformer) collectAnnotations() error {
-	annotationsCollector := NewAnnotationsCollector()
+	ac := annotations_collector.New()
 	for cti, entity := range t.registry.Types {
-		if entity.Schema == nil {
-			return fmt.Errorf("entity %s has no schema", cti)
+		// collect annotations for main schema
+		if entity.Schema != nil {
+			schema, _, err := entity.Schema.GetRefSchema()
+			if err != nil {
+				return fmt.Errorf("extract schema definition for %s: %w", cti, err)
+			}
+			entity.Annotations = ac.Collect(schema)
 		}
-		schema, _, err := entity.Schema.GetRefSchema()
-		if err != nil {
-			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
+		// collect annotations for traits schema
+		if entity.TraitsSchema != nil {
+			schema, _, err := entity.TraitsSchema.GetRefSchema()
+			if err != nil {
+				return fmt.Errorf("extract schema definition for %s: %w", cti, err)
+			}
+			entity.TraitsAnnotations = ac.Collect(schema)
 		}
-		entity.Annotations = annotationsCollector.Collect(schema)
-		if entity.TraitsSchema == nil {
-			continue
-		}
-		schema, _, err = entity.TraitsSchema.GetRefSchema()
-		if err != nil {
-			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
-		}
-		entity.TraitsAnnotations = annotationsCollector.Collect(schema)
 	}
 	return nil
 }

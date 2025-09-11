@@ -1,4 +1,4 @@
-package transformer
+package annotations_collector
 
 import (
 	"github.com/acronis/go-cti/metadata"
@@ -9,7 +9,7 @@ type AnnotationsCollector struct {
 	annotations map[metadata.GJsonPath]*metadata.Annotations
 }
 
-func NewAnnotationsCollector() *AnnotationsCollector {
+func New() *AnnotationsCollector {
 	return &AnnotationsCollector{}
 }
 
@@ -19,110 +19,106 @@ func (c *AnnotationsCollector) Collect(s *jsonschema.JSONSchemaCTI) map[metadata
 	return c.annotations
 }
 
-func (c *AnnotationsCollector) Visit(ctx string, s *jsonschema.JSONSchemaCTI) {
-	c.collectAnnotations(ctx, s)
+func (c *AnnotationsCollector) Visit(pth string, s *jsonschema.JSONSchemaCTI) {
+	c.collectAnnotations(pth, s)
 
-	if s.IsAnyOf() {
-		c.VisitAnyOf(ctx, s)
-	} else {
-		switch s.Type {
-		case "object":
-			c.VisitObject(ctx, s)
-		case "array":
-			c.VisitArray(ctx, s)
-		}
+	switch {
+	case s.IsAnyOf():
+		c.VisitAnyOf(pth, s)
+	case s.Type == "object":
+		c.VisitObject(pth, s)
+	case s.Type == "array":
+		c.VisitArray(pth, s)
 	}
 }
 
-func (c *AnnotationsCollector) VisitObject(ctx string, s *jsonschema.JSONSchemaCTI) any {
-	if ctx != "." {
-		ctx += "."
+func (c *AnnotationsCollector) VisitObject(pth string, s *jsonschema.JSONSchemaCTI) any {
+	if pth != "." {
+		pth += "."
 	}
 
 	if s.Properties != nil {
 		for p := s.Properties.Oldest(); p != nil; p = p.Next() {
-			c.Visit(ctx+p.Key, p.Value)
+			c.Visit(pth+p.Key, p.Value)
 		}
 	}
 
 	if s.PatternProperties != nil {
 		for p := s.PatternProperties.Oldest(); p != nil; p = p.Next() {
-			c.Visit(ctx+p.Key, p.Value)
+			c.Visit(pth+p.Key, p.Value)
 		}
 	}
 	return nil
 }
 
-func (c *AnnotationsCollector) VisitArray(ctx string, s *jsonschema.JSONSchemaCTI) {
-	if ctx == "." {
-		ctx += "#"
+func (c *AnnotationsCollector) VisitArray(pth string, s *jsonschema.JSONSchemaCTI) {
+	if pth == "." {
+		pth += "#"
 	} else {
-		ctx += ".#"
+		pth += ".#"
 	}
 
 	if s.Items != nil {
-		c.Visit(ctx, s.Items)
+		c.Visit(pth, s.Items)
 	}
 }
 
-func (c *AnnotationsCollector) VisitAnyOf(ctx string, s *jsonschema.JSONSchemaCTI) {
+func (c *AnnotationsCollector) VisitAnyOf(pth string, s *jsonschema.JSONSchemaCTI) {
 	for _, item := range s.AnyOf {
-		c.Visit(ctx, item)
+		c.Visit(pth, item)
 	}
 }
 
-func (c *AnnotationsCollector) collectAnnotations(ctx string, s *jsonschema.JSONSchemaCTI) {
-	if s.Annotations.IsEmpty() {
-		return // No annotations to collect.
-	}
-	key := metadata.GJsonPath(ctx)
-	item := c.annotations[key]
-	if item == nil {
+func (c *AnnotationsCollector) collectAnnotations(pth string, s *jsonschema.JSONSchemaCTI) {
+	key := metadata.GJsonPath(pth)
+	item, ok := c.annotations[key]
+	if !ok {
 		item = &metadata.Annotations{}
-		c.annotations[key] = item
 	}
-	if s.CTICTI != nil {
-		item.CTI = s.CTICTI
-	}
-	if s.CTIFinal != nil {
-		item.Final = s.CTIFinal
-	}
-	if s.CTIAccess != "" {
-		item.Access = s.CTIAccess
-	}
-	if s.CTIResilient != nil {
-		item.Resilient = s.CTIResilient
-	}
+
+	changed := false
 	if s.CTIID != nil {
 		item.ID = s.CTIID
+		changed = true
 	}
 	if s.CTIL10N != nil {
 		item.L10N = s.CTIL10N
+		changed = true
 	}
 	if s.CTIAsset != nil {
 		item.Asset = s.CTIAsset
+		changed = true
 	}
 	if s.CTIOverridable != nil {
 		item.Overridable = s.CTIOverridable
+		changed = true
 	}
 	if s.CTIReference != nil {
 		item.Reference = s.CTIReference
+		changed = true
 	}
 	if s.CTISchema != nil {
 		item.Schema = s.CTISchema
+		changed = true
 	}
 	if s.CTIMeta != "" {
 		item.Meta = s.CTIMeta
+		changed = true
 	}
 	if s.CTIDisplayName != nil {
 		item.DisplayName = s.CTIDisplayName
+		changed = true
 	}
 	if s.CTIDescription != nil {
 		item.Description = s.CTIDescription
+		changed = true
 	}
 	if s.CTIPropertyNames != nil {
 		item.PropertyNames = s.CTIPropertyNames
+		changed = true
 	}
-	c.annotations[key] = item
+	if changed {
+		c.annotations[key] = item
+	}
 	// TODO: Optional cleanup?
 }
