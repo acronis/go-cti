@@ -240,14 +240,14 @@ func (pkg *Package) loadEntitiesFromCache(cacheFile string) (metadata.Entities, 
 	defer f.Close()
 
 	d := json.NewDecoder(f)
-	var cachedEntities []cachedEntity
+	var cachedEntities []CachedEntity
 	if err = d.Decode(&cachedEntities); err != nil {
 		return nil, fmt.Errorf("decode cache file %s: %w", cacheFile, err)
 	}
 
 	entities := make(metadata.Entities, len(cachedEntities))
-	for i, cachedEntity := range cachedEntities {
-		entity, convErr := metadata.ConvertUntypedEntityToEntity(&cachedEntity)
+	for i, CachedEntity := range cachedEntities {
+		entity, convErr := metadata.ConvertUntypedEntityToEntity(&CachedEntity)
 		if convErr != nil {
 			return nil, fmt.Errorf("convert cached entity to typed entity: %w", convErr)
 		}
@@ -256,7 +256,7 @@ func (pkg *Package) loadEntitiesFromCache(cacheFile string) (metadata.Entities, 
 	return entities, nil
 }
 
-type cachedEntity struct {
+type CachedEntity struct {
 	Final             bool                      `json:"final"`
 	CTI               string                    `json:"cti"`
 	Resilient         bool                      `json:"resilient"`
@@ -274,62 +274,62 @@ type cachedEntity struct {
 	SourceMap         metadata.UntypedSourceMap `json:"source_map,omitempty"`
 }
 
-func (ue *cachedEntity) GetFinal() bool {
+func (ue *CachedEntity) GetFinal() bool {
 	return ue.Final
 }
 
-func (ue *cachedEntity) GetCTI() string {
+func (ue *CachedEntity) GetCTI() string {
 	return ue.CTI
 }
 
-func (ue *cachedEntity) GetResilient() bool {
+func (ue *CachedEntity) GetResilient() bool {
 	return ue.Resilient
 }
 
-func (ue *cachedEntity) GetAccess() consts.AccessModifier {
+func (ue *CachedEntity) GetAccess() consts.AccessModifier {
 	return ue.Access
 }
 
-func (ue *cachedEntity) GetDisplayName() string {
+func (ue *CachedEntity) GetDisplayName() string {
 	return ue.DisplayName
 }
 
-func (ue *cachedEntity) GetDescription() string {
+func (ue *CachedEntity) GetDescription() string {
 	return ue.Description
 }
 
-func (ue *cachedEntity) GetDictionaries() map[string]any {
+func (ue *CachedEntity) GetDictionaries() map[string]any {
 	return ue.Dictionaries
 }
 
-func (ue *cachedEntity) GetValues() json.RawMessage {
+func (ue *CachedEntity) GetValues() json.RawMessage {
 	return ue.Values
 }
 
-func (ue *cachedEntity) GetSchema() json.RawMessage {
+func (ue *CachedEntity) GetSchema() json.RawMessage {
 	return ue.Schema
 }
 
-func (ue *cachedEntity) GetTraitsSchema() json.RawMessage {
+func (ue *CachedEntity) GetTraitsSchema() json.RawMessage {
 	return ue.TraitsSchema
 }
 
-func (ue *cachedEntity) GetTraitsAnnotations() json.RawMessage {
+func (ue *CachedEntity) GetTraitsAnnotations() json.RawMessage {
 	return ue.TraitsAnnotations
 }
 
-func (ue *cachedEntity) GetTraitsSourceMap() metadata.UntypedSourceMap {
+func (ue *CachedEntity) GetTraitsSourceMap() metadata.UntypedSourceMap {
 	return ue.TraitsSourceMap
 }
 
-func (ue *cachedEntity) GetTraits() json.RawMessage {
+func (ue *CachedEntity) GetTraits() json.RawMessage {
 	return ue.Traits
 }
 
-func (ue *cachedEntity) GetAnnotations() json.RawMessage {
+func (ue *CachedEntity) GetAnnotations() json.RawMessage {
 	return ue.Annotations
 }
 
-func (ue *cachedEntity) GetSourceMap() metadata.UntypedSourceMap {
+func (ue *CachedEntity) GetSourceMap() metadata.UntypedSourceMap {
 	return ue.SourceMap
 }
