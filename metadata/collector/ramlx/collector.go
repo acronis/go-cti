@@ -96,6 +96,9 @@ func (c *RAMLXCollector) Collect() (*registry.MetadataRegistry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("preprocess cti type: %w", err)
 		}
+		if err := c.insertImplicitSchema(shape, true); err != nil {
+			return nil, fmt.Errorf("insert implicit schema: %w", err)
+		}
 		entity, err := c.MakeMetadataType(k, shape)
 		if err != nil {
 			return nil, fmt.Errorf("make cti type: %w", err)
