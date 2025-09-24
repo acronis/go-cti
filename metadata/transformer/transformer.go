@@ -182,14 +182,20 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSche
 		return nil, fmt.Errorf("schema at %s is nil", ctx.path)
 	}
 
-	// Using CTI history to prevent infinite recursion over CTI types.
-	// This also takes CTI type aliases into account.
+	// If type has cti.schema annotation, we need to resolve and insert it without looking at cti.cti
+	if s.CTISchema != nil {
+		if ctx.history == nil {
+			return nil, errors.New("must not begin with cti.schema")
+		}
+		return t.getCtiSchema(ctx, s.CTISchema)
+	}
+
 	ctis, err := t.readMetadataCti(s)
 	if err != nil {
 		return nil, fmt.Errorf("read cti.cti: %w", err)
 	}
 
-	// FIXME: This most likely will not work with aliases correctly.
+	// Using CTI history to prevent infinite recursion over CTI types.
 	for _, cti := range ctis {
 		for _, item := range ctx.history {
 			if cti != item {
@@ -225,10 +231,6 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSche
 			}, nil
 		}
 		ctx.history = ctx.history.add(cti)
-	}
-
-	if s.CTISchema != nil {
-		return t.getCtiSchema(ctx, s.CTISchema)
 	}
 
 	switch {

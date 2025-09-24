@@ -8,6 +8,124 @@ import (
 	"github.com/acronis/go-raml/v2"
 )
 
+func (c *RAMLXCollector) constructAndSetCtiSchemaAnnotation(b *raml.BaseShape, v any) error {
+	schemaDefinedBy, err := c.raml.GetReferencedAnnotationType(consts.Schema, b.Location)
+	if err != nil {
+		return fmt.Errorf("get schema annotation type: %w", err)
+	}
+	// TODO: Add DomainExtension constructor to go-raml
+	b.CustomDomainProperties.Set(consts.Schema, &raml.DomainExtension{
+		Name:      consts.Schema,
+		DefinedBy: schemaDefinedBy,
+		Extension: &raml.Node{Value: v},
+		Location:  b.Location,
+	})
+	return nil
+}
+
+func (c *RAMLXCollector) insertCtiSchema(base *raml.BaseShape) (bool, error) {
+	if _, ok := base.CustomDomainProperties.Get(consts.Schema); ok {
+		return false, nil
+	}
+
+	switch t := base.Shape.(type) {
+	case *raml.UnionShape:
+		values := make([]any, 0, len(t.AnyOf))
+		sawCTI := false
+		invalid := false
+
+		for _, s := range t.AnyOf {
+			ctis, err := c.readMetadataCti(s)
+			if err != nil {
+				return true, fmt.Errorf("read metadata cti: %w", err)
+			}
+			_, isNil := s.Shape.(*raml.NilShape)
+
+			switch {
+			case len(ctis) > 0:
+				values = append(values, ctis[0])
+				sawCTI = true
+			case isNil:
+				values = append(values, nil)
+			default:
+				invalid = true
+			}
+		}
+
+		// If no CTIs were found, nothing to do.
+		if !sawCTI {
+			return false, nil
+		}
+		// If we saw any non-CTI, non-nil member while there are CTIs, the schema is invalid.
+		if invalid {
+			return true, errors.New("cti schema must consist of only CTI types or nil")
+		}
+		if err := c.constructAndSetCtiSchemaAnnotation(base, values); err != nil {
+			return true, fmt.Errorf("construct schema annotation: %w", err)
+		}
+		return true, nil
+	default:
+		target := base
+		// Aliases do not have a parent, so we should try to insert into the same type.
+		if len(base.Inherits) > 0 {
+			target = base.Inherits[0]
+		}
+
+		ctis, err := c.readMetadataCti(target)
+		if err != nil {
+			return true, fmt.Errorf("read metadata cti: %w", err)
+		}
+		if len(ctis) == 0 {
+			return false, nil
+		}
+		if err := c.constructAndSetCtiSchemaAnnotation(base, ctis[0]); err != nil {
+			return true, fmt.Errorf("construct schema annotation: %w", err)
+		}
+		return true, nil
+	}
+}
+
+func (c *RAMLXCollector) insertImplicitSchema(base *raml.BaseShape, isRoot bool) error {
+	if !isRoot {
+		stop, err := c.insertCtiSchema(base)
+		if err != nil {
+			return fmt.Errorf("insert cti schema: %w", err)
+		}
+		if stop {
+			return nil
+		}
+	}
+
+	// If schema does not have cti.cti, then we continue traverse
+	switch t := base.Shape.(type) {
+	case *raml.ArrayShape:
+		if t.Items != nil {
+			if err := c.insertImplicitSchema(t.Items, false); err != nil {
+				return fmt.Errorf("array items: %w", err)
+			}
+		}
+	case *raml.ObjectShape:
+		for pair := t.Properties.Oldest(); pair != nil; pair = pair.Next() {
+			if err := c.insertImplicitSchema(pair.Value.Base, false); err != nil {
+				return fmt.Errorf("pattern property %s: %w", pair.Key, err)
+			}
+		}
+		for pair := t.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
+			if err := c.insertImplicitSchema(pair.Value.Base, false); err != nil {
+				return fmt.Errorf("pattern property %s: %w", pair.Key, err)
+			}
+		}
+	case *raml.UnionShape:
+		for _, s := range t.AnyOf {
+			if err := c.insertImplicitSchema(s, false); err != nil {
+				return fmt.Errorf("union anyof: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (c *RAMLXCollector) unwrapMetadataType(base *raml.BaseShape) (*raml.BaseShape, error) {
 	s := base.Shape
 	if s == nil {

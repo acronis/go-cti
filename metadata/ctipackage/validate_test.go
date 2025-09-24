@@ -27,7 +27,266 @@ func TestValidateManual(t *testing.T) {
 	require.NoError(t, pkg.Validate())
 }
 
-func Test_PackageValidations(t *testing.T) {
+func Test_ImplicitCTISchema(t *testing.T) {
+	testsupp.InitLog(t)
+
+	testCases := map[string]struct {
+		testsupp.PackageTestCase
+		wantError bool
+		validate  func(*Package)
+	}{
+		"implicit cti schema": {
+			PackageTestCase: testsupp.PackageTestCase{
+				PkgId:    "x.y",
+				Entities: []string{"types.raml"},
+				Files: map[string]string{"types.raml": strings.TrimSpace(`
+#%RAML 1.0 Library
+
+uses:
+  cti: .ramlx/cti.raml
+
+types:
+  Schema:
+    (cti.cti): cti.x.y.schema.v1.0
+    (cti.final): false
+    properties:
+      schema_prop:
+        type: object
+
+  ImplicitEmbed:
+    (cti.cti): cti.x.y.implicit_embed.v1.0
+    (cti.final): false
+    properties:
+      prop:
+        type: Schema
+
+  ImplicitEmbedAlias:
+    (cti.cti): cti.x.y.implicit_embed_alias.v1.0
+    (cti.final): false
+    properties:
+      prop: Schema
+
+  ImplicitEmbedUnion:
+    (cti.cti): cti.x.y.implicit_embed_union.v1.0
+    (cti.final): false
+    properties:
+      prop:
+        type: Schema | nil
+
+  ImplicitEmbedAliasedUnion:
+    (cti.cti): cti.x.y.implicit_embed_aliased_union.v1.0
+    (cti.final): false
+    properties:
+      prop: Schema | nil
+`)},
+			},
+			validate: func(pkg *Package) {
+				golden := `{
+  "cti.x.y.implicit_embed.v1.0": {
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$ref": "#/definitions/ImplicitEmbed",
+    "definitions": {
+      "ImplicitEmbed": {
+        "properties": {
+          "prop": {
+            "properties": {
+              "schema_prop": {
+                "type": "object"
+              }
+            },
+            "type": "object",
+            "required": [
+              "schema_prop"
+            ],
+            "x-cti.cti": "cti.x.y.schema.v1.0",
+            "x-cti.final": false,
+            "x-cti.schema": "cti.x.y.schema.v1.0"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prop"
+        ],
+        "x-cti.cti": "cti.x.y.implicit_embed.v1.0",
+        "x-cti.final": false
+      }
+    }
+  },
+  "cti.x.y.implicit_embed_alias.v1.0": {
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$ref": "#/definitions/ImplicitEmbedAlias",
+    "definitions": {
+      "ImplicitEmbedAlias": {
+        "properties": {
+          "prop": {
+            "properties": {
+              "schema_prop": {
+                "type": "object"
+              }
+            },
+            "type": "object",
+            "required": [
+              "schema_prop"
+            ],
+            "x-cti.cti": "cti.x.y.schema.v1.0",
+            "x-cti.final": false,
+            "x-cti.schema": "cti.x.y.schema.v1.0"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prop"
+        ],
+        "x-cti.cti": "cti.x.y.implicit_embed_alias.v1.0",
+        "x-cti.final": false
+      }
+    }
+  },
+  "cti.x.y.implicit_embed_aliased_union.v1.0": {
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$ref": "#/definitions/ImplicitEmbedAliasedUnion",
+    "definitions": {
+      "ImplicitEmbedAliasedUnion": {
+        "properties": {
+          "prop": {
+            "anyOf": [
+              {
+                "properties": {
+                  "schema_prop": {
+                    "type": "object"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "schema_prop"
+                ],
+                "x-cti.cti": "cti.x.y.schema.v1.0",
+                "x-cti.final": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "x-cti.schema": [
+              "cti.x.y.schema.v1.0",
+              null
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "prop"
+        ],
+        "x-cti.cti": "cti.x.y.implicit_embed_aliased_union.v1.0",
+        "x-cti.final": false
+      }
+    }
+  },
+  "cti.x.y.implicit_embed_union.v1.0": {
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$ref": "#/definitions/ImplicitEmbedUnion",
+    "definitions": {
+      "ImplicitEmbedUnion": {
+        "properties": {
+          "prop": {
+            "anyOf": [
+              {
+                "properties": {
+                  "schema_prop": {
+                    "type": "object"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "schema_prop"
+                ],
+                "x-cti.cti": "cti.x.y.schema.v1.0",
+                "x-cti.final": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "x-cti.schema": [
+              "cti.x.y.schema.v1.0",
+              null
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "prop"
+        ],
+        "x-cti.cti": "cti.x.y.implicit_embed_union.v1.0",
+        "x-cti.final": false
+      }
+    }
+  },
+  "cti.x.y.schema.v1.0": {
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$ref": "#/definitions/Schema",
+    "definitions": {
+      "Schema": {
+        "properties": {
+          "schema_prop": {
+            "type": "object"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema_prop"
+        ],
+        "x-cti.cti": "cti.x.y.schema.v1.0",
+        "x-cti.final": false
+      }
+    }
+  }
+}`
+				mergedSchemas := make(map[string]*jsonschema.JSONSchemaCTI)
+				for _, et := range pkg.GlobalRegistry.Types {
+					s, err := et.GetMergedSchema()
+					require.NoError(t, err, "Failed to get merged schema for %s", et.CTI)
+					mergedSchemas[et.CTI] = s
+				}
+				b, err := json.MarshalIndent(mergedSchemas, "", "  ")
+				require.NoError(t, err, "Failed to marshal merged schemas")
+				require.Equal(t, golden, string(b), "Merged schemas do not match")
+			},
+			wantError: false,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+
+			pkg, err := New(testsupp.InitTestPackageFiles(t, name, tc.PackageTestCase),
+				WithRamlxVersion("1.0"),
+				WithID(tc.PkgId),
+				WithEntities(tc.Entities))
+
+			require.NoError(t, err)
+			require.NoError(t, pkg.Initialize())
+			require.NoError(t, pkg.Read())
+			require.NoError(t, pkg.Parse())
+
+			{
+				err = pkg.Validate()
+				if tc.wantError {
+					require.Error(t, err, "Expected error for package %s", name)
+					slog.Error("Command failed", slogex.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
+				} else {
+					if err != nil {
+						slog.Error("Command failed", slogex.ErrToSlogAttr(err, stacktrace.WithEnsureDuplicates()))
+						t.Fatalf("Unexpected error for package %s: %v", name, err)
+					}
+				}
+				tc.validate(pkg)
+			}
+		})
+	}
+}
+
+func Test_RecursiveSchemas(t *testing.T) {
 	testsupp.InitLog(t)
 
 	testCases := map[string]struct {
