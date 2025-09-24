@@ -22,15 +22,15 @@ const (
 )
 
 type Index struct {
-	PackageID            string            `json:"package_id"`
-	RamlxVersion         string            `json:"ramlx_version,omitempty"`
-	Apis                 []string          `json:"apis,omitempty"`
-	Entities             []string          `json:"entities,omitempty"`
-	Assets               []string          `json:"assets,omitempty"`
-	Depends              map[string]string `json:"depends,omitempty"`
-	Examples             []string          `json:"examples,omitempty"`
-	AdditionalProperties interface{}       `json:"additional_properties,omitempty"`
-	Serialized           []string          `json:"serialized,omitempty"`
+	PackageID      string            `json:"package_id"`
+	RamlxVersion   string            `json:"ramlx_version,omitempty"`
+	Apis           []string          `json:"apis,omitempty"`
+	Entities       []string          `json:"entities,omitempty"`
+	Assets         []string          `json:"assets,omitempty"`
+	Depends        map[string]string `json:"depends,omitempty"`
+	Examples       []string          `json:"examples,omitempty"`
+	AdditionalInfo any               `json:"additional_info,omitempty"`
+	Serialized     []string          `json:"serialized,omitempty"`
 
 	Vendor string `json:"-"`
 	Pkg    string `json:"-"`
