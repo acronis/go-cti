@@ -184,9 +184,6 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSche
 
 	// If type has cti.schema annotation, we need to resolve and insert it without looking at cti.cti
 	if s.CTISchema != nil {
-		if ctx.history == nil {
-			return nil, errors.New("must not begin with cti.schema")
-		}
 		return t.getCtiSchema(ctx, s.CTISchema)
 	}
 
