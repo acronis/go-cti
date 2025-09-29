@@ -161,17 +161,22 @@ func (t *Transformer) findAndInsertCtiSchemas() error {
 		if entity.Schema == nil {
 			continue
 		}
+		// Make a shallow copy of entity and deep copy of schema to avoid modifying the original schema.
 		newEntity := *entity
 		newEntity.Schema = newEntity.Schema.DeepCopy()
 
 		ctx := context{entity: &newEntity}
-		schema, _, err := newEntity.Schema.GetRefSchema()
+		schema, ref, err := newEntity.Schema.GetRefSchema()
 		if err != nil {
 			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
 		}
-		if _, err = t.findAndInsertCtiSchema(ctx, schema); err != nil {
+		newSchema, err := t.findAndInsertCtiSchema(ctx, schema)
+		if err != nil {
 			return fmt.Errorf("find and insert cti schema for %s: %w", cti, err)
 		}
+		// Replace ref in case root was modified.
+		newEntity.Schema.Definitions[ref] = newSchema
+
 		entity.Schema = newEntity.Schema
 	}
 	return nil
