@@ -165,7 +165,7 @@ func (t *Transformer) findAndInsertCtiSchemas() error {
 		newEntity := *entity
 		newEntity.Schema = newEntity.Schema.DeepCopy()
 
-		ctx := context{entity: &newEntity}
+		ctx := context{entity: &newEntity, history: []string{cti}}
 		schema, ref, err := newEntity.Schema.GetRefSchema()
 		if err != nil {
 			return fmt.Errorf("extract schema definition for %s: %w", cti, err)
@@ -182,6 +182,47 @@ func (t *Transformer) findAndInsertCtiSchemas() error {
 	return nil
 }
 
+func (t *Transformer) checkRecursion(ctx context, s *jsonschema.JSONSchemaCTI, cti string) (*jsonschema.JSONSchemaCTI, error) {
+	// Using CTI history to prevent infinite recursion over CTI types.
+	for _, item := range ctx.history {
+		if cti != item {
+			continue
+		}
+		if ctx.path == "" {
+			return nil, fmt.Errorf("invalid self-recursive %s", cti)
+		}
+		// If found CTI matches context CTI - that's a self-recursion which may lead directly to root.
+		if ctx.entity.CTI == cti {
+			return &jsonschema.JSONSchemaCTI{
+				JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#"},
+				Annotations:       s.Annotations,
+			}, nil
+		}
+		// Otherwise, that's an external recursion and we need to insert the schema into definitions.
+		// NOTE: We need to escape the tilde (~) according to JSON Pointer spec.
+		escapedCTI := strings.Replace(cti, "~", "~0", -1)
+		if _, ok := ctx.entity.Schema.Definitions[cti]; ok {
+			// If the schema is already in definitions, we can return a ref to it.
+			return &jsonschema.JSONSchemaCTI{
+				JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#/definitions/" + escapedCTI},
+				Annotations:       s.Annotations,
+			}, nil
+		}
+		ctx.entity.Schema.Definitions[cti] = nil // Initialize with an empty value to reserve the key and avoid recursion.
+		ctx.history = make(history, 0)           // Reset history for the new context to keep traversing nested recursion.
+		recursiveSchema, err := t.getCtiSchema(ctx, cti)
+		if err != nil {
+			return nil, fmt.Errorf("find and insert cti schema for %s at %s: %w", cti, ctx.path, err)
+		}
+		ctx.entity.Schema.Definitions[cti] = recursiveSchema
+		return &jsonschema.JSONSchemaCTI{
+			JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#/definitions/" + escapedCTI},
+			Annotations:       s.Annotations,
+		}, nil
+	}
+	return nil, nil
+}
+
 func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSchemaCTI) (*jsonschema.JSONSchemaCTI, error) {
 	if s == nil {
 		return nil, fmt.Errorf("schema at %s is nil", ctx.path)
@@ -190,49 +231,6 @@ func (t *Transformer) findAndInsertCtiSchema(ctx context, s *jsonschema.JSONSche
 	// If type has cti.schema annotation, we need to resolve and insert it without looking at cti.cti
 	if s.CTISchema != nil {
 		return t.getCtiSchema(ctx, s.CTISchema)
-	}
-
-	ctis, err := t.readMetadataCti(s)
-	if err != nil {
-		return nil, fmt.Errorf("read cti.cti: %w", err)
-	}
-
-	// Using CTI history to prevent infinite recursion over CTI types.
-	for _, cti := range ctis {
-		for _, item := range ctx.history {
-			if cti != item {
-				continue
-			}
-			// If found CTI matches context CTI - that's a self-recursion which may lead directly to root.
-			if ctx.entity.CTI == cti {
-				return &jsonschema.JSONSchemaCTI{
-					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#"},
-					Annotations:       s.Annotations,
-				}, nil
-			}
-			// Otherwise, that's an external recursion and we need to insert the schema into definitions.
-			// NOTE: We need to escape the tilde (~) according to JSON Pointer spec.
-			escapedCTI := strings.Replace(cti, "~", "~0", -1)
-			if _, ok := ctx.entity.Schema.Definitions[cti]; ok {
-				// If the schema is already in definitions, we can return a ref to it.
-				return &jsonschema.JSONSchemaCTI{
-					JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#/definitions/" + escapedCTI},
-					Annotations:       s.Annotations,
-				}, nil
-			}
-			ctx.entity.Schema.Definitions[cti] = nil // Initialize with an empty value to reserve the key and avoid recursion.
-			ctx.history = make(history, 0)           // Reset history for the new context to keep traversing nested recursion.
-			recursiveSchema, err := t.getCtiSchema(ctx, cti)
-			if err != nil {
-				return nil, fmt.Errorf("find and insert cti schema for %s at %s: %w", cti, ctx.path, err)
-			}
-			ctx.entity.Schema.Definitions[cti] = recursiveSchema
-			return &jsonschema.JSONSchemaCTI{
-				JSONSchemaGeneric: jsonschema.JSONSchemaGeneric{Ref: "#/definitions/" + escapedCTI},
-				Annotations:       s.Annotations,
-			}, nil
-		}
-		ctx.history = ctx.history.add(cti)
 	}
 
 	switch {
@@ -256,6 +254,16 @@ func (t *Transformer) getCtiSchema(ctx context, val any) (*jsonschema.JSONSchema
 		if err != nil {
 			return nil, fmt.Errorf("get cti schema for %s: %w", vv, err)
 		}
+
+		recursiveSchema, err := t.checkRecursion(ctx, schema, vv)
+		if err != nil {
+			return nil, fmt.Errorf("check recursion for %s at %s: %w", vv, ctx.path, err)
+		}
+		if recursiveSchema != nil {
+			return recursiveSchema, nil
+		}
+		ctx.history = ctx.history.add(vv)
+
 		schema, err = t.findAndInsertCtiSchema(ctx, schema)
 		if err != nil {
 			return nil, fmt.Errorf("find and insert cti schema for %s: %w", vv, err)
@@ -271,6 +279,17 @@ func (t *Transformer) getCtiSchema(ctx context, val any) (*jsonschema.JSONSchema
 				if err != nil {
 					return nil, fmt.Errorf("get cti schema for %s: %w", v, err)
 				}
+
+				recursiveSchema, err := t.checkRecursion(ctx, schema, v)
+				if err != nil {
+					return nil, fmt.Errorf("check recursion for %s at %s: %w", v, ctx.path, err)
+				}
+				if recursiveSchema != nil {
+					schemas[i] = schema
+					continue
+				}
+				ctx.history = ctx.history.add(v)
+
 				schema, err = t.findAndInsertCtiSchema(ctx, schema)
 				if err != nil {
 					return nil, fmt.Errorf("find and insert cti schema for %s: %w", v, err)
