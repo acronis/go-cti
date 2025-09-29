@@ -78,6 +78,12 @@ types:
     (cti.final): false
     properties:
       prop: Schema | nil
+
+  ImplicitEmbedInvalidUnion:
+    (cti.cti): cti.x.y.implicit_embed_invalid_union.v1.0
+    (cti.final): false
+    properties:
+      prop: Schema | string | nil
 `)},
 			},
 			validate: func(pkg *Package) {
@@ -178,6 +184,46 @@ types:
           "prop"
         ],
         "x-cti.cti": "cti.x.y.implicit_embed_aliased_union.v1.0",
+        "x-cti.final": false
+      }
+    }
+  },
+  "cti.x.y.implicit_embed_invalid_union.v1.0": {
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$ref": "#/definitions/ImplicitEmbedInvalidUnion",
+    "definitions": {
+      "ImplicitEmbedInvalidUnion": {
+        "properties": {
+          "prop": {
+            "anyOf": [
+              {
+                "properties": {
+                  "schema_prop": {
+                    "type": "object"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "schema_prop"
+                ],
+                "x-cti.cti": "cti.x.y.schema.v1.0",
+                "x-cti.final": false,
+                "x-cti.schema": "cti.x.y.schema.v1.0"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "prop"
+        ],
+        "x-cti.cti": "cti.x.y.implicit_embed_invalid_union.v1.0",
         "x-cti.final": false
       }
     }
