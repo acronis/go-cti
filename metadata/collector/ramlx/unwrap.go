@@ -56,9 +56,9 @@ func (c *RAMLXCollector) insertCtiSchema(base *raml.BaseShape) (bool, error) {
 		if !sawCTI {
 			return false, nil
 		}
-		// If we saw any non-CTI, non-nil member while there are CTIs, the schema is invalid.
+		// If we saw any non-CTI, non-nil member while there are CTIs - CTI schema will be invalid, skip it.
 		if invalid {
-			return true, errors.New("cti schema must consist of only CTI types or nil")
+			return false, nil
 		}
 		if err := c.constructAndSetCtiSchemaAnnotation(base, values); err != nil {
 			return true, fmt.Errorf("construct schema annotation: %w", err)
