@@ -285,7 +285,7 @@ func (t *Transformer) getCtiSchema(ctx context, val any) (*jsonschema.JSONSchema
 					return nil, fmt.Errorf("check recursion for %s at %s: %w", v, ctx.path, err)
 				}
 				if recursiveSchema != nil {
-					schemas[i] = schema
+					schemas[i] = recursiveSchema
 					continue
 				}
 				ctx.history = ctx.history.add(v)
