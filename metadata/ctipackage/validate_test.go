@@ -604,17 +604,20 @@ types:
         "properties": {
           "self_recursion": {
             "$ref": "#",
-            "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+            "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+            "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
           },
           "cross_self_recursion": {
             "properties": {
               "cross_recursion": {
                 "$ref": "#",
-                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
               },
               "self_recursion": {
                 "$ref": "#/definitions/cti.x.y.self_recursive_parent.v1.0",
-                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
               }
             },
             "type": "object",
@@ -636,11 +639,13 @@ types:
             "properties": {
               "self_recursion": {
                 "$ref": "#",
-                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
               },
               "cross_self_recursion": {
                 "$ref": "#/definitions/cti.x.y.self_recursive_parent.v1.0",
-                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
               }
             },
             "additionalProperties": false,
@@ -650,7 +655,8 @@ types:
           },
           "self_recursion": {
             "$ref": "#/definitions/cti.x.y.self_recursive_parent.v1.0",
-            "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+            "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+            "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
           }
         },
         "type": "object",
@@ -694,11 +700,13 @@ types:
                 "properties": {
                   "self_recursion": {
                     "$ref": "#/definitions/cti.x.y.cross_recursive_parent.v1.0",
-                    "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+                    "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+                    "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
                   },
                   "cross_self_recursion": {
                     "$ref": "#/definitions/cti.x.y.self_recursive_parent.v1.0",
-                    "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+                    "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+                    "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
                   }
                 },
                 "additionalProperties": false,
@@ -708,7 +716,8 @@ types:
               },
               "self_recursion": {
                 "$ref": "#/definitions/cti.x.y.self_recursive_parent.v1.0",
-                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
               }
             },
             "type": "object",
@@ -730,17 +739,20 @@ types:
         "properties": {
           "self_recursion": {
             "$ref": "#/definitions/cti.x.y.cross_recursive_parent.v1.0",
-            "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+            "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+            "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
           },
           "cross_self_recursion": {
             "properties": {
               "cross_recursion": {
                 "$ref": "#/definitions/cti.x.y.cross_recursive_parent.v1.0",
-                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
               },
               "self_recursion": {
                 "$ref": "#/definitions/cti.x.y.self_recursive_parent.v1.0",
-                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
               }
             },
             "type": "object",
@@ -763,11 +775,13 @@ types:
             "properties": {
               "self_recursion": {
                 "$ref": "#/definitions/cti.x.y.cross_recursive_parent.v1.0",
-                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
               },
               "cross_self_recursion": {
                 "$ref": "#/definitions/cti.x.y.self_recursive_parent.v1.0",
-                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
               }
             },
             "additionalProperties": false,
@@ -777,7 +791,8 @@ types:
           },
           "self_recursion": {
             "$ref": "#/definitions/cti.x.y.self_recursive_parent.v1.0",
-            "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+            "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+            "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
           }
         },
         "type": "object",
@@ -800,11 +815,13 @@ types:
             "properties": {
               "self_recursion": {
                 "$ref": "#/definitions/cti.x.y.cross_recursive_parent.v1.0",
-                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
               },
               "cross_self_recursion": {
                 "$ref": "#",
-                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
               }
             },
             "additionalProperties": false,
@@ -814,7 +831,8 @@ types:
           },
           "self_recursion": {
             "$ref": "#",
-            "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+            "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+            "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
           }
         },
         "type": "object",
@@ -828,17 +846,20 @@ types:
         "properties": {
           "self_recursion": {
             "$ref": "#/definitions/cti.x.y.cross_recursive_parent.v1.0",
-            "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+            "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+            "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
           },
           "cross_self_recursion": {
             "properties": {
               "cross_recursion": {
                 "$ref": "#/definitions/cti.x.y.cross_recursive_parent.v1.0",
-                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.cross_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.cross_recursive_parent.v1.0"
               },
               "self_recursion": {
                 "$ref": "#",
-                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0"
+                "x-cti.cti": "cti.x.y.self_recursive_parent.v1.0",
+                "x-cti.schema": "cti.x.y.self_recursive_parent.v1.0"
               }
             },
             "type": "object",
