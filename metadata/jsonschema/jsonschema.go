@@ -65,7 +65,7 @@ func JSONSchemaWrapper(c *raml.JSONSchemaConverter[*JSONSchemaCTI], core *JSONSc
 			v := val.(bool)
 			w.CTIFinal = &v
 		case consts.Access:
-			w.CTIAccess = val.(consts.AccessModifier)
+			w.CTIAccess = consts.AccessModifier(val.(string))
 		case consts.Resilient:
 			v := val.(bool)
 			w.CTIResilient = &v
