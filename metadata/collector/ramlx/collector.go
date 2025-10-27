@@ -146,7 +146,7 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 		entity.SetResilient(val.Extension.Value.(bool))
 	}
 	if val, ok := shape.CustomDomainProperties.Get(consts.Access); ok {
-		entity.SetAccess(val.Extension.Value.(consts.AccessModifier))
+		entity.SetAccess(consts.AccessModifier(val.Extension.Value.(string)))
 	}
 	if shape.CustomShapeFacets != nil {
 		if t, ok := shape.CustomShapeFacets.Get(consts.Traits); ok {
@@ -220,7 +220,7 @@ func (c *RAMLXCollector) MakeMetadataInstance(
 	accessFieldProp := c.findPropertyWithAnnotation(ctiType, consts.AccessField)
 	if accessFieldProp != nil {
 		if v, ok := values[accessFieldProp.Name]; ok {
-			entity.SetAccess(v.(consts.AccessModifier))
+			entity.SetAccess(consts.AccessModifier(v.(string)))
 		}
 	}
 
