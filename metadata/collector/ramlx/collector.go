@@ -14,6 +14,7 @@ import (
 	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/registry"
 	"github.com/acronis/go-raml/v2"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 type RAMLXCollector struct {
@@ -148,28 +149,55 @@ func (c *RAMLXCollector) MakeMetadataType(id string, shape *raml.BaseShape) (*me
 	if val, ok := shape.CustomDomainProperties.Get(consts.Access); ok {
 		entity.SetAccess(consts.AccessModifier(val.Extension.Value.(string)))
 	}
-	if shape.CustomShapeFacets != nil {
-		if t, ok := shape.CustomShapeFacets.Get(consts.Traits); ok {
-			traits, ok := t.Value.(map[string]any)
-			if !ok {
-				return nil, fmt.Errorf("traits must be a map[string]any, got %T", t.Value)
+	combinedTraits := make(map[string]any)
+	for pair := shape.CustomShapeFacets.Oldest(); pair != nil; pair = pair.Next() {
+		traits, ok := pair.Value.Value.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("traits must be a map[string]any, got %T", pair.Value)
+		}
+		for k, v := range traits {
+			if existing, ok := combinedTraits[k]; ok {
+				return nil, fmt.Errorf("trait %s is defined in multiple facets with different values: %v and %v", k, existing, v)
 			}
-			entity.SetTraits(traits)
+			combinedTraits[k] = v
 		}
 	}
-	if t, ok := shape.CustomShapeFacetDefinitions.Get(consts.Traits); ok {
-		traitsJsonSchema, err := c.jsonSchemaConverter.Convert(t.Base.Shape)
+	if len(combinedTraits) > 0 {
+		entity.SetTraits(combinedTraits)
+	}
+
+	// TODO: Handle source maps for traits differently.
+	base, s, err := c.raml.MakeNewShape("cti-traits", raml.TypeObject, shape.Location, shape.Position)
+	targetObjShape, _ := s.(*raml.ObjectShape)
+	targetObjShape.Properties = orderedmap.New[string, raml.Property]()
+	targetObjShape.SetUnwrapped()
+	for pair := shape.CustomShapeFacetDefinitions.Oldest(); pair != nil; pair = pair.Next() {
+		sourceObjectShape, ok := pair.Value.Base.Shape.(*raml.ObjectShape)
+		if !ok {
+			return nil, fmt.Errorf("custom trait definition must be an object shape, got %T", pair.Value.Base.Shape)
+		}
+		for propPair := sourceObjectShape.Properties.Oldest(); propPair != nil; propPair = propPair.Next() {
+			prop := propPair.Value
+			if _, ok := targetObjShape.Properties.Get(propPair.Key); ok {
+				return nil, fmt.Errorf("duplicate trait property: %s", propPair.Key)
+			}
+			targetObjShape.Properties.Set(propPair.Key, prop)
+		}
+	}
+
+	if targetObjShape.Properties.Len() > 0 {
+		traitsJsonSchema, err := c.jsonSchemaConverter.Convert(s)
 		if err != nil {
 			return nil, fmt.Errorf("convert traits schema: %w", err)
 		}
-		originalPath, _ := filepath.Rel(c.BaseDir, t.Base.Location)
-		sourcePath, _ := filepath.Rel(c.BaseDir, t.Base.Location)
+		originalPath, _ := filepath.Rel(c.BaseDir, base.Location)
+		sourcePath, _ := filepath.Rel(c.BaseDir, base.Location)
 		entity.SetTraitsSourceMap(&metadata.TypeSourceMap{
-			Name: t.Base.Name,
+			Name: base.Name,
 			DocumentSourceMap: metadata.DocumentSourceMap{
 				OriginalPath: filepath.ToSlash(originalPath),
 				SourcePath:   filepath.ToSlash(sourcePath),
-				Line:         t.Base.Line,
+				Line:         base.Line,
 			},
 		})
 
