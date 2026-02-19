@@ -347,6 +347,24 @@ func (v *MetadataValidator) ValidateType(entity *metadata.EntityType) error {
 		if _, err := entity.GetTraitsSchemaValidator(); err != nil {
 			return fmt.Errorf("%s contains invalid schema: %w", entity.CTI, err)
 		}
+		// Ensure that child does not re-define traits properties from ancestors.
+		seen := make(map[string]struct{})
+		for e := entity.Parent(); e != nil; e = e.Parent() {
+			if e.TraitsSchema == nil {
+				continue
+			}
+			schema, _, err := e.TraitsSchema.GetRefSchema()
+			if err != nil {
+				return fmt.Errorf("%s traits schema is invalid: %w", e.CTI, err)
+			}
+			for pair := schema.Properties.Oldest(); pair != nil; pair = pair.Next() {
+				prop := pair.Key
+				if _, ok := seen[prop]; ok {
+					return fmt.Errorf("%s re-defines trait property '%s' of ancestor %s", currentCti, prop, e.CTI)
+				}
+				seen[prop] = struct{}{}
+			}
+		}
 		if entity.TraitsAnnotations != nil {
 			for key, annotation := range entity.TraitsAnnotations {
 				// NOTE: Traits annotations are not inherited from parent.
