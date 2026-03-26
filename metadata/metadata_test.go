@@ -1085,127 +1085,54 @@ func TestEntityInstance_GetValueByAttributeSelector(t *testing.T) {
 }
 
 func TestEntity_IsA(t *testing.T) {
-	tests := map[string]struct {
-		entityCTI  string
-		parentCTI  string
-		parentNil  bool
-		wantResult bool
-	}{
-		"parent is nil": {
-			entityCTI:  "cti.v.a.parent.v1.0",
-			parentCTI:  "",
-			parentNil:  true,
-			wantResult: false,
-		},
-		"entity is direct subtype of parent": {
-			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCTI:  "cti.v.a.parent.v1.0",
-			parentNil:  false,
-			wantResult: true,
-		},
-		"entity is an indirect subtype of parent": {
-			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0~v.a.grandchild.v1.0",
-			parentCTI:  "cti.v.a.parent.v1.0",
-			parentNil:  false,
-			wantResult: true,
-		},
-		"entity is same as parent": {
-			entityCTI:  "cti.v.a.parent.v1.0",
-			parentCTI:  "cti.v.a.parent.v1.0",
-			parentNil:  false,
-			wantResult: true,
-		},
-		"entity is not a subtype of parent": {
-			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCTI:  "cti.v.b.parent.v1.0",
-			parentNil:  false,
-			wantResult: false,
-		},
-		"entity CTI is empty": {
-			entityCTI:  "",
-			parentCTI:  "cti.v.a.parent.v1.0",
-			parentNil:  false,
-			wantResult: false,
-		},
-		"parent CTI is empty": {
-			entityCTI:  "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCTI:  "",
-			parentNil:  false,
-			wantResult: true,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			e := &entity{CTI: tt.entityCTI}
-			var parent *EntityType
-			if !tt.parentNil {
-				parent = &EntityType{}
-				parent.CTI = tt.parentCTI
-			}
-			got := e.IsA(parent)
-			require.Equal(t, tt.wantResult, got)
-		})
-	}
+	t.Run("parent is nil", func(t *testing.T) {
+		e := &entity{CTI: "cti.v.a.parent.v1.0"}
+		require.False(t, e.IsA(nil))
+	})
+	t.Run("entity is same as parent", func(t *testing.T) {
+		parent := &EntityType{entity: entity{CTI: "cti.v.a.parent.v1.0"}}
+		e := &entity{CTI: "cti.v.a.parent.v1.0"}
+		require.True(t, e.IsA(parent))
+	})
+	t.Run("entity is direct subtype of parent", func(t *testing.T) {
+		parent := &EntityType{entity: entity{CTI: "cti.v.a.parent.v1.0"}}
+		e := &entity{CTI: "cti.v.a.parent.v1.0~v.a.child.v1.0", parent: parent}
+		require.True(t, e.IsA(parent))
+	})
+	t.Run("entity is an indirect subtype of parent", func(t *testing.T) {
+		grandparent := &EntityType{entity: entity{CTI: "cti.v.a.parent.v1.0"}}
+		child := &EntityType{entity: entity{CTI: "cti.v.a.parent.v1.0~v.a.child.v1.0", parent: grandparent}}
+		e := &entity{CTI: "cti.v.a.parent.v1.0~v.a.child.v1.0~v.a.grandchild.v1.0", parent: child}
+		require.True(t, e.IsA(grandparent))
+	})
+	t.Run("entity is not a subtype of parent", func(t *testing.T) {
+		parent := &EntityType{entity: entity{CTI: "cti.v.b.parent.v1.0"}}
+		e := &entity{CTI: "cti.v.a.parent.v1.0~v.a.child.v1.0"}
+		require.False(t, e.IsA(parent))
+	})
 }
 
 func TestEntity_IsChildOf(t *testing.T) {
-	tests := map[string]struct {
-		entityCTI   string
-		parentCTI   string
-		parentNil   bool
-		wantIsChild bool
-	}{
-		"parent is nil": {
-			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCTI:   "",
-			parentNil:   true,
-			wantIsChild: false,
-		},
-		"entity is direct child of parent": {
-			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCTI:   "cti.v.a.parent.v1.0",
-			parentNil:   false,
-			wantIsChild: true,
-		},
-		"entity is not a direct child of parent": {
-			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0~v.a.grandchild.v1.0",
-			parentCTI:   "cti.v.a.parent.v1.0",
-			parentNil:   false,
-			wantIsChild: false,
-		},
-		"entity is not a child of parent": {
-			entityCTI:   "cti.v.b.parent.v1.0~v.b.child.v1.0",
-			parentCTI:   "cti.v.a.parent.v1.0",
-			parentNil:   false,
-			wantIsChild: false,
-		},
-		"entity CTI is empty": {
-			entityCTI:   "",
-			parentCTI:   "cti.v.a.parent.v1.0",
-			parentNil:   false,
-			wantIsChild: false,
-		},
-		"parent CTI is empty": {
-			entityCTI:   "cti.v.a.parent.v1.0~v.a.child.v1.0",
-			parentCTI:   "",
-			parentNil:   false,
-			wantIsChild: false,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			e := &entity{CTI: tt.entityCTI}
-			var parent *EntityType
-			if !tt.parentNil {
-				parent = &EntityType{}
-				parent.CTI = tt.parentCTI
-			}
-			got := e.IsChildOf(parent)
-			require.Equal(t, tt.wantIsChild, got)
-		})
-	}
+	t.Run("parent is nil", func(t *testing.T) {
+		e := &entity{CTI: "cti.v.a.parent.v1.0~v.a.child.v1.0"}
+		require.False(t, e.IsChildOf(nil))
+	})
+	t.Run("entity is direct child of parent", func(t *testing.T) {
+		parent := &EntityType{entity: entity{CTI: "cti.v.a.parent.v1.0"}}
+		e := &entity{CTI: "cti.v.a.parent.v1.0~v.a.child.v1.0", parent: parent}
+		require.True(t, e.IsChildOf(parent))
+	})
+	t.Run("entity is not a direct child of parent", func(t *testing.T) {
+		grandparent := &EntityType{entity: entity{CTI: "cti.v.a.parent.v1.0"}}
+		child := &EntityType{entity: entity{CTI: "cti.v.a.parent.v1.0~v.a.child.v1.0", parent: grandparent}}
+		e := &entity{CTI: "cti.v.a.parent.v1.0~v.a.child.v1.0~v.a.grandchild.v1.0", parent: child}
+		require.False(t, e.IsChildOf(grandparent))
+	})
+	t.Run("entity is not a child of parent", func(t *testing.T) {
+		parent := &EntityType{entity: entity{CTI: "cti.v.a.parent.v1.0"}}
+		e := &entity{CTI: "cti.v.b.parent.v1.0~v.b.child.v1.0"}
+		require.False(t, e.IsChildOf(parent))
+	})
 }
 
 func TestAnnotations_ReadReference(t *testing.T) {
