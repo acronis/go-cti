@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -122,6 +123,9 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 	}
 
 	if p.IncludeSources {
+		// Exclude only root-level index file since we re-generate it programmatically,
+		// keep it for dependencies.
+		rootIndexPath := filepath.Join(pkg.BaseDir, ctipackage.IndexFileName)
 		if err := p.arch.WriteDirectory(pkg.BaseDir, func(fsPath string, e os.DirEntry) error {
 			if e.IsDir() {
 				switch e.Name() {
@@ -139,8 +143,7 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 					return archiver.SkipFile
 				}
 
-				// file already written
-				if e.Name() == ctipackage.IndexFileName {
+				if fsPath == rootIndexPath {
 					return archiver.SkipFile
 				}
 			}
