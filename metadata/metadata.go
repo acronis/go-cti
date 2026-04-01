@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/acronis/go-cti"
 	"github.com/acronis/go-cti/metadata/attribute_selector"
@@ -442,11 +441,20 @@ func (e *entity) Expression() (*cti.Expression, error) {
 }
 
 // IsA checks if the entity is a subtype of the given EntityType.
+// The check walks the in-memory parent pointer chain.
 func (e *entity) IsA(typ *EntityType) bool {
 	if typ == nil {
 		return false
 	}
-	return strings.HasPrefix(e.CTI, typ.CTI)
+	if e.CTI == typ.CTI {
+		return true
+	}
+	for root := e.parent; root != nil; root = root.parent {
+		if root.CTI == typ.CTI {
+			return true
+		}
+	}
+	return false
 }
 
 // IsChildOf checks if the entity is a direct child of the given EntityType.
@@ -454,7 +462,7 @@ func (e *entity) IsChildOf(parent *EntityType) bool {
 	if parent == nil {
 		return false
 	}
-	return GetParentCTI(e.CTI) == parent.CTI
+	return e.parent != nil && e.parent.CTI == parent.CTI
 }
 
 // Match checks if the entity matches the other entity based on their CTI expressions.
