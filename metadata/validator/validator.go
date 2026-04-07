@@ -59,10 +59,24 @@ func WithInstanceRule(rule InstanceRule) ValidatorOption {
 	}
 }
 
+// WithSkipOwnershipCheck disables vendor/package validation in validateBaseProperties.
+// Use this when validating entities that may belong to arbitrary vendors or packages,
+// such as example entities demonstrating third-party integrations.
+func WithSkipOwnershipCheck() ValidatorOption {
+	return func(v *MetadataValidator) error {
+		v.skipOwnershipCheck = true
+		return nil
+	}
+}
+
 type MetadataValidator struct {
 	ctiParser *cti.Parser
 	vendor    string
 	pkg       string
+
+	// skipOwnershipCheck disables vendor/package validation in validateBaseProperties.
+	// Used when validating example entities that may belong to arbitrary vendors/packages.
+	skipOwnershipCheck bool
 
 	registeredRules map[string]struct{}
 
@@ -273,11 +287,13 @@ func (v *MetadataValidator) validateBaseProperties(object metadata.Entity) error
 	currentCti := object.GetCTI()
 	parent := object.Parent()
 	// TODO: Check presence of parents in chain according to expression.
-	if object.Vendor() != v.vendor {
-		return fmt.Errorf("%s vendor %s doesn't match expected %s", currentCti, object.Vendor(), v.vendor)
-	}
-	if object.Package() != v.pkg {
-		return fmt.Errorf("%s package %s doesn't match expected %s", currentCti, object.Package(), v.pkg)
+	if !v.skipOwnershipCheck {
+		if object.Vendor() != v.vendor {
+			return fmt.Errorf("%s vendor %s doesn't match expected %s", currentCti, object.Vendor(), v.vendor)
+		}
+		if object.Package() != v.pkg {
+			return fmt.Errorf("%s package %s doesn't match expected %s", currentCti, object.Package(), v.pkg)
+		}
 	}
 	if parent != nil {
 		parentCti := parent.GetCTI()
