@@ -21,6 +21,9 @@ type Package struct {
 
 	Parsed bool
 
+	// SourceFiles holds the absolute paths of all source files parsed for this package.
+	SourceFiles []string
+
 	BaseDir string
 }
 
