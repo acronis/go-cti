@@ -444,8 +444,12 @@ func (cc *CompatibilityChecker) traverseAndCheckSchemas(ctx context, oldSchema, 
 		} else if oldSchema.Properties != nil && newSchema.Properties != nil {
 			for p := oldSchema.Properties.Oldest(); p != nil; p = p.Next() {
 				newP, ok := newSchema.Properties.Get(p.Key)
-				if _, isRequired := requiredSet[p.Key]; !ok && isRequired {
-					cc.addMessage(ctx, SeverityError, fmt.Sprintf("required property `%s` was removed", fmt.Sprintf("%s.%s", path, p.Key)))
+				if !ok {
+					if _, isRequired := requiredSet[p.Key]; isRequired {
+						cc.addMessage(ctx, SeverityError, fmt.Sprintf("required property `%s` was removed", fmt.Sprintf("%s.%s", path, p.Key)))
+					} else {
+						cc.addMessage(ctx, SeverityWarning, fmt.Sprintf("optional property `%s` was removed", fmt.Sprintf("%s.%s", path, p.Key)))
+					}
 					continue
 				}
 				cc.traverseAndCheckSchemas(ctx, p.Value, newP, fmt.Sprintf("%s.%s", path, p.Key))
