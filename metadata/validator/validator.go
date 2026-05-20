@@ -9,6 +9,7 @@ import (
 	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/registry"
 	"github.com/acronis/go-stacktrace"
+	"github.com/tidwall/gjson"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -574,10 +575,10 @@ func (v *MetadataValidator) validateValueReference(key metadata.GJsonPath, child
 	}
 
 	value := key.GetValue(values)
-	for _, val := range value.Array() {
+	for _, strVal := range flattenStringValues(value) {
 		compatible := false
 		for _, ref := range refs {
-			if err := v.matchCTIAgainstRef(ref, val.Str); err == nil {
+			if err := v.matchCTIAgainstRef(ref, strVal); err == nil {
 				compatible = true
 				break
 			}
@@ -585,11 +586,27 @@ func (v *MetadataValidator) validateValueReference(key metadata.GJsonPath, child
 		if !compatible {
 			return fmt.Errorf("cti.reference %s does not match any of the values in %s", refs, child.GetCTI())
 		}
-		if _, ok := v.GlobalRegistry.Index[val.Str]; !ok {
-			return fmt.Errorf("referenced entity %s not found in registry", val.Str)
+		if _, ok := v.GlobalRegistry.Index[strVal]; !ok {
+			return fmt.Errorf("referenced entity %s not found in registry", strVal)
 		}
 	}
 
+	return nil
+}
+
+// flattenStringValues recursively collects all string leaf values from a gjson.Result,
+// handling nested arrays produced by multi-level gjson path iterators (e.g. "a.#.b.#.c").
+func flattenStringValues(result gjson.Result) []string {
+	if result.IsArray() {
+		var values []string
+		for _, item := range result.Array() {
+			values = append(values, flattenStringValues(item)...)
+		}
+		return values
+	}
+	if result.Str != "" {
+		return []string{result.Str}
+	}
 	return nil
 }
 
