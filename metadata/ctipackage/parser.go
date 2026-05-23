@@ -120,39 +120,59 @@ func (pkg *Package) resolveDependencyOrder() ([]string, error) {
 	return deps, nil
 }
 
-func (pkg *Package) parseRAML() (*registry.MetadataRegistry, error) {
+func (pkg *Package) parseRAML() (*registry.MetadataRegistry, []string, error) {
 	r, err := raml.ParseFromString(pkg.generateRAML(false), "index.raml", pkg.BaseDir, raml.OptWithValidate())
 	if err != nil {
-		return nil, fmt.Errorf("parse index.raml: %w", err)
+		return nil, nil, fmt.Errorf("parse index.raml: %w", err)
 	}
 	c, err := cramlx.NewRAMLXCollector(r)
 	if err != nil {
-		return nil, fmt.Errorf("create ramlx collector: %w", err)
+		return nil, nil, fmt.Errorf("create ramlx collector: %w", err)
 	}
-	return c.Collect()
+	reg, err := c.Collect()
+	if err != nil {
+		return nil, nil, err
+	}
+	indexRAMLPath := filepath.Join(pkg.BaseDir, "index.raml")
+	allFiles := r.GetFragmentLocations()
+	for f := range r.GetIncludedFiles() {
+		allFiles[f] = struct{}{}
+	}
+	delete(allFiles, indexRAMLPath)
+	sourceFiles := make([]string, 0, len(allFiles))
+	for f := range allFiles {
+		sourceFiles = append(sourceFiles, f)
+	}
+	return reg, sourceFiles, nil
 }
 
-func (pkg *Package) parseCTIMetadata() (*registry.MetadataRegistry, error) {
+func (pkg *Package) parseCTIMetadata() (*registry.MetadataRegistry, []string, error) {
 	fragments := make(map[string][]byte)
+	var sourceFiles []string
 	for _, entity := range pkg.Index.Entities {
 		if !strings.HasSuffix(entity, YAMLExt) {
 			continue
 		}
 		b, err := os.ReadFile(path.Join(pkg.BaseDir, entity))
 		if err != nil {
-			return nil, fmt.Errorf("read entity %s: %w", entity, err)
+			return nil, nil, fmt.Errorf("read entity %s: %w", entity, err)
 		}
 		fragments[entity] = b
+		sourceFiles = append(sourceFiles, filepath.Join(pkg.BaseDir, entity))
 	}
-	return cmetadata.NewCTIMetadataCollector(fragments, pkg.BaseDir).Collect()
+	reg, err := cmetadata.NewCTIMetadataCollector(fragments, pkg.BaseDir).Collect()
+	if err != nil {
+		return nil, nil, err
+	}
+	return reg, sourceFiles, nil
 }
 
 func (pkg *Package) parse() error {
-	ramlRegistry, err := pkg.parseRAML()
+	ramlRegistry, ramlFiles, err := pkg.parseRAML()
 	if err != nil {
 		return fmt.Errorf("parse RAML: %w", err)
 	}
-	ctiMetadataRegistry, err := pkg.parseCTIMetadata()
+	ctiMetadataRegistry, ctiFiles, err := pkg.parseCTIMetadata()
 	if err != nil {
 		return fmt.Errorf("collect from package: %w", err)
 	}
@@ -160,6 +180,7 @@ func (pkg *Package) parse() error {
 		return fmt.Errorf("copy entities from metadata registry: %w", err)
 	}
 	pkg.LocalRegistry = ramlRegistry
+	pkg.SourceFiles = append(ramlFiles, ctiFiles...)
 	pkg.Parsed = true
 	return nil
 }
