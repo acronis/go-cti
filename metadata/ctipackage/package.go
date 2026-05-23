@@ -16,8 +16,9 @@ type Package struct {
 	Index     *Index
 	IndexLock *IndexLock
 
-	LocalRegistry  *registry.MetadataRegistry
-	GlobalRegistry *registry.MetadataRegistry
+	LocalRegistry    *registry.MetadataRegistry
+	GlobalRegistry   *registry.MetadataRegistry
+	ExamplesRegistry *registry.MetadataRegistry
 
 	Parsed bool
 
@@ -80,6 +81,15 @@ func WithDependencies(deps map[string]string) InitializeOption {
 	return func(pkg *Package) error {
 		if deps != nil {
 			pkg.Index.Depends = deps
+		}
+		return nil
+	}
+}
+
+func WithExamples(examples []string) InitializeOption {
+	return func(pkg *Package) error {
+		if examples != nil {
+			pkg.Index.Examples = examples
 		}
 		return nil
 	}
