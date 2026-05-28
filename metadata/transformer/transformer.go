@@ -142,7 +142,9 @@ func (t *Transformer) collectAnnotations() error {
 			if err != nil {
 				return fmt.Errorf("extract schema definition for %s: %w", cti, err)
 			}
-			entity.Annotations = ac.Collect(schema)
+			anns := ac.Collect(schema)
+			t.filterOrphanCTISchemas(anns)
+			entity.Annotations = anns
 		}
 		// collect annotations for traits schema
 		if entity.TraitsSchema != nil {
@@ -150,10 +152,50 @@ func (t *Transformer) collectAnnotations() error {
 			if err != nil {
 				return fmt.Errorf("extract schema definition for %s: %w", cti, err)
 			}
-			entity.TraitsAnnotations = ac.Collect(schema)
+			anns := ac.Collect(schema)
+			t.filterOrphanCTISchemas(anns)
+			entity.TraitsAnnotations = anns
 		}
 	}
 	return nil
+}
+
+// filterOrphanCTISchemas drops cti.schema references whose target CTI is not
+// present in the registry, then deletes any annotation entries that become
+// fully empty. This prevents downstream consumers from following an annotation
+// to an entity that doesn't exist (e.g. a callback whose schema declares a
+// `request` slot of an acgw.request CTI that was never defined in the
+// package).
+func (t *Transformer) filterOrphanCTISchemas(anns map[metadata.GJsonPath]*metadata.Annotations) {
+	for path, entry := range anns {
+		if entry == nil || entry.Schema == nil {
+			continue
+		}
+		refs := entry.ReadCTISchema()
+		kept := make([]string, 0, len(refs))
+		for _, ref := range refs {
+			if _, ok := t.registry.Index[ref]; ok {
+				kept = append(kept, ref)
+			}
+		}
+		if len(kept) != len(refs) {
+			switch len(kept) {
+			case 0:
+				entry.Schema = nil
+			case 1:
+				entry.Schema = kept[0]
+			default:
+				out := make([]any, len(kept))
+				for i, s := range kept {
+					out[i] = s
+				}
+				entry.Schema = out
+			}
+		}
+		if entry.IsEmpty() {
+			delete(anns, path)
+		}
+	}
 }
 
 func (t *Transformer) findAndInsertCtiSchemas() error {

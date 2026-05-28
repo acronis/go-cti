@@ -1178,3 +1178,32 @@ func TestAnnotations_ReadReference(t *testing.T) {
 		})
 	}
 }
+
+func TestAnnotations_IsEmpty(t *testing.T) {
+	truthy := true
+	tests := map[string]struct {
+		ann      *Annotations
+		expected bool
+	}{
+		"nil receiver":            {ann: nil, expected: true},
+		"zero value":              {ann: &Annotations{}, expected: true},
+		"ID set":                  {ann: &Annotations{ID: &truthy}, expected: false},
+		"AccessField set":         {ann: &Annotations{AccessField: &truthy}, expected: false},
+		"DisplayName set":         {ann: &Annotations{DisplayName: &truthy}, expected: false},
+		"Description set":         {ann: &Annotations{Description: &truthy}, expected: false},
+		"Reference set":           {ann: &Annotations{Reference: "x"}, expected: false},
+		"Overridable set":         {ann: &Annotations{Overridable: &truthy}, expected: false},
+		"Asset set":               {ann: &Annotations{Asset: &truthy}, expected: false},
+		"L10N set":                {ann: &Annotations{L10N: &truthy}, expected: false},
+		"Schema set as string":    {ann: &Annotations{Schema: "cti.x"}, expected: false},
+		"Schema set as list":      {ann: &Annotations{Schema: []any{"cti.x"}}, expected: false},
+		"Meta set":                {ann: &Annotations{Meta: "x"}, expected: false},
+		"PropertyNames non-empty": {ann: &Annotations{PropertyNames: map[string]any{"k": "v"}}, expected: false},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, tt.expected, tt.ann.IsEmpty())
+		})
+	}
+}

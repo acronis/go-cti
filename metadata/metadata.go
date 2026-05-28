@@ -176,6 +176,27 @@ func (a *Annotations) ReadCTISchema() []string {
 	return vals
 }
 
+// IsEmpty reports whether every field of the Annotations struct holds its
+// zero value. It is used by callers that may need to drop annotation entries
+// whose fields have all been cleared (e.g. after filtering out an orphan
+// cti.schema reference).
+func (a *Annotations) IsEmpty() bool {
+	if a == nil {
+		return true
+	}
+	return a.ID == nil &&
+		a.AccessField == nil &&
+		a.DisplayName == nil &&
+		a.Description == nil &&
+		a.Reference == nil &&
+		a.Overridable == nil &&
+		a.Asset == nil &&
+		a.L10N == nil &&
+		a.Schema == nil &&
+		a.Meta == "" &&
+		len(a.PropertyNames) == 0
+}
+
 // ReadReference returns a slice of CTI reference values.
 // If the Reference annotation is a boolean, it returns a slice with that boolean as a string.
 // If it is a string, it returns a slice with that string.
