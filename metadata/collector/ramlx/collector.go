@@ -93,12 +93,13 @@ func (c *RAMLXCollector) Collect() (*registry.MetadataRegistry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("find and mark recursion: %w", err)
 		}
-		shape, err = c.preProcessCtiType(shape)
-		if err != nil {
-			return nil, fmt.Errorf("preprocess cti type: %w", err)
-		}
+		// If RAML type inherits from a CTI type, we need to substitute it with a reference via CTI schema annotation first.
 		if err := c.insertImplicitSchema(shape, true); err != nil {
 			return nil, fmt.Errorf("insert implicit schema: %w", err)
+		}
+		shape, err = c.postProcessCtiType(shape)
+		if err != nil {
+			return nil, fmt.Errorf("postprocess cti type: %w", err)
 		}
 		entity, err := c.MakeMetadataType(k, shape)
 		if err != nil {
@@ -271,15 +272,17 @@ func (c *RAMLXCollector) MakeMetadataInstance(
 	return entity, nil
 }
 
-func (c *RAMLXCollector) preProcessCtiType(shape *raml.BaseShape) (*raml.BaseShape, error) {
+// postProcessCtiType performs transformations on RAML shapes that are required before converting them to CTI entity:
+// - Moves a specific set of annotations into array definition.
+func (c *RAMLXCollector) postProcessCtiType(shape *raml.BaseShape) (*raml.BaseShape, error) {
 	switch s := shape.Shape.(type) {
 	case *raml.ObjectShape:
 		if s.Properties != nil {
 			for pair := s.Properties.Oldest(); pair != nil; pair = pair.Next() {
 				prop := pair.Value
-				rs, err := c.preProcessCtiType(prop.Base)
+				rs, err := c.postProcessCtiType(prop.Base)
 				if err != nil {
-					return nil, fmt.Errorf("preprocess property: %w", err)
+					return nil, fmt.Errorf("postprocess property: %w", err)
 				}
 				prop.Base = rs
 				s.Properties.Set(pair.Key, prop)
@@ -288,9 +291,9 @@ func (c *RAMLXCollector) preProcessCtiType(shape *raml.BaseShape) (*raml.BaseSha
 		if s.PatternProperties != nil {
 			for pair := s.PatternProperties.Oldest(); pair != nil; pair = pair.Next() {
 				prop := pair.Value
-				rs, err := c.preProcessCtiType(prop.Base)
+				rs, err := c.postProcessCtiType(prop.Base)
 				if err != nil {
-					return nil, fmt.Errorf("preprocess pattern property: %w", err)
+					return nil, fmt.Errorf("postprocess pattern property: %w", err)
 				}
 				prop.Base = rs
 				s.PatternProperties.Set(pair.Key, prop)
@@ -300,17 +303,17 @@ func (c *RAMLXCollector) preProcessCtiType(shape *raml.BaseShape) (*raml.BaseSha
 		if s.Items != nil {
 			c.moveAnnotationsToArrayItem(s)
 
-			rs, err := c.preProcessCtiType(s.Items)
+			rs, err := c.postProcessCtiType(s.Items)
 			if err != nil {
-				return nil, fmt.Errorf("preprocess array item: %w", err)
+				return nil, fmt.Errorf("postprocess array item: %w", err)
 			}
 			s.Items = rs
 		}
 	case *raml.UnionShape:
 		for i, member := range s.AnyOf {
-			rs, err := c.preProcessCtiType(member)
+			rs, err := c.postProcessCtiType(member)
 			if err != nil {
-				return nil, fmt.Errorf("preprocess union member %d: %w", i, err)
+				return nil, fmt.Errorf("postprocess union member %d: %w", i, err)
 			}
 			s.AnyOf[i] = rs
 		}
@@ -318,6 +321,18 @@ func (c *RAMLXCollector) preProcessCtiType(shape *raml.BaseShape) (*raml.BaseSha
 	return shape, nil
 }
 
+// moveAnnotationsToArrayItem copies the type metadata and moves annotations from array type into its item type.
+// For example:
+//
+//	type: object[]
+//	(cti.schema): cti.x.y.example.v1.0
+//
+// will be transformed into:
+//
+//	type: array
+//	items:
+//		type: object
+//		(cti.schema): cti.x.y.example.v1.0
 func (c *RAMLXCollector) moveAnnotationsToArrayItem(array *raml.ArrayShape) {
 	copied := false
 	for _, annotationName := range collector.AnnotationsToMove {
