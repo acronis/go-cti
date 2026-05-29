@@ -23,6 +23,7 @@ func (c *RAMLXCollector) constructAndSetCtiSchemaAnnotation(b *raml.BaseShape, v
 	return nil
 }
 
+// insertCtiSchema performs a type-aware transformation of RAML type into corresponding CTI schema annotation format.
 func (c *RAMLXCollector) insertCtiSchema(base *raml.BaseShape) (bool, error) {
 	if _, ok := base.CustomDomainProperties.Get(consts.Schema); ok {
 		return false, nil
@@ -85,6 +86,23 @@ func (c *RAMLXCollector) insertCtiSchema(base *raml.BaseShape) (bool, error) {
 	}
 }
 
+// insertImplicitSchema checks if the shape inherits from a CTI type and
+// adds a CTI schema annotation with a reference to the CTI type.
+// Returns true if the shape is a CTI type or inherits from it, false otherwise.
+// Example:
+//
+//	ExampleCTIType:
+//		type: object
+//		(cti.cti): cti.x.y.example.v1.0
+//
+//	 MyType:
+//		type: ExampleCTIType
+//
+// In this example, MyType will be transformed to:
+//
+//	MyType:
+//		type: ExampleCTIType
+//		(cti.schema): cti.x.y.example.v1.0
 func (c *RAMLXCollector) insertImplicitSchema(base *raml.BaseShape, isRoot bool) error {
 	if !isRoot {
 		stop, err := c.insertCtiSchema(base)
