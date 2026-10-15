@@ -230,26 +230,31 @@ func (c *RAMLXCollector) MakeMetadataInstance(
 		return nil, fmt.Errorf("make entity instance: %w", err)
 	}
 
-	entity.SetResilient(false) // TODO
+	resilientProp := c.findPropertyWithAnnotation(ctiType, consts.Resilient)
+	if resilientProp != nil {
+		if v, ok := values[resilientProp.Name].(bool); ok {
+			entity.SetResilient(v)
+		}
+	}
 
 	displayNameProp := c.findPropertyWithAnnotation(ctiType, consts.DisplayName)
 	if displayNameProp != nil {
-		if v, ok := values[displayNameProp.Name]; ok {
-			entity.SetDisplayName(v.(string))
+		if v, ok := values[displayNameProp.Name].(string); ok {
+			entity.SetDisplayName(v)
 		}
 	}
 
 	descriptionProp := c.findPropertyWithAnnotation(ctiType, consts.Description)
 	if descriptionProp != nil {
-		if v, ok := values[descriptionProp.Name]; ok {
-			entity.SetDescription(v.(string))
+		if v, ok := values[descriptionProp.Name].(string); ok {
+			entity.SetDescription(v)
 		}
 	}
 
 	accessFieldProp := c.findPropertyWithAnnotation(ctiType, consts.AccessField)
 	if accessFieldProp != nil {
-		if v, ok := values[accessFieldProp.Name]; ok {
-			entity.SetAccess(consts.AccessModifier(v.(string)))
+		if v, ok := values[accessFieldProp.Name].(string); ok {
+			entity.SetAccess(consts.AccessModifier(v))
 		}
 	}
 
@@ -468,7 +473,10 @@ func (c *RAMLXCollector) readAndMakeCtiInstances(annotation *raml.DomainExtensio
 
 	for _, item := range annotation.Extension.Value.([]any) {
 		obj := item.(map[string]any)
-		id := obj[idKey].(string)
+		id, ok := obj[idKey].(string)
+		if !ok {
+			return fmt.Errorf("cti.id property %s must be a string", idKey)
+		}
 
 		childCtiExpr, err := c.CTIParser.ParseIdentifier(id)
 		if err != nil {
@@ -494,10 +502,8 @@ func (c *RAMLXCollector) findPropertyWithAnnotation(shape *raml.ObjectShape, ann
 	// TODO: Suboptimal since we iterate over all annotations every time we look up an annotation.
 	for pair := shape.Properties.Oldest(); pair != nil; pair = pair.Next() {
 		prop := pair.Value
-		if s, ok := prop.Base.Shape.(*raml.StringShape); ok {
-			if _, ok := s.CustomDomainProperties.Get(annotationName); ok {
-				return &prop
-			}
+		if _, ok := prop.Base.CustomDomainProperties.Get(annotationName); ok {
+			return &prop
 		}
 	}
 	return nil

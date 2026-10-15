@@ -17,6 +17,9 @@ annotationTypes:
     type: boolean
     description: >
       Indicates that the entity cannot be in DISABLE/TEMPORARY_DISABLED state.
+      For CTI types, the annotation value is used as `resilient` of the type.
+      Type field could be marked with this annotation to indicate the value of that field will be used
+      as `resilient` for CTI instance.
     allowedTargets: TypeDeclaration
 
   access:
