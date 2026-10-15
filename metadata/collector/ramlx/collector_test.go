@@ -481,6 +481,47 @@ types:
 	require.Equal(t, consts.AccessModifierPrivate, instance.GetAccess())
 }
 
+func TestCollect_InstanceResilient(t *testing.T) {
+	// Property annotated with (cti.resilient) provides the instance's resilient flag.
+	tests := map[string]struct {
+		value         string
+		wantResilient bool
+	}{
+		"resilient true":  {value: "\n  resilient: true", wantResilient: true},
+		"resilient false": {value: "\n  resilient: false", wantResilient: false},
+		"resilient unset": {value: "", wantResilient: false},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ramlContent := entityRAML(`annotationTypes:
+  Instances: EntityWithResilient[]
+
+(Instances):
+- id: cti.x.y.entity_with_resilient.v1.0~x.y._.v1.0` + tc.value + `
+
+types:
+  EntityWithResilient:
+    (cti.cti): cti.x.y.entity_with_resilient.v1.0
+    properties:
+      id:
+        type: cti.CTI
+        (cti.id): true
+      resilient?:
+        type: boolean
+        (cti.resilient): true`)
+
+			c := newTestCollector(t, map[string]string{"entities.raml": ramlContent})
+			reg, err := c.Collect()
+			require.NoError(t, err)
+
+			instance := reg.Instances["cti.x.y.entity_with_resilient.v1.0~x.y._.v1.0"]
+			require.NotNil(t, instance)
+			require.Equal(t, tc.wantResilient, instance.Resilient)
+		})
+	}
+}
+
 func TestCollect_MultipleInstances(t *testing.T) {
 	ramlContent := entityRAML(`annotationTypes:
   Instances: SampleEntity[]
