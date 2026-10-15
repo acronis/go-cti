@@ -236,6 +236,20 @@ func (pm *packageManager) download(depends map[string]string, recursive bool, in
 	return res, nil
 }
 
+// Download holds the cache lock only while it downloads. The returned paths
+// point into the cache, so a caller that reads them afterwards is not
+// protected from another process replacing them.
 func (pm *packageManager) Download(depends map[string]string, recursive bool) ([]CachedDependencyInfo, error) {
+	unlock, err := pm.lockCache()
+	if err != nil {
+		return nil, fmt.Errorf("lock packages cache: %w", err)
+	}
+	defer unlock()
+
+	return pm.downloadAll(depends, recursive)
+}
+
+// downloadAll downloads without taking the cache lock; the caller holds it.
+func (pm *packageManager) downloadAll(depends map[string]string, recursive bool) ([]CachedDependencyInfo, error) {
 	return pm.download(depends, recursive, map[string]CachedDependencyInfo{})
 }

@@ -19,7 +19,15 @@ type CachedDependencyInfo struct {
 }
 
 func (pm *packageManager) installDependencies(targetDir string, depends map[string]string) ([]CachedDependencyInfo, error) {
-	installed, err := pm.Download(depends, true)
+	// The lock covers the copy out of the cache too: another process replaces
+	// a cache directory in place.
+	unlock, err := pm.lockCache()
+	if err != nil {
+		return nil, fmt.Errorf("lock packages cache: %w", err)
+	}
+	defer unlock()
+
+	installed, err := pm.downloadAll(depends, true)
 	if err != nil {
 		return nil, fmt.Errorf("download dependencies: %w", err)
 	}
@@ -87,8 +95,14 @@ func (pm *packageManager) installDependenciesInfo(targetDir string, infos map[st
 		depends[source] = info.Version
 	}
 
+	unlock, err := pm.lockCache()
+	if err != nil {
+		return nil, fmt.Errorf("lock packages cache: %w", err)
+	}
+	defer unlock()
+
 	// Download only direct dependencies
-	installed, err := pm.Download(depends, false)
+	installed, err := pm.downloadAll(depends, false)
 	if err != nil {
 		return nil, fmt.Errorf("download dependencies: %w", err)
 	}
