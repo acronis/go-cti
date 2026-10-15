@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,9 +29,7 @@ func TestLockHelperProcess(t *testing.T) {
 	switch os.Getenv(lockHelperEnvMode) {
 	case "try":
 		// Reports whether the lock is free, without taking it for good.
-		f, err := os.OpenFile(pm.getCacheLockPath(), os.O_CREATE|os.O_RDWR, 0o600)
-		require.NoError(t, err)
-		locked, err := tryLockFile(f)
+		locked, err := flock.New(pm.getCacheLockPath()).TryLock()
 		require.NoError(t, err)
 		if locked {
 			os.Stdout.WriteString("free\n")
@@ -88,10 +87,9 @@ func Test_LockCacheIsReleasedWhenHolderDies(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "locked", strings.TrimSpace(line))
 
-	f, err := os.OpenFile(pm.getCacheLockPath(), os.O_RDWR, 0o600)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	locked, err := tryLockFile(f)
+	probe := flock.New(pm.getCacheLockPath())
+	t.Cleanup(func() { _ = probe.Unlock() })
+	locked, err := probe.TryLock()
 	require.NoError(t, err)
 	require.False(t, locked, "the lock must be held by the helper process")
 
@@ -99,7 +97,7 @@ func Test_LockCacheIsReleasedWhenHolderDies(t *testing.T) {
 	_ = holder.Wait()
 
 	require.Eventually(t, func() bool {
-		ok, err := tryLockFile(f)
+		ok, err := probe.TryLock()
 		return err == nil && ok
 	}, 5*time.Second, 20*time.Millisecond, "the lock must be free after the holder died")
 }

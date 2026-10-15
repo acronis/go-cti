@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/gofrs/flock"
 )
 
 func (pm *packageManager) getCacheLockPath() string {
@@ -22,28 +24,21 @@ func (pm *packageManager) lockCache() (func(), error) {
 		return nil, fmt.Errorf("create lock directory: %w", err)
 	}
 
-	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	fl := flock.New(lockPath)
+	locked, err := fl.TryLock()
 	if err != nil {
-		return nil, fmt.Errorf("open lock file: %w", err)
-	}
-
-	locked, err := tryLockFile(f)
-	if err != nil {
-		_ = f.Close()
 		return nil, fmt.Errorf("lock %s: %w", lockPath, err)
 	}
 	if !locked {
 		slog.Info("Waiting for the packages cache lock", slog.String("path", lockPath))
-		if err := lockFile(f); err != nil {
-			_ = f.Close()
+		if err := fl.Lock(); err != nil {
 			return nil, fmt.Errorf("lock %s: %w", lockPath, err)
 		}
 	}
 
 	return func() {
-		if err := unlockFile(f); err != nil {
+		if err := fl.Unlock(); err != nil {
 			slog.Error("Failed to unlock the packages cache", slog.String("path", lockPath), slog.String("error", err.Error()))
 		}
-		_ = f.Close()
 	}, nil
 }
