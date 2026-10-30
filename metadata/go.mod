@@ -5,7 +5,7 @@ go 1.22.6
 require (
 	github.com/acronis/go-cti v1.0.0
 	github.com/acronis/go-cti/metadata/ramlx v1.8.0
-	github.com/acronis/go-raml/v2 v2.0.11
+	github.com/acronis/go-raml/v2 v2.1.0
 	github.com/acronis/go-stacktrace v0.4.0
 	github.com/acronis/go-stacktrace/slogex v0.3.0
 	github.com/blang/semver/v4 v4.0.0
@@ -15,7 +15,6 @@ require (
 	github.com/samber/slog-formatter v1.1.1
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.18.0
-	github.com/wk8/go-ordered-map/v2 v2.1.8
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/zeebo/xxh3 v1.0.2
 	golang.org/x/mod v0.21.0
@@ -30,7 +29,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/samber/lo v1.47.0 // indirect
 	github.com/samber/slog-multi v1.2.4 // indirect
