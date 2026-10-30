@@ -6,8 +6,8 @@ import (
 
 	"github.com/acronis/go-cti/metadata/consts"
 	"github.com/acronis/go-cti/metadata/jsonschema"
+	"github.com/acronis/go-raml/v2/orderedmap"
 	"github.com/stretchr/testify/require"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 // mockEntity is a test implementation of UntypedEntity interface

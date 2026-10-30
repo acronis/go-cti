@@ -107,17 +107,17 @@ func TestCollect_BasicTypes(t *testing.T) {
 		wantTypes int
 	}{
 		"object type": {
-			raml: entityRAML("types:\n  ObjectEntity:\n    (cti.cti): cti.x.y.object_entity.v1.0\n    type: object"),
+			raml:      entityRAML("types:\n  ObjectEntity:\n    (cti.cti): cti.x.y.object_entity.v1.0\n    type: object"),
 			ctiID:     "cti.x.y.object_entity.v1.0",
 			wantTypes: 1,
 		},
 		"string scalar type": {
-			raml: entityRAML("types:\n  ScalarEntity:\n    (cti.cti): cti.x.y.scalar_entity.v1.0\n    type: string"),
+			raml:      entityRAML("types:\n  ScalarEntity:\n    (cti.cti): cti.x.y.scalar_entity.v1.0\n    type: string"),
 			ctiID:     "cti.x.y.scalar_entity.v1.0",
 			wantTypes: 1,
 		},
 		"nil type": {
-			raml: entityRAML("types:\n  NilEntity:\n    (cti.cti): cti.x.y.nil_entity.v1.0\n    type: nil"),
+			raml:      entityRAML("types:\n  NilEntity:\n    (cti.cti): cti.x.y.nil_entity.v1.0\n    type: nil"),
 			ctiID:     "cti.x.y.nil_entity.v1.0",
 			wantTypes: 1,
 		},
@@ -184,39 +184,39 @@ func TestCollect_TypeAnnotations(t *testing.T) {
 		wantDescription string
 	}{
 		"final false explicit": {
-			raml:      entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.final): false\n    type: object"),
-			ctiID:     "cti.x.y.entity.v1.0",
+			raml:       entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.final): false\n    type: object"),
+			ctiID:      "cti.x.y.entity.v1.0",
 			wantFinal:  false,
 			wantAccess: consts.AccessModifierPublic,
 		},
 		"final true explicit": {
-			raml:      entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.final): true\n    type: object"),
-			ctiID:     "cti.x.y.entity.v1.0",
+			raml:       entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.final): true\n    type: object"),
+			ctiID:      "cti.x.y.entity.v1.0",
 			wantFinal:  true,
 			wantAccess: consts.AccessModifierPublic,
 		},
 		"final defaults to true": {
 			// When (cti.final) is absent, NewEntityType sets Final=true by default.
-			raml:      entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    type: object"),
-			ctiID:     "cti.x.y.entity.v1.0",
+			raml:       entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    type: object"),
+			ctiID:      "cti.x.y.entity.v1.0",
 			wantFinal:  true,
 			wantAccess: consts.AccessModifierPublic,
 		},
 		"access public": {
-			raml:      entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.access): public\n    type: object"),
-			ctiID:     "cti.x.y.entity.v1.0",
+			raml:       entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.access): public\n    type: object"),
+			ctiID:      "cti.x.y.entity.v1.0",
 			wantFinal:  true,
 			wantAccess: consts.AccessModifierPublic,
 		},
 		"access protected": {
-			raml:      entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.access): protected\n    type: object"),
-			ctiID:     "cti.x.y.entity.v1.0",
+			raml:       entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.access): protected\n    type: object"),
+			ctiID:      "cti.x.y.entity.v1.0",
 			wantFinal:  true,
 			wantAccess: consts.AccessModifierProtected,
 		},
 		"access private": {
-			raml:      entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.access): private\n    type: object"),
-			ctiID:     "cti.x.y.entity.v1.0",
+			raml:       entityRAML("types:\n  Entity:\n    (cti.cti): cti.x.y.entity.v1.0\n    (cti.access): private\n    type: object"),
+			ctiID:      "cti.x.y.entity.v1.0",
 			wantFinal:  true,
 			wantAccess: consts.AccessModifierPrivate,
 		},

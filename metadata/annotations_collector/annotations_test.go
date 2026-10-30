@@ -6,9 +6,9 @@ import (
 
 	"github.com/acronis/go-cti/metadata"
 	"github.com/acronis/go-cti/metadata/jsonschema"
+	"github.com/acronis/go-raml/v2/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 func TestAnnotationsCollector_Collect_NoAnnotations(t *testing.T) {
