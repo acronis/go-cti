@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/acronis/go-raml/v2/orderedmap"
 	"github.com/stretchr/testify/require"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 func TestMergeRequired(t *testing.T) {

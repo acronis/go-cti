@@ -14,7 +14,7 @@ import (
 	"github.com/acronis/go-cti/metadata/jsonschema"
 	"github.com/acronis/go-cti/metadata/registry"
 	"github.com/acronis/go-raml/v2"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
+	"github.com/acronis/go-raml/v2/orderedmap"
 )
 
 type RAMLXCollector struct {
