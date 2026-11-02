@@ -46,7 +46,7 @@ func downloadPackages(_ context.Context, pm pacman.PackageManager, packages map[
 		slog.Any("packages", packages),
 	)
 
-	if _, err := pm.Download(packages); err != nil {
+	if _, err := pm.Download(packages, true); err != nil {
 		return fmt.Errorf("download packages: %w", err)
 	}
 
@@ -68,7 +68,7 @@ func downloadPackageDependencies(_ context.Context, pm pacman.PackageManager, ba
 		return fmt.Errorf("read package: %w", err)
 	}
 
-	if _, err := pm.Download(pkg.Index.Depends); err != nil {
+	if _, err := pm.Download(pkg.Index.Depends, true); err != nil {
 		return fmt.Errorf("download packages: %w", err)
 	}
 
