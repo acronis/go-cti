@@ -3,7 +3,7 @@ module github.com/acronis/go-cti/cmd/cti
 go 1.22.6
 
 require (
-	github.com/acronis/go-cti/metadata v0.55.4
+	github.com/acronis/go-cti/metadata v0.62.0
 	github.com/acronis/go-stacktrace v0.4.0
 	github.com/acronis/go-stacktrace/slogex v0.3.0
 	github.com/dusted-go/logging v1.3.0
@@ -15,15 +15,14 @@ require (
 require (
 	github.com/acronis/go-cti v1.0.0 // indirect
 	github.com/acronis/go-cti/metadata/ramlx v1.8.0 // indirect
-	github.com/acronis/go-raml/v2 v2.0.2 // indirect
+	github.com/acronis/go-raml/v2 v2.1.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
-	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
-	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/otiai10/copy v1.14.0 // indirect
 	github.com/samber/lo v1.47.0 // indirect
 	github.com/samber/slog-multi v1.2.4 // indirect
@@ -31,7 +30,6 @@ require (
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
-	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
