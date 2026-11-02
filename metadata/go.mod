@@ -5,7 +5,7 @@ go 1.22.6
 require (
 	github.com/acronis/go-cti v1.0.0
 	github.com/acronis/go-cti/metadata/ramlx v1.8.0
-	github.com/acronis/go-raml/v2 v2.1.0
+	github.com/acronis/go-raml/v2 v2.1.1
 	github.com/acronis/go-stacktrace v0.4.0
 	github.com/acronis/go-stacktrace/slogex v0.3.0
 	github.com/blang/semver/v4 v4.0.0
@@ -23,7 +23,6 @@ require (
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
-	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/google/uuid v1.6.0 // indirect
