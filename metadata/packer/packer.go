@@ -3,6 +3,7 @@ package packer
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -123,46 +124,41 @@ func (p *Packer) Pack(pkg *ctipackage.Package, destination string) error {
 	}
 
 	if p.IncludeSources {
-		// Exclude only root-level index file since we re-generate it programmatically,
-		// keep it for dependencies.
+		// Collect relative paths of all parsed source files, excluding files
+		// outside the package root (e.g. dependency files) and the root index
+		// (already written above via WriteBytes).
 		rootIndexPath := filepath.Join(pkg.BaseDir, ctipackage.IndexFileName)
-		if err := p.arch.WriteDirectory(pkg.BaseDir, func(fsPath string, e os.DirEntry) error {
-			if e.IsDir() {
-				switch e.Name() {
-				case ctipackage.DependencyDirName:
-					return archiver.SkipDir
-				case ctipackage.RamlxDirName:
-					return archiver.SkipDir
-				}
-
-				if strings.HasPrefix(e.Name(), ".") {
-					return archiver.SkipDir
-				}
-			} else {
-				if strings.HasPrefix(e.Name(), ".") {
-					return archiver.SkipFile
-				}
-
-				if fsPath == rootIndexPath {
-					return archiver.SkipFile
-				}
+		sourceFiles := make([]string, 0, len(pkg.SourceFiles))
+		for _, absPath := range pkg.SourceFiles {
+			relPath, err := filepath.Rel(pkg.BaseDir, absPath)
+			if err != nil || strings.HasPrefix(relPath, "..") {
+				continue
 			}
+			if absPath == rootIndexPath {
+				continue
+			}
+			sourceFiles = append(sourceFiles, relPath)
+		}
+		slices.Sort(sourceFiles)
+		sourceFiles = slices.Compact(sourceFiles)
 
-			// Support custom exclude function
+		for _, relPath := range sourceFiles {
+			absPath := filepath.Join(pkg.BaseDir, relPath)
 			if p.ExcludeFunction != nil {
-				switch err := p.ExcludeFunction(fsPath, e); {
+				info, err := os.Lstat(absPath)
+				if err != nil {
+					return fmt.Errorf("stat source file %s: %w", absPath, err)
+				}
+				switch err := p.ExcludeFunction(absPath, fs.FileInfoToDirEntry(info)); {
 				case errors.Is(err, archiver.SkipFile):
-					return archiver.SkipFile
-				case errors.Is(err, archiver.SkipDir):
-					return archiver.SkipDir
-				default:
-					return err
+					continue
+				case err != nil:
+					return fmt.Errorf("exclude function: %w", err)
 				}
 			}
-
-			return nil
-		}); err != nil {
-			return fmt.Errorf("write sources: %w", err)
+			if err := p.arch.WriteFile(pkg.BaseDir, relPath); err != nil {
+				return fmt.Errorf("write source file %s: %w", relPath, err)
+			}
 		}
 	}
 
